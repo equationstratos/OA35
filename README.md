@@ -187,6 +187,7 @@ de cotes absolues** du projet : tout le reste est mesuré sur les photos.
 | | |
 |---|---|
 | Modèle | Sub250 OasisFly35 DC |
+| Configuration | dead cat, **bras arrière plus longs** |
 | Empattement | 175 mm |
 | Plaque inférieure | 1,5 mm |
 | Plaque intermédiaire | 2,5 mm |
@@ -194,8 +195,13 @@ de cotes absolues** du projet : tout le reste est mesuré sur les photos.
 | Bras | 3,5 mm |
 
 Choisir le **rôle** d'une pièce à sa création lui donne son épaisseur : elle
-n'est pas à saisir deux fois. L'empattement servira de contrôle une fois les
-bras modélisés — c'est la diagonale d'axe moteur à axe moteur.
+n'est pas à saisir deux fois. Les bras avant et arrière sont deux rôles
+distincts, de même épaisseur mais de longueurs différentes — les confondre
+reviendrait à en perdre un.
+
+L'empattement servira de contrôle une fois les bras modélisés : c'est la
+diagonale d'axe moteur à axe moteur, et en dead cat les quatre moteurs forment
+un rectangle, pas un carré.
 
 ## Ce qui est modélisé
 

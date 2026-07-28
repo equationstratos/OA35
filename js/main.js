@@ -851,6 +851,7 @@ $('c-role').addEventListener('change', () => {
 // rappel de la fiche technique, seule source de cotes absolues du projet
 $('frame-spec').innerHTML = `
   <div><dt>Modèle</dt><dd>${FRAME.model}</dd></div>
+  <div><dt>Configuration</dt><dd>${FRAME.configuration}</dd></div>
   <div><dt>Empattement</dt><dd>${FRAME.wheelbaseMm} mm</dd></div>
   ${FRAME.roles.filter((r) => r.thickness).map((r) =>
     `<div><dt>${r.name}</dt><dd>${r.thickness.toFixed(1)} mm</dd></div>`).join('')}`;

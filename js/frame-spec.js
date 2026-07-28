@@ -8,6 +8,15 @@
 
 export const FRAME = {
   model: 'Sub250 OasisFly35 DC',
+
+  /**
+   * Configuration « dead cat » : les bras ne sont pas répartis en croix, et
+   * les bras ARRIÈRE sont les plus longs sur ce châssis. Les quatre moteurs
+   * forment donc un rectangle, pas un carré — ce dont il faut tenir compte
+   * pour contrôler l'empattement.
+   */
+  configuration: 'dead cat, bras arrière plus longs',
+
   /** Empattement, en mm : diagonale d'axe moteur à axe moteur. */
   wheelbaseMm: 175,
 
@@ -19,7 +28,10 @@ export const FRAME = {
     { id: 'bottom', name: 'Plaque inférieure', thickness: 1.5 },
     { id: 'mid', name: 'Plaque intermédiaire', thickness: 2.5 },
     { id: 'top', name: 'Plaque supérieure', thickness: 2.0 },
-    { id: 'arm', name: 'Bras', thickness: 3.5 },
+    // deux rôles distincts : sur un dead cat les deux paires n'ont pas la
+    // même longueur, les confondre reviendrait à en perdre une
+    { id: 'arm-front', name: 'Bras avant', thickness: 3.5 },
+    { id: 'arm-rear', name: 'Bras arrière (le plus long)', thickness: 3.5 },
     { id: 'other', name: 'autre', thickness: null },
   ],
 };
