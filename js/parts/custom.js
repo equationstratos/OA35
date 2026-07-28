@@ -7,7 +7,7 @@
  * aucune différence entre les deux.
  */
 
-import { plateFromTrace } from '../lib/plate.js';
+import { plateFromTrace, blueprintFromTrace } from '../lib/plate.js';
 
 const STORAGE_KEY = 'tinyhoop-mk1:custom-parts';
 
@@ -95,25 +95,7 @@ export function toPartModule(spec, index) {
     isCustom: true,
     spec,
     build: () => plateFromTrace(t, spec.thickness),
-    blueprint: () => {
-      const outline = t.outline.map(([x, y]) => ({ x, y }));
-      const circles = [];
-      const polys = [];
-      for (const h of t.holes) {
-        if (h.kind === 'circle') circles.push({ x: h.cx, y: h.cy, r: h.r, d: h.r * 2 });
-        else polys.push(h.points.map(([x, y]) => ({ x, y })));
-      }
-      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-      for (const p of outline) {
-        minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
-        minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
-      }
-      return {
-        outline, circles, polys,
-        box: { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY },
-        mmPerPx: t.mmPerPx,
-      };
-    },
+    blueprint: () => blueprintFromTrace(t),
     meta: {
       id: spec.id,
       index,

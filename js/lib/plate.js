@@ -54,3 +54,27 @@ export function plateFromTrace(traceMm, thickness) {
   );
   return plateObject(outline, holes, thickness);
 }
+
+/**
+ * Données 2D pour le plan coté, à partir d'un tracé en mm.
+ * Utilisé par toutes les pièces issues d'une photo.
+ */
+export function blueprintFromTrace(traceMm) {
+  const outline = traceMm.outline.map(([x, y]) => ({ x, y }));
+  const circles = [];
+  const polys = [];
+  for (const h of traceMm.holes) {
+    if (h.kind === 'circle') circles.push({ x: h.cx, y: h.cy, r: h.r, d: h.r * 2 });
+    else polys.push(h.points.map(([x, y]) => ({ x, y })));
+  }
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const p of outline) {
+    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+    minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+  }
+  return {
+    outline, circles, polys,
+    box: { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY },
+    mmPerPx: traceMm.mmPerPx,
+  };
+}

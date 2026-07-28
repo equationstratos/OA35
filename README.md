@@ -101,12 +101,17 @@ de la photo.
 
 | # | Pièce | Matière | Cotes |
 |---|-------|---------|-------|
-| 01 | Plaque inférieure châssis | Carbone 3K sergé 2,0 mm | calées sur la longueur réelle saisie |
+| 01 | Plaque inférieure châssis | Carbone 3K sergé 2,0 mm | 105,0 × 62,7 mm, 29 perçages |
 
-Tant qu'aucune photo n'a été appliquée, la pièce 01 utilise un contour de
-secours saisi à la main (marqué **à calibrer** dans le panneau) : il donne la
-bonne allure générale mais **n'est pas conforme au pixel** — c'est le tracé
-photo qui fait foi.
+La géométrie de la pièce 01 vient du tracé de sa photo, figé dans
+`js/parts/contour-piece-01.js`. Pour la mettre à jour : refaire un tracé,
+**Exporter le contour**, et remplacer ce fichier — `01-bottom-plate.js` n'a pas
+à changer.
+
+> Le fichier exporté ne contient que des **données** (`OUTLINE_PX`, `HOLES_PX`,
+> `BBOX`). Il ne remplace pas `01-bottom-plate.js`, qui est le module de la
+> pièce et fournit `build()`, `blueprint()` et `meta` : c'est lui qui lit les
+> données du contour.
 
 ## Ajouter une pièce
 

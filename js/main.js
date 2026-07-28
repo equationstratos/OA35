@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { PARTS, PLANNED } from './parts/index.js';
 import { drawBlueprint } from './blueprint.js';
+import { blueprintFromTrace } from './lib/plate.js';
 import * as cal from './calibrate.js';
 import * as custom from './parts/custom.js';
 
@@ -206,12 +207,14 @@ function renderPartList() {
   for (const e of entries) {
     const m = e.mod.meta;
     const t = cal.state.traceMm;
-    // le tracé photo ne se substitue qu'aux cotes de la pièce 01
-    const traced = !e.mod.isCustom && cal.state.applied && t;
-    const dims = traced
+    // une calibration appliquée ne se substitue qu'aux cotes de la pièce 01
+    const overridden = !e.mod.isCustom && cal.state.applied && !!t;
+    // origine du contour : photo (tracé figé, pièce créée, ou calibration)
+    const fromPhoto = m.traced || e.mod.isCustom || overridden;
+    const dims = overridden
       ? { length: t.height, width: t.width, thickness: m.dims.thickness, holes: t.holes.length, mmPerPx: t.mmPerPx }
       : m.dims;
-    const origin = e.mod.isCustom || traced
+    const origin = fromPhoto
       ? 'contour tracé sur la photo'
       : 'contour saisi à la main — à calibrer';
 
@@ -224,7 +227,7 @@ function renderPartList() {
         <span class="nm">${m.name}</span>
       </label>
         ${e.mod.isCustom ? '<button class="del" title="Supprimer la pièce">✕</button>' : ''}
-      <p class="origin ${e.mod.isCustom || traced ? 'ok' : ''}">${origin}</p>
+      <p class="origin ${fromPhoto ? 'ok' : ''}">${origin}</p>
       <dl class="specs">
         <div><dt>Longueur</dt><dd>${dims.length.toFixed(1)} mm</dd></div>
         <div><dt>Largeur</dt><dd>${dims.width.toFixed(1)} mm</dd></div>
@@ -317,28 +320,10 @@ document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () 
 
 const bpCanvas = $('bp-canvas');
 
-/** Données du plan : issues du tracé si appliqué, sinon du contour manuel. */
+/** Données du plan : issues du tracé courant si appliqué, sinon de la pièce. */
 function blueprintData() {
   const t = cal.state.traceMm;
-  if (!cal.state.applied || !t) return PARTS[0].blueprint();
-
-  const outline = t.outline.map(([x, y]) => ({ x, y }));
-  const circles = [];
-  const polys = [];
-  for (const h of t.holes) {
-    if (h.kind === 'circle') circles.push({ x: h.cx, y: h.cy, r: h.r, d: h.r * 2 });
-    else polys.push(h.points.map(([x, y]) => ({ x, y })));
-  }
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (const p of outline) {
-    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
-    minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
-  }
-  return {
-    outline, circles, polys,
-    box: { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY },
-    mmPerPx: t.mmPerPx,
-  };
+  return cal.state.applied && t ? blueprintFromTrace(t) : PARTS[0].blueprint();
 }
 
 function renderBlueprint() {
