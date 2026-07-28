@@ -117,9 +117,10 @@ function mountPart(entry, traceMm) {
     buildRoot.remove(entry.holder);
     disposeObject(entry.holder);
   }
+  const placement = placements[entry.mod.meta.id];
   entry.object = traceMm && entry.mod.buildFromTrace
     ? entry.mod.buildFromTrace(traceMm)
-    : entry.mod.build();
+    : entry.mod.build(!!(placement && placement.mirrored));
 
   // le porteur découple le placement (position + rotation autour de la
   // verticale) de l'orientation propre de la plaque
@@ -150,6 +151,8 @@ function remountAll() {
   layoutParts();
   frameAll();
   renderPartList();
+  applySelectionLook();
+  renderPartToolbar();
 }
 
 /** Le tracé photo ne remplace que la pièce 01, et seulement si demandé. */
@@ -186,7 +189,11 @@ function layoutParts() {
 
   entries.forEach((e, i) => {
     if (!e.holder) return;
-    const placement = sideBySide ? null : placements[e.mod.meta.id];
+    const stored = placements[e.mod.meta.id];
+    // un placement peut n'exister que pour le miroir, sans coordonnées : il ne
+    // vaut position que s'il en porte une
+    const placement = sideBySide || !stored || !Number.isFinite(stored.x)
+      ? null : stored;
     if (placement) {
       e.holder.position.set(placement.x, placement.y + i * spread, placement.z);
       e.holder.rotation.y = placement.rotY;
@@ -237,6 +244,134 @@ function entryById(id) {
   return entries.find((e) => e.mod.meta.id === id);
 }
 
+/* ------------------------------------------------------------------ *
+ * Sélection d'une pièce
+ * ------------------------------------------------------------------ */
+
+let selectedId = null;
+
+const SELECT_EMISSIVE = 0x14384f;
+
+function applySelectionLook() {
+  entries.forEach((e) => {
+    if (!e.object) return;
+    const on = e.mod.meta.id === selectedId;
+    const body = e.object.getObjectByName('body');
+    const edges = e.object.getObjectByName('edges');
+    if (body && body.material.emissive) {
+      body.material.emissive.setHex(on ? SELECT_EMISSIVE : 0x000000);
+    }
+    if (edges) {
+      edges.material.color.setHex(on ? 0xffb454 : 0x6cc7ff);
+      edges.material.opacity = on ? 1 : 0.55;
+    }
+  });
+  document.querySelectorAll('#part-list .part').forEach((li) => {
+    li.classList.toggle('selected', li.dataset.id === selectedId);
+  });
+  invalidate();
+}
+
+function selectPart(id) {
+  selectedId = id;
+  applySelectionLook();
+  renderPartToolbar();
+}
+
+function clearPartSelection() {
+  selectedId = null;
+  applySelectionLook();
+  renderPartToolbar();
+}
+
+/** Corps des pièces, cibles du clic de sélection. */
+function bodyTargets() {
+  const targets = [];
+  entries.forEach((e) => {
+    const body = e.object && e.object.getObjectByName('body');
+    if (body) targets.push(body);
+  });
+  return targets;
+}
+
+/* ------------------------------------------------------------------ *
+ * Barre d'actions de la pièce sélectionnée
+ * ------------------------------------------------------------------ */
+
+function renderPartToolbar() {
+  const bar = $('part-toolbar');
+  const entry = selectedId ? entryById(selectedId) : null;
+  bar.classList.toggle('hidden', !entry);
+  if (!entry) return;
+
+  const placement = placements[selectedId] || {};
+  const reference = placement.refId ? entryById(placement.refId) : null;
+  const noRef = "Assemble d'abord la pièce sur une autre, par leurs perçages";
+
+  bar.innerHTML = `
+    <span class="sel-name">${entry.mod.meta.name}</span>
+    <button data-act="mirror" class="${placement.mirrored ? 'on' : ''}"
+      title="Symétrie gauche/droite de la pièce">⇋ Miroir</button>
+    <button data-act="above" class="${placement.side !== 'below' ? 'on' : ''}"
+      ${reference ? '' : 'disabled'}
+      title="${reference ? `Poser au-dessus de « ${reference.mod.meta.name} »` : noRef}">⬆ Dessus</button>
+    <button data-act="below" class="${placement.side === 'below' ? 'on' : ''}"
+      ${reference ? '' : 'disabled'}
+      title="${reference ? `Poser en dessous de « ${reference.mod.meta.name} »` : noRef}">⬇ Dessous</button>
+    <button data-act="clear" title="Désélectionner">✕</button>`;
+
+  bar.querySelectorAll('button').forEach((btn) => {
+    btn.addEventListener('click', () => partAction(btn.dataset.act));
+  });
+}
+
+function partAction(action) {
+  const entry = entryById(selectedId);
+  if (!entry) return;
+  const id = entry.mod.meta.id;
+
+  if (action === 'clear') { clearPartSelection(); return; }
+
+  const placement = placements[id] || {};
+
+  if (action === 'mirror') {
+    placement.mirrored = !placement.mirrored;
+    placements[id] = placement;
+    asm.savePlacements(placements);
+    // le miroir change la géométrie : la pièce est reconstruite
+    mountPart(entry, entry.mod.isCustom ? null : appliedTrace());
+    layoutParts();
+    applySelectionLook();
+    renderPartToolbar();
+    updateAsmHint(
+      `« ${entry.mod.meta.name} » ${placement.mirrored ? 'passée en miroir' : "remise dans son sens d'origine"}.`
+      + " Les perçages ont bougé : reprends l'alignement si elle était assemblée.",
+      'ok',
+    );
+    return;
+  }
+
+  if (action === 'above' || action === 'below') {
+    const reference = placement.refId ? entryById(placement.refId) : null;
+    if (!reference) {
+      updateAsmHint("Assemble d'abord cette pièce sur une autre, par leurs perçages.", 'warn');
+      return;
+    }
+    placement.side = action;
+    const gap = (reference.mod.meta.dims.thickness + entry.mod.meta.dims.thickness) / 2;
+    placement.y = reference.holder.position.y + (action === 'below' ? -gap : gap);
+    placements[id] = placement;
+    asm.savePlacements(placements);
+    layoutParts();
+    renderPartToolbar();
+    updateAsmHint(
+      `« ${entry.mod.meta.name} » posée ${action === 'below' ? 'en dessous' : 'au-dessus'} `
+      + `de « ${reference.mod.meta.name} ».`,
+      'ok',
+    );
+  }
+}
+
 function clearSelection() {
   entries.forEach((e) => (e.markers || []).forEach((m) => asm.highlight(m, 'idle')));
   asm.reset();
@@ -260,14 +395,16 @@ function updateAsmHint(message, kind = '') {
 }
 
 /** Mémorise le placement courant d'une pièce. */
-function storePlacement(entry) {
+function storePlacement(entry, extra = {}) {
   const spread = Number($('explode').value);
   const i = entries.indexOf(entry);
   placements[entry.mod.meta.id] = {
+    ...placements[entry.mod.meta.id],
     x: entry.holder.position.x,
     y: entry.holder.position.y - i * spread,
     z: entry.holder.position.z,
     rotY: entry.holder.rotation.y,
+    ...extra,
   };
   asm.savePlacements(placements);
 }
@@ -277,7 +414,20 @@ let lastPick = null;
 function onPick(event) {
   if ($('opt-layout').checked) return;
   const hits = asm.pickMarkers(event, renderer.domElement, camera, pickTargets());
-  if (!hits.length) return;
+
+  if (!hits.length) {
+    // pas de perçage sous le curseur : le clic sélectionne la pièce, et solde
+    // les surbrillances de la contrainte précédente
+    const body = asm.pickFirst(event, renderer.domElement, camera, bodyTargets());
+    clearSelection();
+    if (body) {
+      let node = body;
+      while (node && !node.userData.partId) node = node.parent;
+      if (node) { selectPart(node.userData.partId); return; }
+    }
+    clearPartSelection();
+    return;
+  }
 
   // premier clic de la paire
   if (!asm.state.pending) {
@@ -337,7 +487,7 @@ function onPick(event) {
     asm.translateInPlane(movEntry.holder, movPos, refPos);
     asm.state.movingId = movEntry.mod.meta.id;
     asm.state.anchor = refPos.clone();
-    storePlacement(movEntry);
+    storePlacement(movEntry, { refId: refEntry.mod.meta.id, side: 'above' });
 
     asm.highlight(refMarker, 'anchored');
     asm.highlight(movMarker, 'anchored');
@@ -506,6 +656,7 @@ function renderPartList() {
 
     const li = document.createElement('li');
     li.className = 'part';
+    li.dataset.id = m.id;
     li.innerHTML = `
       <label class="part-head">
         <input type="checkbox" checked>
@@ -542,6 +693,11 @@ function renderPartList() {
       if (e.object) e.object.visible = ev.target.checked;
     });
 
+    li.addEventListener('click', (ev) => {
+      // les commandes de la fiche gardent leur propre effet
+      if (ev.target.closest('button, input, select, label')) return;
+      selectPart(m.id);
+    });
     li.querySelector('.dl-stl').addEventListener('click', () => exportSTL(e));
     li.querySelector('.dl-js').addEventListener('click', () => exportModule(e));
 
@@ -1079,11 +1235,16 @@ if (new URLSearchParams(location.search).has('debug')) {
     return {
       hint: $('asm-hint').textContent,
       lastPick,
+      selectedId,
+      ringColors: entries.flatMap((e) => (e.markers || [])
+        .map((m) => m.getObjectByName('ring').material.color.getHexString())
+        .filter((c) => c !== '6cc7ff')),
       parts: entries.map((e) => ({
         id: e.mod.meta.id,
         name: e.mod.meta.name,
         y: e.holder.position.y,
         rotY: e.holder.rotation.y,
+        mirrored: !!(placements[e.mod.meta.id] || {}).mirrored,
         holes: (e.markers || []).map((m) => {
           const index = m.userData.anchor.index;
           m.getWorldPosition(v);

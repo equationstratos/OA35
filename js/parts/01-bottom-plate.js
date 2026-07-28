@@ -30,8 +30,8 @@ const TRACE = traceToMm(
 export const trace = TRACE;
 
 /** Objet 3D prêt à poser dans la scène (plaque à plat, avant vers -Z). */
-export function build() {
-  return plateFromTrace(TRACE, THICKNESS_MM);
+export function build(mirrored = false) {
+  return plateFromTrace(TRACE, THICKNESS_MM, mirrored);
 }
 
 /** Reconstruction depuis un nouveau tracé, sans toucher au fichier de contour. */

@@ -280,6 +280,23 @@ Détails qui comptent à l'usage :
 - l'assemblage est **conservé dans le navigateur** ; *Réinitialiser
   l'assemblage* remet les pièces sur l'établi
 
+### Sélectionner et manipuler une pièce
+
+Un clic sur une pièce — dans la vue 3D ou sur sa fiche — la sélectionne : elle
+se souligne en orange, et une barre d'actions apparaît sous la vue.
+
+Ce clic **solde aussi les surbrillances** de la contrainte précédente. Après un
+ancrage, la paire de perçages reste en vert le temps de la seconde paire ; dès
+que tu cliques ailleurs, l'alignement est acquis et les repères s'éteignent.
+Un clic dans le vide désélectionne tout.
+
+| Action | Effet |
+|--------|-------|
+| **⇋ Miroir** | symétrie gauche/droite de la pièce. Le tracé lui-même est retourné, pas l'échelle de l'objet : une mise à l'échelle négative retournerait les normales et fausserait l'éclairage et les ombres. Les perçages changent donc de place — l'alignement est à reprendre. |
+| **⬆ Dessus** / **⬇ Dessous** | pose la pièce d'un côté ou de l'autre de celle sur laquelle elle a été assemblée, au contact. Inactifs tant que la pièce n'a pas été assemblée : sans référence, « dessus » ne veut rien dire. |
+
+Miroir et côté sont conservés avec le reste de l'assemblage.
+
 Une pièce pas encore assemblée reste à sa place sur l'établi plutôt que d'aller
 à l'origine : sinon les pièces se recouvriraient et deviendraient impossibles
 à viser.

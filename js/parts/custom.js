@@ -174,7 +174,7 @@ export function toPartModule(spec, index) {
     isCustom: true,
     spec,
     trace: t,
-    build: () => plateFromTrace(t, spec.thickness),
+    build: (mirrored = false) => plateFromTrace(t, spec.thickness, mirrored),
     blueprint: () => blueprintFromTrace(t),
     meta: {
       id: spec.id,

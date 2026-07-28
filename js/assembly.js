@@ -174,3 +174,13 @@ export function pickMarkers(event, element, camera, targets) {
   }
   return markers;
 }
+
+/** Premier objet touché parmi `targets`, ou null. */
+export function pickFirst(event, element, camera, targets) {
+  const rect = element.getBoundingClientRect();
+  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(targets, false);
+  return hits.length ? hits[0].object : null;
+}

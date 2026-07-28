@@ -421,3 +421,44 @@ ul { list-style: none; margin: 0; padding: 0; }
 
 .scale-choice button { white-space: pre-line; }
 .scale-choice.preferred button { border-color: #2f7a56; }
+
+/* --------------------------------- barre de la pièce sélectionnée */
+
+.part-toolbar {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 92px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(15, 21, 30, 0.96);
+  z-index: 3;
+}
+.part-toolbar.hidden { display: none; }
+.part-toolbar .sel-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--warm);
+  margin-right: 4px;
+}
+.part-toolbar button {
+  background: #131c28;
+  border: 1px solid var(--line);
+  color: var(--txt);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.part-toolbar button:hover:not(:disabled) { border-color: var(--accent); }
+.part-toolbar button.on { border-color: var(--accent); color: var(--accent); }
+.part-toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.part.selected {
+  border-color: var(--warm);
+  box-shadow: 0 0 0 1px rgba(255, 180, 84, 0.35);
+}

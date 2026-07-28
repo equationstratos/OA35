@@ -126,16 +126,38 @@ export function plateObject(outline, holes, thickness, anchors) {
   return group;
 }
 
+/** Symétrie gauche/droite d'un tracé, dans son propre plan. */
+export function mirrorTrace(traceMm) {
+  const flip = ([x, y]) => [-x, y];
+  return {
+    ...traceMm,
+    outline: traceMm.outline.map(flip),
+    holes: traceMm.holes.map((h) => ({
+      ...h,
+      points: h.points.map(flip),
+      ...(h.kind === 'circle' ? { cx: -h.cx } : {}),
+    })),
+  };
+}
+
 /**
  * Même chose à partir d'un tracé photo converti en mm.
+ *
+ * Le miroir agit sur le tracé, pas sur l'échelle de l'objet : une mise à
+ * l'échelle négative retournerait les normales et fausserait l'éclairage
+ * comme les ombres.
+ *
  * @param {{outline:number[][], holes:{points:number[][]}[]}} traceMm
+ * @param {number} thickness épaisseur, en mm
+ * @param {boolean} [mirrored] pièce symétrique de celle photographiée
  */
-export function plateFromTrace(traceMm, thickness) {
-  const outline = traceMm.outline.map(([x, y]) => new THREE.Vector2(x, y));
-  const holes = traceMm.holes.map(
+export function plateFromTrace(traceMm, thickness, mirrored = false) {
+  const source = mirrored ? mirrorTrace(traceMm) : traceMm;
+  const outline = source.outline.map(([x, y]) => new THREE.Vector2(x, y));
+  const holes = source.holes.map(
     (h) => new THREE.Path(h.points.map(([x, y]) => new THREE.Vector2(x, y))),
   );
-  return plateObject(outline, holes, thickness, holeAnchors(traceMm));
+  return plateObject(outline, holes, thickness, holeAnchors(source));
 }
 
 /**
