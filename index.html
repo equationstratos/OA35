@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TinyHoop MK1 — Build FPV</title>
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.js",
+    "three/addons/controls/OrbitControls.js": "./vendor/three/OrbitControls.js"
+  }
+}
+</script>
+</head>
+<body>
+
+<header>
+  <h1>TinyHoop&nbsp;MK1 <small>— visualisation du build FPV</small></h1>
+  <nav class="tabs">
+    <button class="tab on" data-tab="3d">Vue 3D</button>
+    <button class="tab" data-tab="bp">Plan coté</button>
+  </nav>
+</header>
+
+<main>
+  <aside id="sidebar">
+    <section>
+      <h2>Pièces modélisées</h2>
+      <ul id="part-list"></ul>
+    </section>
+
+    <section>
+      <h2>À venir</h2>
+      <ul id="planned-list"></ul>
+      <p class="hint">Envoie-moi la pièce suivante : elle s'ajoutera ici,
+         modélisée à la même échelle et alignée sur les perçages de la plaque.</p>
+    </section>
+
+    <section>
+      <h2>Affichage</h2>
+      <label class="opt"><input type="checkbox" id="opt-edges" checked> Arêtes surlignées</label>
+      <label class="opt"><input type="checkbox" id="opt-grid" checked> Grille au sol</label>
+      <label class="opt"><input type="checkbox" id="opt-rotate"> Rotation auto</label>
+      <label class="slider">
+        Vue éclatée <span id="explode-val">0 mm</span>
+        <input type="range" id="explode" min="0" max="60" step="1" value="0">
+      </label>
+    </section>
+  </aside>
+
+  <div id="stage">
+    <div id="pane-3d" class="pane">
+      <div id="viewport"></div>
+      <div class="view-btns">
+        <button data-view="iso" class="on">ISO</button>
+        <button data-view="top">Dessus</button>
+        <button data-view="front">Avant</button>
+        <button data-view="side">Côté</button>
+      </div>
+      <p class="tip">Clic gauche : orbite · molette : zoom · clic droit : déplacer</p>
+    </div>
+
+    <div id="pane-bp" class="pane hidden">
+      <canvas id="bp-canvas"></canvas>
+      <div class="view-btns">
+        <label class="opt"><input type="checkbox" id="bp-grid" checked> Grille 10 mm</label>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
