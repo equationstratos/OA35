@@ -57,6 +57,17 @@
     </section>
 
     <section>
+      <h2>Assemblage</h2>
+      <p class="hint">Décoche <strong>Pièces côte à côte</strong> : les perçages
+        deviennent cliquables. Clique un trou de la pièce de référence, puis le
+        trou correspondant sur la pièce à placer — elle vient s'y superposer.
+        Une 2e paire l'oriente autour de la première.</p>
+      <div class="btn-row">
+        <button id="asm-reset">Réinitialiser l'assemblage</button>
+      </div>
+    </section>
+
+    <section>
       <h2>À venir</h2>
       <ul id="planned-list"></ul>
     </section>
@@ -72,6 +83,7 @@
         <button data-view="front">Avant</button>
         <button data-view="side">Côté</button>
       </div>
+      <p id="asm-hint" class="asm-hint hidden"></p>
       <p class="tip">Clic gauche : orbite · molette : zoom · clic droit : déplacer</p>
     </div>
 

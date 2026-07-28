@@ -155,13 +155,44 @@ Deux modes, via **Pièces côte à côte** dans le panneau Affichage :
 
 - **côte à côte** (par défaut) — les pièces sont alignées et posées à plat,
   sans se recouvrir : c'est la vue de travail quand on modélise pièce par pièce
-- **assemblée** — décochée, chaque pièce reprend son altitude dans le build
-  (*Hauteur dans le build*), et le curseur **Vue éclatée** les écarte
-  verticalement
+- **assemblage** — décochée, les perçages deviennent cliquables et les pièces
+  se placent les unes sur les autres (voir ci-dessous). Le curseur **Vue
+  éclatée** les écarte verticalement pour inspecter le montage.
 
 Le cadrage suit : les boutons ISO / Dessus / Avant / Côté choisissent une
 direction, la distance est calculée pour que tout le build tienne dans l'image,
 quel que soit le nombre de pièces.
+
+## Assembler par les perçages
+
+En mode assemblage, chaque perçage porte un anneau cliquable.
+
+1. **clique un trou de la pièce de référence**, puis **le trou correspondant
+   sur la pièce à placer** : celle-ci vient s'y superposer, trou sur trou
+2. **clique une 2e paire** : la pièce pivote autour de la première pour aligner
+   la seconde
+
+Deux paires suffisent à placer une pièce plane : la première fixe la position,
+la seconde l'orientation. La pièce se pose **au contact** de sa référence
+(ou à sa *Hauteur dans le build* si tu en as saisi une).
+
+Détails qui comptent à l'usage :
+
+- **l'ordre des clics** — le premier trou d'une paire désigne la référence, le
+  second la pièce qui bouge ; pour la 2e paire, l'ordre n'a plus d'importance,
+  la pièce déjà ancrée est reconnue
+- **les plaques empilées se masquent** : quand deux perçages se superposent à
+  l'écran, c'est celui de *l'autre* pièce qui est retenu, pas celui du dessus —
+  sans quoi la seconde paire serait souvent impossible à viser
+- **l'écart résiduel est affiché** après la 2e paire. S'il dépasse le dixième,
+  c'est que les deux entraxes ne sont pas identiques : l'outil aligne la
+  direction, il n'invente pas une correspondance qui n'existe pas
+- l'assemblage est **conservé dans le navigateur** ; *Réinitialiser
+  l'assemblage* remet les pièces sur l'établi
+
+Une pièce pas encore assemblée reste à sa place sur l'établi plutôt que d'aller
+à l'origine : sinon les pièces se recouvriraient et deviendraient impossibles
+à viser.
 
 ## Récupérer une pièce supprimée
 
@@ -178,6 +209,7 @@ css/style.css
 js/main.js                 scène, éclairage, UI, calque photo
 js/calibrate.js            chargement photo, pilotage du tracé, export
 js/blueprint.js            plan coté 2D + photo en dessous
+js/assembly.js             contraintes de perçages, placement, sélection
 js/lib/trace.js            binarisation, suivi de contour, simplification
 js/lib/geom.js             pixels -> mm, congés, symétrie, extrusion
 js/lib/materials.js        carbone sergé 2x2 généré au runtime

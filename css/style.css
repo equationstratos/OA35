@@ -307,3 +307,27 @@ ul { list-style: none; margin: 0; padding: 0; }
 }
 
 .slider input:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* ------------------------------------------------------- assemblage */
+
+.asm-hint {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 40px;
+  margin: 0;
+  max-width: min(620px, 80%);
+  padding: 9px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(15, 21, 30, 0.94);
+  color: var(--txt);
+  font-size: 12.5px;
+  text-align: center;
+  z-index: 2;
+}
+.asm-hint.hidden { display: none; }
+.asm-hint.ok { border-color: #2f7a56; color: #7ee0af; }
+.asm-hint.warn { border-color: #8a6a2a; color: var(--warm); }
+
+#sidebar .btn-row button { padding: 7px 6px; }

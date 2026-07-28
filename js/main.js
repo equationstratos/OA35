@@ -10,6 +10,7 @@ import { drawBlueprint } from './blueprint.js';
 import { blueprintFromTrace } from './lib/plate.js';
 import * as cal from './calibrate.js';
 import * as custom from './parts/custom.js';
+import * as asm from './assembly.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -107,21 +108,37 @@ function disposeObject(obj) {
 
 /** (Re)construit une pièce, depuis le tracé photo s'il a été appliqué. */
 function mountPart(entry, traceMm) {
-  if (entry.object) {
-    buildRoot.remove(entry.object);
-    disposeObject(entry.object);
+  if (entry.holder) {
+    buildRoot.remove(entry.holder);
+    disposeObject(entry.holder);
   }
   entry.object = traceMm && entry.mod.buildFromTrace
     ? entry.mod.buildFromTrace(traceMm)
     : entry.mod.build();
-  buildRoot.add(entry.object);
+
+  // le porteur découple le placement (position + rotation autour de la
+  // verticale) de l'orientation propre de la plaque
+  entry.holder = new THREE.Group();
+  entry.holder.name = `holder-${entry.mod.meta.id}`;
+  entry.holder.userData.partId = entry.mod.meta.id;
+  entry.holder.add(entry.object);
+  buildRoot.add(entry.holder);
+
+  entry.markers = [];
+  const group = entry.object.getObjectByName('hole-markers');
+  if (group) {
+    for (const marker of group.children) {
+      marker.userData.partId = entry.mod.meta.id;
+      entry.markers.push(marker);
+    }
+  }
   applyDisplayOptions();
 }
 
 /** Remonte toute la scène après ajout ou suppression d'une pièce. */
 function remountAll() {
   entries.forEach((e) => {
-    if (e.object) { buildRoot.remove(e.object); disposeObject(e.object); }
+    if (e.holder) { buildRoot.remove(e.holder); disposeObject(e.holder); }
   });
   entries = collectParts();
   entries.forEach((e) => mountPart(e, e.mod.isCustom ? null : appliedTrace()));
@@ -153,24 +170,209 @@ function layoutParts() {
   const sideBySide = $('opt-layout').checked;
   const spread = Number($('explode').value);
 
-  if (sideBySide) {
-    const widths = entries.map((e) => e.mod.meta.dims.width);
-    const total = widths.reduce((a, b) => a + b, 0)
-      + LAYOUT_GAP_MM * Math.max(0, entries.length - 1);
-    let x = -total / 2;
-    entries.forEach((e, i) => {
-      if (e.object) e.object.position.set(x + widths[i] / 2, 0, 0);
-      x += widths[i] + LAYOUT_GAP_MM;
-    });
-  } else {
-    entries.forEach((e, i) => {
-      if (e.object) e.object.position.set(0, e.baseY + i * spread, 0);
-    });
-  }
+  // position d'établi : sert de disposition par défaut, et de point de départ
+  // aux pièces pas encore assemblées
+  const widths = entries.map((e) => e.mod.meta.dims.width);
+  const total = widths.reduce((a, b) => a + b, 0)
+    + LAYOUT_GAP_MM * Math.max(0, entries.length - 1);
+  const benchX = [];
+  let x = -total / 2;
+  widths.forEach((w) => { benchX.push(x + w / 2); x += w + LAYOUT_GAP_MM; });
 
-  $('explode').disabled = sideBySide;
+  entries.forEach((e, i) => {
+    if (!e.holder) return;
+    const placement = sideBySide ? null : placements[e.mod.meta.id];
+    if (placement) {
+      e.holder.position.set(placement.x, placement.y + i * spread, placement.z);
+      e.holder.rotation.y = placement.rotY;
+    } else {
+      // une pièce non assemblée reste sur l'établi : la poser à l'origine la
+      // rendrait indiscernable, donc impossible à viser
+      e.holder.position.set(benchX[i], sideBySide ? 0 : e.baseY + i * spread, 0);
+      e.holder.rotation.y = 0;
+    }
+  });
+
+  entries.forEach((e) => { if (e.holder) e.holder.updateMatrixWorld(true); });
+  setMarkersVisible(!sideBySide);
   invalidate();
 }
+
+/* ------------------------------------------------------------------ *
+ * Assemblage par clic sur les perçages
+ * ------------------------------------------------------------------ */
+
+let placements = asm.loadPlacements();
+
+/** Repères de perçage visibles et cliquables uniquement en assemblage. */
+function setMarkersVisible(visible) {
+  entries.forEach((e) => {
+    const group = e.object && e.object.getObjectByName('hole-markers');
+    if (group) group.visible = visible;
+  });
+  if (!visible) clearSelection();
+  $('asm-hint').classList.toggle('hidden', !visible);
+}
+
+function pickTargets() {
+  const targets = [];
+  entries.forEach((e) => {
+    if (!e.object) return;
+    const group = e.object.getObjectByName('hole-markers');
+    if (!group || !group.visible) return;
+    for (const marker of group.children) {
+      const pick = marker.getObjectByName('pick');
+      if (pick) targets.push(pick);
+    }
+  });
+  return targets;
+}
+
+function entryById(id) {
+  return entries.find((e) => e.mod.meta.id === id);
+}
+
+function clearSelection() {
+  entries.forEach((e) => (e.markers || []).forEach((m) => asm.highlight(m, 'idle')));
+  asm.reset();
+  updateAsmHint();
+  invalidate();
+}
+
+function updateAsmHint(message, kind = '') {
+  const el = $('asm-hint');
+  if (message) {
+    el.textContent = message;
+    el.className = `asm-hint ${kind}`;
+    return;
+  }
+  el.className = 'asm-hint';
+  el.textContent = asm.state.pending
+    ? 'Clique maintenant le trou correspondant sur la pièce à placer.'
+    : asm.state.movingId
+      ? "Pièce ancrée. Clique un 2e trou de référence, puis son équivalent, pour l'orienter."
+      : 'Clique un trou de la pièce de référence, puis le trou correspondant sur la pièce à placer.';
+}
+
+/** Mémorise le placement courant d'une pièce. */
+function storePlacement(entry) {
+  const spread = Number($('explode').value);
+  const i = entries.indexOf(entry);
+  placements[entry.mod.meta.id] = {
+    x: entry.holder.position.x,
+    y: entry.holder.position.y - i * spread,
+    z: entry.holder.position.z,
+    rotY: entry.holder.rotation.y,
+  };
+  asm.savePlacements(placements);
+}
+
+let lastPick = null;
+
+function onPick(event) {
+  if ($('opt-layout').checked) return;
+  const hits = asm.pickMarkers(event, renderer.domElement, camera, pickTargets());
+  if (!hits.length) return;
+
+  // premier clic de la paire
+  if (!asm.state.pending) {
+    const marker = hits[0];
+    asm.state.pending = marker;
+    asm.highlight(marker, 'pending');
+    updateAsmHint();
+    invalidate();
+    return;
+  }
+
+  const reference = asm.state.pending;
+  const pendingPart = reference.userData.partId;
+
+  // une fois les plaques empilées, le repère du dessus masque celui du
+  // dessous : on préfère donc un repère d'une autre pièce que celle déjà
+  // sélectionnée, plutôt que systématiquement le plus proche
+  const marker = hits.find((m) => m.userData.partId !== pendingPart) || hits[0];
+  const partId = marker.userData.partId;
+
+  if (partId === pendingPart) {
+    // toujours la même pièce : l'utilisateur corrige son premier clic
+    asm.highlight(reference, 'idle');
+    asm.state.pending = marker;
+    asm.highlight(marker, 'pending');
+    updateAsmHint();
+    invalidate();
+    return;
+  }
+
+  // la pièce en cours de placement peut être cliquée en premier ou en second
+  const movingFirst = asm.state.movingId === pendingPart;
+  const movMarker = movingFirst ? reference : marker;
+  const refMarker = movingFirst ? marker : reference;
+
+  const movEntry = entryById(movMarker.userData.partId);
+  const refEntry = entryById(refMarker.userData.partId);
+  if (!refEntry || !movEntry) return;
+
+  const refPos = refMarker.getWorldPosition(new THREE.Vector3());
+  const movPos = movMarker.getWorldPosition(new THREE.Vector3());
+
+  lastPick = {
+    reference: `${refEntry.mod.meta.name}#${refMarker.userData.anchor.index}`,
+    moving: `${movEntry.mod.meta.name}#${movMarker.userData.anchor.index}`,
+  };
+
+  if (asm.state.movingId !== movEntry.mod.meta.id) {
+    // --- 1re paire : superposition des deux trous
+    const refThickness = refEntry.mod.meta.dims.thickness;
+    const thickness = movEntry.mod.meta.dims.thickness;
+    // la hauteur saisie à la création prime ; sinon la pièce se pose au contact
+    movEntry.holder.position.y = movEntry.baseY !== 0
+      ? movEntry.baseY
+      : asm.contactHeight(refEntry.holder.position.y, refThickness, thickness);
+
+    asm.translateInPlane(movEntry.holder, movPos, refPos);
+    asm.state.movingId = movEntry.mod.meta.id;
+    asm.state.anchor = refPos.clone();
+    storePlacement(movEntry);
+
+    asm.highlight(refMarker, 'anchored');
+    asm.highlight(movMarker, 'anchored');
+    asm.state.pending = null;
+    updateAsmHint(
+      `Trous superposés. Clique un 2e trou de référence puis son équivalent sur « ${movEntry.mod.meta.name} » pour l'orienter.`,
+      'ok',
+    );
+  } else {
+    // --- 2e paire : rotation autour du trou déjà ancré
+    asm.rotateAround(movEntry.holder, asm.state.anchor, movPos, refPos);
+    storePlacement(movEntry);
+
+    const after = movMarker.getWorldPosition(new THREE.Vector3());
+    const residual = asm.planarDistance(after, refPos);
+    asm.highlight(refMarker, 'idle');
+    asm.highlight(movMarker, 'idle');
+    asm.state.pending = null;
+    updateAsmHint(
+      residual < 0.5
+        ? `Pièce orientée : les deux paires coïncident à ${residual.toFixed(2)} mm.`
+        : `Pièce orientée. Écart résiduel sur la 2e paire : ${residual.toFixed(2)} mm `
+          + '— les deux entraxes ne sont pas identiques.',
+      residual < 0.5 ? 'ok' : 'warn',
+    );
+  }
+  invalidate();
+}
+
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  if (e.button === 0) e.currentTarget.__downAt = { x: e.clientX, y: e.clientY };
+});
+renderer.domElement.addEventListener('pointerup', (e) => {
+  const down = e.currentTarget.__downAt;
+  e.currentTarget.__downAt = null;
+  // un cliquer-glisser sert à orbiter, pas à sélectionner
+  if (e.button !== 0 || !down) return;
+  if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) return;
+  onPick(e);
+});
 
 /* ------------------------------------------------------------------ *
  * Cadrage
@@ -380,6 +582,15 @@ explode.addEventListener('input', () => {
 $('opt-layout').addEventListener('change', () => {
   layoutParts();
   frameAll();
+});
+
+$('asm-reset').addEventListener('click', () => {
+  placements = {};
+  asm.clearPlacements();
+  clearSelection();
+  layoutParts();
+  frameAll();
+  updateAsmHint('Assemblage réinitialisé.', 'ok');
 });
 
 /* ------------------------------------------------------------------ *
@@ -603,6 +814,49 @@ resize();
 layoutParts();
 frameAll(ISO_DIR);
 updatePhotoOpacity();
+
+/* ------------------------------------------------------------------ *
+ * Diagnostic
+ * ------------------------------------------------------------------ */
+
+/**
+ * Exposé uniquement avec ?debug=1 : donne la position monde et la projection
+ * écran de chaque perçage, ce qui permet de vérifier un assemblage par la
+ * mesure plutôt qu'à l'œil.
+ */
+if (new URLSearchParams(location.search).has('debug')) {
+  window.__asmDebug = () => {
+    const rect = renderer.domElement.getBoundingClientRect();
+    // le rendu étant à la demande, les matrices de la caméra peuvent dater
+    // d'avant le dernier déplacement : on les rafraîchit avant de projeter
+    camera.updateMatrixWorld();
+    camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
+    buildRoot.updateMatrixWorld(true);
+    const v = new THREE.Vector3();
+    return {
+      hint: $('asm-hint').textContent,
+      lastPick,
+      parts: entries.map((e) => ({
+        id: e.mod.meta.id,
+        name: e.mod.meta.name,
+        y: e.holder.position.y,
+        rotY: e.holder.rotation.y,
+        holes: (e.markers || []).map((m) => {
+          const index = m.userData.anchor.index;
+          m.getWorldPosition(v);
+          const world = { wx: v.x, wy: v.y, wz: v.z };
+          v.project(camera);
+          return {
+            index,
+            ...world,
+            sx: ((v.x + 1) / 2) * rect.width,
+            sy: ((-v.y + 1) / 2) * rect.height,
+          };
+        }),
+      })),
+    };
+  };
+}
 
 renderer.setAnimationLoop(() => {
   if ($('opt-rotate').checked) {
