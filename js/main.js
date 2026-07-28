@@ -357,7 +357,8 @@ function traceOptions() {
   return {
     threshold: Number($('c-thr').value),
     epsilon: Number($('c-eps').value),
-    smoothing: Number($('c-smo').value),
+    toleranceMm: Number($('c-smo').value),
+    refLengthMm: Number($('c-len').value),
     minHoleArea: Number($('c-min').value),
     circleMaxRadius: Number($('c-circ').value),
     symmetric: $('c-sym').checked,
@@ -378,7 +379,7 @@ function renderCalibration() {
   $(id).addEventListener('input', () => {
     $('v-thr').value = $('c-thr').value;
     $('v-eps').value = `${Number($('c-eps').value).toFixed(1)} px`;
-    $('v-smo').value = $('c-smo').value;
+    $('v-smo').value = `${Number($('c-smo').value).toFixed(2)} mm`;
     $('v-min').value = `${$('c-min').value} px²`;
     $('v-circ').value = `${$('c-circ').value} px`;
     renderCalibration();

@@ -35,13 +35,34 @@ photo**.
    nécessaire, tout le reste en découle
 5. **Appliquer au modèle** : la géométrie 3D est reconstruite depuis le tracé
 
-Précision mesurée sur une image de contrôle (silhouette de 156 × 318 px) :
+Précision mesurée en aller-retour (la pièce est rendue en silhouette, puis
+retracée, et le résultat comparé à la source) :
 
 | | |
 |---|---|
-| écart moyen au contour source | **0,22 px** (73 µm) |
-| écart maximum | 1,38 px (454 µm) |
-| boîte englobante restituée | à 0,2 px près sur 318 px |
+| écart moyen au contour source | **0,28 px** (94 µm) |
+| écart maximum | 1,23 px (412 µm) |
+| boîte englobante restituée | à 0,9 px près sur 313 px |
+
+### Le lissage
+
+Un contour tracé au pixel est en escalier, et les irrégularités de la photo y
+ajoutent de petites entailles. Le lissage cherche **le filtre le plus fort qui
+reste dans la tolérance demandée** : on gomme le bruit sans jamais s'écarter de
+la forme réelle au-delà d'une limite connue et affichée.
+
+Le réglage est en millimètres *sur la pièce*, donc il ne dépend pas de la
+résolution de la photo. Les découpes reçoivent une tolérance bornée à 5 % de
+leur propre taille : sans cela, la même valeur absolue transformerait un
+octogone en cercle.
+
+La pièce 01 est livrée lissée à 0,80 mm de tolérance : contour ramené de 3976 à
+150 points, écart réel 188 µm en moyenne, 678 µm au pire.
+
+> À la résolution de la photo d'origine (268 px pour 105 mm, soit 0,39 mm par
+> pixel), c'est la limite de ce que l'image peut dire de la pièce. Pour un
+> contour à la fois lisse **et** fidèle au dixième, il faut une photo plus
+> définie — le reste de la chaîne suit sans changement.
 
 ### Vérifier la conformité
 
@@ -56,7 +77,7 @@ coté.
 |---------|-------|
 | Seuil noir/blanc | sépare la pièce du fond ; Otsu par défaut |
 | Simplification | tolérance Douglas-Peucker, en px (0 = aucun point supprimé) |
-| Lissage | passes de Chaikin, gomme l'escalier des pixels |
+| Lissage, écart max | en **mm sur la pièce** : le contour est lissé au maximum tout en restant dans cet écart du tracé brut |
 | Perçage mini | ignore les taches plus petites que N px² |
 | Arrondir perçages ≤ N px | les petits trous deviennent des cercles parfaits ; au-delà le tracé brut est gardé, pour ne pas déformer un octogone ou une lumière |
 | Forcer la symétrie G/D | moyenne les deux moitiés, utile si la prise de vue est légèrement de travers |

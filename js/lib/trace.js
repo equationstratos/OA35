@@ -235,20 +235,135 @@ export function simplify(pts, epsilon) {
   return a.slice(0, -1).concat(b.slice(0, -1));
 }
 
-/** Lissage de Chaikin (arrondit l'escalier des pixels). */
-export function smooth(pts, iterations = 1) {
-  let cur = pts;
-  for (let it = 0; it < iterations; it++) {
-    const out = [];
-    for (let i = 0, n = cur.length; i < n; i++) {
-      const [x1, y1] = cur[i];
-      const [x2, y2] = cur[(i + 1) % n];
-      out.push([x1 + (x2 - x1) * 0.25, y1 + (y2 - y1) * 0.25]);
-      out.push([x1 + (x2 - x1) * 0.75, y1 + (y2 - y1) * 0.75]);
-    }
-    cur = out;
+/** Ré-échantillonne un contour fermé à pas constant. */
+export function resampleClosed(pts, step) {
+  const n = pts.length;
+  if (n < 3 || step <= 0) return pts.slice();
+
+  let perim = 0;
+  for (let i = 0; i < n; i++) {
+    perim += Math.hypot(pts[(i + 1) % n][0] - pts[i][0], pts[(i + 1) % n][1] - pts[i][1]);
   }
-  return cur;
+  const count = Math.max(8, Math.round(perim / step));
+  const d = perim / count;
+
+  const out = [];
+  let i = 0, acc = 0, target = 0;
+  let [cx, cy] = pts[0];
+  while (out.length < count) {
+    const [nx, ny] = pts[(i + 1) % n];
+    const segLen = Math.hypot(nx - cx, ny - cy);
+    if (acc + segLen >= target - 1e-9 && segLen > 1e-12) {
+      const t = (target - acc) / segLen;
+      out.push([cx + (nx - cx) * t, cy + (ny - cy) * t]);
+      target += d;
+    } else {
+      acc += segLen;
+      cx = nx; cy = ny;
+      i++;
+      if (i >= n * 2) break; // garde-fou
+    }
+  }
+  return out;
+}
+
+/** Filtre passe-bas gaussien sur un contour fermé (convolution périodique). */
+export function lowPassClosed(pts, sigma) {
+  const n = pts.length;
+  if (n < 5 || sigma <= 0) return pts.map((p) => [p[0], p[1]]);
+
+  const radius = Math.max(1, Math.ceil(sigma * 3));
+  const kernel = [];
+  let sum = 0;
+  for (let k = -radius; k <= radius; k++) {
+    const w = Math.exp(-(k * k) / (2 * sigma * sigma));
+    kernel.push(w);
+    sum += w;
+  }
+
+  const out = new Array(n);
+  for (let i = 0; i < n; i++) {
+    let x = 0, y = 0;
+    for (let k = -radius, j = 0; k <= radius; k++, j++) {
+      const p = pts[(((i + k) % n) + n) % n];
+      x += p[0] * kernel[j];
+      y += p[1] * kernel[j];
+    }
+    out[i] = [x / sum, y / sum];
+  }
+  return out;
+}
+
+/** Distance d'un point à une polyligne fermée. */
+function distanceToPolygon(p, poly) {
+  let best = Infinity;
+  for (let i = 0, n = poly.length; i < n; i++) {
+    const a = poly[i];
+    const b = poly[(i + 1) % n];
+    const vx = b[0] - a[0], vy = b[1] - a[1];
+    const wx = p[0] - a[0], wy = p[1] - a[1];
+    const len = vx * vx + vy * vy;
+    let t = len ? (wx * vx + wy * vy) / len : 0;
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    const dx = wx - t * vx, dy = wy - t * vy;
+    const d = dx * dx + dy * dy;
+    if (d < best) best = d;
+  }
+  return Math.sqrt(best);
+}
+
+export function maxDistanceToPolygon(pts, poly) {
+  let max = 0;
+  for (const p of pts) max = Math.max(max, distanceToPolygon(p, poly));
+  return max;
+}
+
+/**
+ * Lissage sous contrainte de tolérance : on cherche le filtre le plus fort
+ * dont le résultat reste à moins de `tolerance` du tracé d'origine.
+ *
+ * Un filtre à force fixe (Taubin, Chaikin) ne répond pas au besoin : il
+ * converge vers un lissage donné, indépendant de la tolérance demandée. Ici
+ * la force est le résultat d'une recherche, donc le réglage agit vraiment et
+ * l'écart à la forme réelle reste borné et connu.
+ *
+ * @param {number[][]} pts contour fermé, ré-échantillonné à pas constant
+ * @param {number[][]} reference tracé d'origine servant de référence d'écart
+ * @param {number} tolerance écart maximal autorisé
+ */
+export function smoothToTolerance(pts, reference, tolerance) {
+  if (tolerance <= 0 || pts.length < 8) return pts.map((p) => [p[0], p[1]]);
+
+  let best = pts.map((p) => [p[0], p[1]]);
+  let lo = 0;
+  let hi = Math.max(2, pts.length / 8); // au-delà, la forme n'a plus de sens
+
+  // recherche dichotomique sur l'écart-type du filtre
+  for (let it = 0; it < 12; it++) {
+    const mid = (lo + hi) / 2;
+    const candidate = lowPassClosed(pts, mid);
+    if (maxDistanceToPolygon(candidate, reference) <= tolerance) {
+      best = candidate;
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+  return best;
+}
+
+/**
+ * Chaîne complète de nettoyage d'un contour tracé au pixel :
+ * simplification -> pas constant -> relaxation bornée -> décimation.
+ */
+export function cleanContour(pts, { epsilon = 0.7, tolerance = 1, step = 0.5 } = {}) {
+  const reference = simplify(pts, Math.min(epsilon, 0.5));
+  if (tolerance <= 0) return simplify(pts, epsilon);
+
+  let out = resampleClosed(reference, step);
+  out = smoothToTolerance(out, reference, tolerance);
+  // décimation finale : le contour lissé n'a plus besoin d'un point tous les 0,5 px
+  return simplify(out, Math.min(0.15, tolerance / 8));
 }
 
 /* ------------------------------------------------------------------ *
@@ -341,7 +456,10 @@ function symmetrizePolygon(pts, axis) {
  * @param {object} opts
  * @param {number} [opts.threshold]      seuil manuel (sinon Otsu)
  * @param {number} [opts.epsilon=0.7]    tolérance de simplification, en px
- * @param {number} [opts.smoothing=2]    passes de lissage
+ * @param {number} [opts.toleranceMm=0.4] lissage : écart max toléré, en mm
+ *        (exprimé sur la pièce, donc indépendant de la résolution de la photo)
+ * @param {number} [opts.refLengthMm=105] longueur réelle, pour convertir
+ *        la tolérance en pixels
  * @param {number} [opts.minHoleArea=6]  aire mini d'un perçage, en px²
  * @param {number} [opts.circleMaxRadius=14] rayon max, en px, d'un perçage
  *        assimilé à un cercle parfait ; au-delà le tracé brut est conservé
@@ -351,7 +469,8 @@ function symmetrizePolygon(pts, axis) {
 export function traceImage(imageData, opts = {}) {
   const {
     epsilon = 0.7,
-    smoothing = 2,
+    toleranceMm = 0.4,
+    refLengthMm = 105,
     minHoleArea = 6,
     circleMaxRadius = 14,
     symmetric = false,
@@ -372,6 +491,15 @@ export function traceImage(imageData, opts = {}) {
 
   let outline = traceBoundary(solid, start % w, (start / w) | 0);
   const rawOutline = outline;
+
+  // --- échelle : la tolérance est donnée sur la pièce, on la passe en pixels
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const [x, y] of rawOutline) {
+    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+  }
+  const bbox = { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY };
+  const tolerance = toleranceMm * (bbox.height / refLengthMm);
 
   // --- perçages
   const { holeLabels, count } = findHoles(m);
@@ -399,24 +527,22 @@ export function traceImage(imageData, opts = {}) {
     if (fit) {
       holes.push({ kind: 'circle', cx: fit.cx, cy: fit.cy, r: fit.r, points: circlePolygon(fit.cx, fit.cy, fit.r) });
     } else {
-      poly = smooth(simplify(poly, epsilon), smoothing);
+      // une découpe est petite : la même tolérance absolue effacerait ses
+      // angles (un octogone deviendrait un cercle). On la borne à une
+      // fraction de sa propre taille.
+      const equivalentRadius = Math.sqrt(area / Math.PI);
+      poly = cleanContour(poly, {
+        epsilon,
+        tolerance: Math.min(tolerance, equivalentRadius * 0.05),
+      });
       holes.push({ kind: 'poly', points: poly, area });
     }
   }
 
-  // --- bbox à partir du contour brut (avant lissage : c'est la référence)
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (const [x, y] of rawOutline) {
-    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
-    minY = Math.min(minY, y); maxY = Math.max(maxY, y);
-  }
-  const bbox = { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY };
+  if (symmetric) outline = symmetrizePolygon(simplify(outline, epsilon), (minX + maxX) / 2);
+  outline = cleanContour(outline, { epsilon, tolerance });
 
-  outline = simplify(outline, epsilon);
-  if (symmetric) outline = symmetrizePolygon(outline, (minX + maxX) / 2);
-  outline = smooth(outline, smoothing);
-
-  return { outline, holes, bbox, threshold, imageWidth: w, imageHeight: h };
+  return { outline, holes, bbox, threshold, tolerance, imageWidth: w, imageHeight: h };
 }
 
 /* ------------------------------------------------------------------ *
