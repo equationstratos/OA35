@@ -168,6 +168,7 @@ export function toPartModule(spec, index) {
   return {
     isCustom: true,
     spec,
+    trace: t,
     build: () => plateFromTrace(t, spec.thickness),
     blueprint: () => blueprintFromTrace(t),
     meta: {

@@ -13,6 +13,7 @@ import * as custom from './parts/custom.js';
 import * as asm from './assembly.js';
 import { describe as describeScale } from './lib/patterns.js';
 import { FRAME, thicknessForRole } from './frame-spec.js';
+import * as exporter from './lib/export.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -517,6 +518,10 @@ function renderPartList() {
         <div><dt>Matière</dt><dd>${m.material}</dd></div>
         <div><dt>Échelle</dt><dd>1 px = ${dims.mmPerPx.toFixed(4)} mm</dd></div>
       </dl>
+      <div class="part-tools">
+        <button class="dl-stl" title="Géométrie 3D, en mm, à plat">STL</button>
+        <button class="dl-js" title="Module prêt à déposer dans js/parts/">Module JS</button>
+      </div>
       ${e.mod.isCustom ? `
       <div class="part-tools">
         <select class="role" title="Rôle dans le châssis">
@@ -530,6 +535,9 @@ function renderPartList() {
     li.querySelector('input').addEventListener('change', (ev) => {
       if (e.object) e.object.visible = ev.target.checked;
     });
+
+    li.querySelector('.dl-stl').addEventListener('click', () => exportSTL(e));
+    li.querySelector('.dl-js').addEventListener('click', () => exportModule(e));
 
     const role = li.querySelector('.role');
     if (role) role.addEventListener('change', () => {
@@ -607,6 +615,52 @@ $('opt-layout').addEventListener('change', () => {
   layoutParts();
   frameAll();
 });
+
+/* ------------------------------------------------------------------ *
+ * Export d'une pièce
+ * ------------------------------------------------------------------ */
+
+/** Géométrie de la plaque, dans son propre repère (à plat, épaisseur en Z). */
+function bodyGeometry(entry) {
+  const body = entry.object && entry.object.getObjectByName('body');
+  return body ? body.geometry : null;
+}
+
+function exportSTL(entry) {
+  const geometry = bodyGeometry(entry);
+  if (!geometry) { say('Géométrie introuvable pour cette pièce.', 'err'); return; }
+
+  const name = exporter.slug(entry.mod.meta.name);
+  exporter.download(`${name}.stl`, exporter.geometryToSTL(geometry));
+  updateAsmHint(
+    `${name}.stl exporté — ${(geometry.attributes.position.count / 3) | 0} facettes, `
+    + 'en millimètres, pièce à plat.',
+    'ok',
+  );
+}
+
+function exportModule(entry) {
+  const trace = entry.mod.trace;
+  if (!trace) { say("Cette pièce n'a pas de tracé exportable.", 'err'); return; }
+
+  const meta = entry.mod.meta;
+  const name = exporter.slug(meta.name);
+  exporter.download(
+    `${name}.js`,
+    exporter.partModuleSource(trace, {
+      name: meta.name,
+      thickness: meta.dims.thickness,
+      stackHeight: meta.stackHeight,
+      index: meta.index,
+    }),
+    'text/javascript',
+  );
+  updateAsmHint(
+    `${name}.js exporté — dépose-le dans js/parts/ et ajoute-le à PARTS `
+    + 'dans js/parts/index.js.',
+    'ok',
+  );
+}
 
 /**
  * Recale une pièce sur ses propres motifs de perçage. Les pièces créées avant

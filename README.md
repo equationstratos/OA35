@@ -251,6 +251,20 @@ Une pièce pas encore assemblée reste à sa place sur l'établi plutôt que d'a
 à l'origine : sinon les pièces se recouvriraient et deviendraient impossibles
 à viser.
 
+## Exporter une pièce
+
+Deux boutons sur la fiche de chaque pièce :
+
+- **STL** — la géométrie 3D, en millimètres, pièce à plat dans son propre
+  repère : l'orientation attendue par un logiciel de CAO ou un trancheur, pas
+  celle de l'assemblage. Le STL n'ayant pas d'unité, le millimètre est la
+  convention universelle et c'est déjà celle du modèle.
+- **Module JS** — un fichier autonome à déposer dans `js/parts/`, contenant le
+  tracé en millimètres et exposant la même interface que les pièces livrées
+  avec le projet. Il ne reste qu'à l'importer dans `js/parts/index.js` et à
+  l'ajouter au tableau `PARTS`. C'est le moyen de faire passer une pièce du
+  stockage du navigateur au dépôt.
+
 ## Recalibrer une pièce existante
 
 Une pièce créée avant l'arrivée du calage sur les perçages garde son échelle

@@ -1,5 +1,5 @@
 /**
- * PIÈCE 01 — Plaque inférieure (bottom plate) du châssis carbone.
+ * PIÈCE 01 — Plaque intermédiaire du châssis carbone.
  * Base du build "TinyHoop MK1".
  *
  * La géométrie n'est pas saisie à la main : elle vient du tracé de la photo
@@ -26,6 +26,9 @@ const TRACE = traceToMm(
   REF_LENGTH_MM,
 );
 
+/** Tracé en millimètres, exposé pour l'export. */
+export const trace = TRACE;
+
 /** Objet 3D prêt à poser dans la scène (plaque à plat, avant vers -Z). */
 export function build() {
   return plateFromTrace(TRACE, THICKNESS_MM);
@@ -44,7 +47,9 @@ export function blueprint() {
 export const meta = {
   id: 'bottom-plate',
   index: 1,
-  name: 'Plaque inférieure châssis',
+  // porte les deux motifs de fixation du contrôleur de vol, donc la plaque
+  // intermédiaire d'après la fiche technique (le nom de fichier est d'origine)
+  name: 'Plaque intermédiaire châssis',
   material: 'Carbone 3K sergé, ' + THICKNESS_MM.toFixed(1) + ' mm',
   stackHeight: 0,        // altitude Y dans le build, en mm
   traced: true,          // contour issu de la photo, pas d'une saisie manuelle
