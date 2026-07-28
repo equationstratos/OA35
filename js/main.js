@@ -11,7 +11,9 @@ import { blueprintFromTrace } from './lib/plate.js';
 import * as cal from './calibrate.js';
 import * as custom from './parts/custom.js';
 import * as asm from './assembly.js';
-import { describe as describeScale } from './lib/patterns.js';
+import {
+  describe as describeScale, rememberPattern, usesPreferred as usesPreferredPattern,
+} from './lib/patterns.js';
 import { FRAME, thicknessForRole } from './frame-spec.js';
 import * as exporter from './lib/export.js';
 
@@ -499,6 +501,8 @@ function renderPartList() {
     const origin = fromPhoto
       ? 'contour tracé sur la photo'
       : 'contour saisi à la main — à calibrer';
+    const unconfirmed = e.mod.isCustom && e.mod.spec
+      && e.mod.spec.scaleSource !== 'patterns' && e.mod.spec.scaleSource !== 'manual';
 
     const li = document.createElement('li');
     li.className = 'part';
@@ -510,6 +514,7 @@ function renderPartList() {
       </label>
         ${e.mod.isCustom ? '<button class="del" title="Supprimer la pièce">✕</button>' : ''}
       <p class="origin ${fromPhoto ? 'ok' : ''}">${origin}</p>
+      ${unconfirmed ? '<p class="origin warn">échelle non confirmée — vérifie la longueur</p>' : ''}
       <dl class="specs">
         <div><dt>Longueur</dt><dd>${dims.length.toFixed(1)} mm</dd></div>
         <div><dt>Largeur</dt><dd>${dims.width.toFixed(1)} mm</dd></div>
@@ -836,6 +841,8 @@ for (const role of FRAME.roles) {
   if (role.id === 'mid') option.selected = true;
   $('c-role').appendChild(option);
 }
+$('c-len').addEventListener('input', () => { cal.state.scaleSource = 'manual'; });
+
 $('c-role').addEventListener('change', () => {
   const thickness = thicknessForRole($('c-role').value);
   if (thickness) $('c-thick').value = thickness;
@@ -873,8 +880,12 @@ function renderScaleProposals() {
     const li = document.createElement('li');
     li.className = 'scale-choice';
     li.innerHTML = `<button type="button">${describeScale(group)}</button>`;
+    if (usesPreferredPattern(group)) li.classList.add('preferred');
     li.querySelector('button').addEventListener('click', () => {
       $('c-len').value = group.length.toFixed(2);
+      cal.state.scaleSource = 'patterns';
+      // les pièces d'un même châssis partagent leurs standards
+      rememberPattern(group.matches[0].pattern.side);
       runTrace(false);
       say(`Échelle calée sur les motifs normalisés : ${group.length.toFixed(1)} mm hors-tout.`, 'ok');
     });
@@ -898,9 +909,11 @@ function runTrace(allowAutoScale = true) {
     // recalage automatique sur les motifs normalisés : sans lui, chaque pièce
     // garde l'échelle devinée à la saisie et les perçages ne tombent pas en face
     const best = (cal.state.scaleProposals || [])[0];
+    const reference = Math.max(t.width, t.height);
     if (allowAutoScale && isTrustworthy(best)
-        && Math.abs(best.length - t.height) > t.height * 0.01) {
+        && Math.abs(best.length - reference) > reference * 0.01) {
       $('c-len').value = best.length.toFixed(2);
+      cal.state.scaleSource = 'patterns';
       runTrace(false);
       say(
         `Échelle calée sur les perçages : ${best.length.toFixed(1)} mm hors-tout `
@@ -910,10 +923,23 @@ function runTrace(allowAutoScale = true) {
       return;
     }
 
+    if (isTrustworthy(best)) cal.state.scaleSource = 'patterns';
+
+    // Sans échelle confirmée, la longueur affichée est celle laissée par la
+    // pièce précédente. Le dire franchement : deux bras de longueurs
+    // différentes finiraient sinon identiques, sans le moindre signe.
+    const confirmed = cal.state.scaleSource === 'patterns'
+      || cal.state.scaleSource === 'manual';
+    $('c-len').classList.toggle('unconfirmed', !confirmed);
+
     say(
-      `Tracé : ${cal.state.trace.outline.length} points de contour, ` +
-      `${t.holes.length} perçages · ${t.width.toFixed(1)} x ${t.height.toFixed(1)} mm`,
-      'ok',
+      `Tracé : ${cal.state.trace.outline.length} points de contour, `
+      + `${t.holes.length} perçages · ${t.width.toFixed(1)} x ${t.height.toFixed(1)} mm.`
+      + (confirmed ? '' :
+        ' ÉCHELLE NON CONFIRMÉE : la longueur affichée vient de la pièce'
+        + ' précédente. Choisis un motif ci-dessus, ou saisis la longueur'
+        + ' réelle de cette pièce.'),
+      confirmed ? 'ok' : 'warn',
     );
     renderCalibration();
     renderScaleProposals();
@@ -949,6 +975,7 @@ $('c-create').addEventListener('click', () => {
       thickness: Number($('c-thick').value),
       stackHeight: Number($('c-stack').value),
       traceMm: cal.state.traceMm,
+      scaleSource: cal.state.scaleSource,
     });
     remountAll();
     say(

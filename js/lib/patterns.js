@@ -12,12 +12,22 @@
  * les pièces d'un même châssis.
  */
 
-/** Entraxes normalisés des platines de contrôleur de vol, en mm. */
+/**
+ * Entraxes normalisés, en mm.
+ *
+ * Deux familles : les platines de contrôleur de vol, et les fixations moteur.
+ * Les secondes sont indispensables aux bras, qui ne portent en général aucun
+ * motif de la première.
+ */
 export const STANDARD_PATTERNS = [
-  { side: 16, name: '16 × 16' },
-  { side: 20, name: '20 × 20' },
-  { side: 25.5, name: '25,5 × 25,5' },
-  { side: 30.5, name: '30,5 × 30,5' },
+  { side: 6, name: '6 × 6 (moteur)' },
+  { side: 9, name: '9 × 9 (moteur)' },
+  { side: 12, name: '12 × 12 (moteur)' },
+  { side: 16, name: '16 × 16 (moteur ou FC)' },
+  { side: 19, name: '19 × 19 (moteur)' },
+  { side: 20, name: '20 × 20 (FC)' },
+  { side: 25.5, name: '25,5 × 25,5 (FC)' },
+  { side: 30.5, name: '30,5 × 30,5 (FC)' },
 ];
 
 /**
@@ -77,7 +87,8 @@ export function findSquares(anchors, tolerance = 0.6) {
  * lecture n'est plus une supposition — les motifs se confirment entre eux.
  *
  * @param {{side:number,diameter:number,holes:number[]}[]} squares mesurés dans l'échelle courante
- * @param {number} currentLength longueur hors-tout dans cette même échelle
+ * @param {number} currentLength plus grande dimension de la pièce, dans cette
+ *        même échelle
  * @returns {{length:number, matches:object[], spread:number}[]} du plus étayé au moins
  */
 export function proposeScales(squares, currentLength, relativeTolerance = 0.02) {
@@ -115,9 +126,41 @@ export function proposeScales(squares, currentLength, relativeTolerance = 0.02) 
     ) / g.matches.length;
   }
 
+  // à qualité égale, le motif déjà retenu ailleurs passe devant
   return groups.sort(
-    (a, b) => b.distinctSquares - a.distinctSquares || a.spread - b.spread,
+    (a, b) => b.distinctSquares - a.distinctSquares
+      || (usesPreferred(b) ? 1 : 0) - (usesPreferred(a) ? 1 : 0)
+      || a.spread - b.spread,
   );
+}
+
+const PREFERRED_KEY = 'tinyhoop-mk1:preferred-pattern';
+
+/**
+ * Mémorise le motif retenu par l'auteur.
+ *
+ * Les pièces d'un même châssis partagent leurs standards — quatre bras portent
+ * le même carré moteur. Rappeler le choix précédent évite d'attribuer deux
+ * standards différents à deux pièces qui ont pourtant le même motif, ce qui
+ * les rendrait incompatibles sans que rien ne le signale.
+ */
+export function rememberPattern(side) {
+  try { localStorage.setItem(PREFERRED_KEY, String(side)); } catch { /* ignore */ }
+}
+
+export function preferredPattern() {
+  try {
+    const v = Number(localStorage.getItem(PREFERRED_KEY));
+    return Number.isFinite(v) && v > 0 ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Le groupe repose-t-il sur le motif déjà retenu ailleurs ? */
+export function usesPreferred(group) {
+  const preferred = preferredPattern();
+  return preferred !== null && group.matches.some((m) => m.pattern.side === preferred);
 }
 
 /** Libellé court d'une proposition, pour l'interface. */
@@ -125,5 +168,6 @@ export function describe(group) {
   const patterns = [...new Set(group.matches.map((m) => m.pattern.name))].join(' + ');
   return `${group.length.toFixed(1)} mm — motifs ${patterns}`
     + ` (${group.distinctSquares} carré${group.distinctSquares > 1 ? 's' : ''}`
-    + `, écart ${group.spread.toFixed(2)} mm, perçages Ø${group.diameter.toFixed(2)} mm)`;
+    + `, écart ${group.spread.toFixed(2)} mm, perçages Ø${group.diameter.toFixed(2)} mm)`
+    + (usesPreferred(group) ? '\n↳ même motif que la pièce précédente' : '');
 }

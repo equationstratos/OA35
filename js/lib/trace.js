@@ -549,13 +549,22 @@ export function traceImage(imageData, opts = {}) {
  * Passage en millimètres
  * ------------------------------------------------------------------ */
 
+/** Plus grande dimension d'un tracé : la référence d'échelle. */
+export function referenceDimension(trace) {
+  return Math.max(trace.width, trace.height);
+}
+
 /**
- * Cale le tracé sur une longueur réelle et centre la pièce sur l'origine.
+ * Cale le tracé sur une dimension réelle et centre la pièce sur l'origine.
  * Y image (vers le bas) devient Y modèle (vers le haut).
+ *
+ * La référence est la PLUS GRANDE dimension de la pièce, pas sa hauteur dans
+ * la photo : un bras photographié en paysage serait sinon calé sur sa largeur,
+ * et sortirait cinq fois trop grand.
  */
 export function traceToMm(trace, refLengthMm) {
   const { bbox } = trace;
-  const mmPerPx = refLengthMm / bbox.height;
+  const mmPerPx = refLengthMm / Math.max(bbox.width, bbox.height);
   const axis = (bbox.minX + bbox.maxX) / 2;
   const center = (bbox.minY + bbox.maxY) / 2;
 
@@ -574,6 +583,6 @@ export function traceToMm(trace, refLengthMm) {
         : {}),
     })),
     width: bbox.width * mmPerPx,
-    height: refLengthMm,
+    height: bbox.height * mmPerPx,
   };
 }

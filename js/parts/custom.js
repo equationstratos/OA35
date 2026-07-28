@@ -43,15 +43,18 @@ function saveSpecs(list) {
  * @param {number} o.thickness  en mm
  * @param {number} o.stackHeight altitude dans le build, en mm
  * @param {object} o.traceMm    tracé converti en mm
+ * @param {string} o.scaleSource provenance de l'échelle : 'patterns', 'manual'
+ *        ou null si elle n'a pas été confirmée
  * @returns {object} spec créée
  */
-export function addSpec({ name, thickness, stackHeight, traceMm }) {
+export function addSpec({ name, thickness, stackHeight, traceMm, scaleSource }) {
   const list = loadSpecs();
   const spec = {
     id: `custom-${Date.now().toString(36)}`,
     name: name || `Pièce ${list.length + 2}`,
     thickness,
     stackHeight,
+    scaleSource: scaleSource || null,
     createdAt: new Date().toISOString(),
     trace: {
       // on ne garde que ce qui sert à reconstruire la géométrie
@@ -117,15 +120,16 @@ function scaleTrace(trace, factor) {
  *          null si les motifs ne se confirment pas entre eux
  */
 export function proposeRescale(spec) {
-  const groups = proposeScales(findSquares(holeAnchors(spec.trace)), spec.trace.height);
+  const reference = Math.max(spec.trace.width, spec.trace.height);
+  const groups = proposeScales(findSquares(holeAnchors(spec.trace)), reference);
   const best = groups[0];
   // un carré isolé peut correspondre à plusieurs standards : on n'agit que
   // lorsque des carrés de tailles différentes désignent la même échelle
   if (!best || best.distinctSquares < 2 || best.spread > best.length * 0.02) return null;
   return {
     length: best.length,
-    current: spec.trace.height,
-    factor: best.length / spec.trace.height,
+    current: reference,
+    factor: best.length / reference,
     patterns: [...new Set(best.matches.map((m) => m.pattern.name))].join(' + '),
   };
 }
@@ -150,6 +154,7 @@ export function rescaleToPatterns(id, minRelativeChange = 0.005) {
   }
 
   spec.trace = scaleTrace(spec.trace, proposal.factor);
+  spec.scaleSource = 'patterns';
   saveSpecs(list);
   return { status: 'rescaled', ...proposal };
 }

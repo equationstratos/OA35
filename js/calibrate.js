@@ -3,7 +3,9 @@
  * l'affiche en transparence par-dessus le modèle pour contrôle visuel.
  */
 
-import { traceImage, traceToMm, otsuThreshold, buildMask, denoise } from './lib/trace.js';
+import {
+  traceImage, traceToMm, otsuThreshold, buildMask, denoise, referenceDimension,
+} from './lib/trace.js';
 import { holeAnchors } from './lib/plate.js';
 import { findSquares, proposeScales } from './lib/patterns.js';
 
@@ -18,6 +20,12 @@ export const state = {
   applied: false,
   /** échelles déduites des motifs de perçage normalisés */
   scaleProposals: [],
+  /**
+   * Provenance de l'échelle courante :
+   *   'patterns' motifs normalisés concordants · 'manual' saisie explicite
+   *   'inherited' valeur laissée par la pièce précédente — jamais fiable
+   */
+  scaleSource: null,
 };
 
 /* ------------------------------------------------------------------ *
@@ -35,6 +43,9 @@ export function loadFromDataURL(dataURL) {
       g.drawImage(img, 0, 0);
       state.image = img;
       state.imageData = g.getImageData(0, 0, c.width, c.height);
+      // une nouvelle pièce ne peut pas hériter de l'échelle de la précédente
+      state.scaleSource = null;
+      state.scaleProposals = [];
       resolve(state.imageData);
     };
     img.onerror = () => reject(new Error("Image illisible"));
@@ -83,7 +94,7 @@ export function run(opts, refLengthMm) {
   state.traceMm = traceToMm(state.trace, refLengthMm);
   state.scaleProposals = proposeScales(
     findSquares(holeAnchors(state.traceMm)),
-    state.traceMm.height,
+    referenceDimension(state.traceMm),
   );
   return state.traceMm;
 }

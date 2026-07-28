@@ -52,10 +52,15 @@ Mettre une pièce à l'échelle par sa longueur hors-tout suppose de connaître
 cette longueur. À défaut on la devine — et **deux pièces calibrées séparément
 ne s'emboîtent pas**, leurs perçages tombent à côté.
 
-Les châssis FPV portent en revanche des motifs de fixation normalisés : le
-carré de 20 × 20 mm des contrôleurs de vol, celui de 25,5 × 25,5, parfois
-16 × 16 ou 30,5 × 30,5. L'outil cherche ces carrés dans les perçages tracés et
-en déduit l'échelle exacte.
+Les châssis FPV portent en revanche des motifs de fixation normalisés, de deux
+familles : les platines de contrôleur de vol (20 × 20, 25,5 × 25,5, 16 × 16,
+30,5 × 30,5) et les fixations moteur (6, 9, 12, 16, 19 mm). Les secondes sont
+indispensables aux bras, qui ne portent aucun motif de la première. L'outil
+cherche ces carrés dans les perçages tracés et en déduit l'échelle.
+
+La référence d'échelle est la **plus grande dimension** de la pièce, pas sa
+hauteur dans la photo : un bras photographié en paysage serait sinon calé sur
+sa largeur et sortirait cinq fois trop grand.
 
 Un carré isolé reste ambigu — il peut correspondre à plusieurs standards. Mais
 quand des carrés de **tailles différentes désignent la même échelle**, ils se
@@ -78,6 +83,26 @@ d'erreur. Après recalage, les carrés du modèle mesurent 19,95 / 20,08 / 25,52
 Effet sur l'assemblage : sur deux pièces mises à l'échelle par ce moyen, une
 paire de perçages correspondants se superpose à **0,01 mm**, contre 4,25 mm
 quand l'une gardait une longueur devinée.
+
+### Quand les motifs ne suffisent pas
+
+Un bras ne porte souvent qu'**un seul carré**, celui du moteur. Or un carré
+isolé est ambigu : 6, 9, 12, 16 ou 19 mm conviennent tous, et l'échelle qui en
+découle varie du simple au triple. L'outil ne tranche donc pas tout seul — il
+affiche **ÉCHELLE NON CONFIRMÉE**, propose les lectures possibles, et attend.
+
+C'est important pour une configuration *dead cat*, où les bras avant et arrière
+n'ont pas la même longueur : sans cet avertissement, la deuxième pièce héritait
+en silence de la longueur de la première, et deux bras différents finissaient
+identiques.
+
+Le motif retenu est mémorisé : sur la pièce suivante, la lecture qui repose sur
+le même standard remonte en tête, annotée. Quatre bras qui partagent le même
+carré moteur ne risquent donc pas de recevoir deux standards différents.
+
+Une pièce dont l'échelle n'a pas été confirmée porte la mention **échelle non
+confirmée** sur sa fiche, jusqu'à ce qu'un motif soit choisi ou la dimension
+saisie à la main.
 
 ### Le lissage
 
@@ -128,7 +153,7 @@ Une fois le tracé fait, renseigne en bas du panneau :
 | Champ | Rôle |
 |-------|------|
 | Nom de la pièce | son libellé dans le panneau latéral |
-| Longueur réelle | l'échelle de la pièce, calée d'office sur les motifs de perçage quand ils la confirment |
+| Plus grande dimension | l'échelle de la pièce — longueur ou largeur selon son orientation sur la photo. Calée d'office sur les motifs de perçage quand plusieurs se confirment |
 | Rôle dans le châssis | donne l'épaisseur d'après la fiche technique |
 | Épaisseur | l'épaisseur extrudée |
 | Hauteur dans le build | son altitude dans l'empilement, en mm (0 = plaque du bas) |

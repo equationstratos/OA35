@@ -412,3 +412,12 @@ ul { list-style: none; margin: 0; padding: 0; }
   cursor: pointer;
 }
 .part .dl:hover { background: var(--accent); color: var(--bg); }
+
+.origin.warn { color: #ff9d5c; }
+.ctl input.unconfirmed {
+  border-color: #8a6a2a;
+  background: rgba(255, 180, 84, 0.1);
+}
+
+.scale-choice button { white-space: pre-line; }
+.scale-choice.preferred button { border-color: #2f7a56; }
