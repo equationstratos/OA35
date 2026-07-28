@@ -163,8 +163,24 @@ export function blueprint() {
 
 /** Objet 3D prêt à poser dans la scène (plaque à plat, avant vers -Z). */
 export function build() {
-  const outline = outlinePoints();
-  const geo = extrudePlate(outline, holePaths(), THICKNESS_MM);
+  return meshFrom(outlinePoints(), holePaths());
+}
+
+/**
+ * Variante construite à partir du tracé automatique de la photo
+ * (voir js/lib/trace.js) : la géométrie vient alors des pixels réels.
+ * @param {{outline:number[][], holes:{points:number[][]}[]}} traceMm en mm
+ */
+export function buildFromTrace(traceMm) {
+  const outline = traceMm.outline.map(([x, y]) => new THREE.Vector2(x, y));
+  const holes = traceMm.holes.map(
+    (h) => new THREE.Path(h.points.map(([x, y]) => new THREE.Vector2(x, y))),
+  );
+  return meshFrom(outline, holes);
+}
+
+function meshFrom(outline, holes) {
+  const geo = extrudePlate(outline, holes, THICKNESS_MM);
 
   // UV planaires pour que le tissage suive la plaque, pas l'extrusion
   const pos = geo.attributes.position;
@@ -176,6 +192,7 @@ export function build() {
   geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
 
   const mesh = new THREE.Mesh(geo, carbonMaterial(1));
+  mesh.name = 'body';
   mesh.castShadow = true;
   mesh.receiveShadow = true;
 

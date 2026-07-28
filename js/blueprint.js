@@ -4,11 +4,13 @@
  */
 
 export function drawBlueprint(canvas, bp, opts = {}) {
-  const { showGrid = true, showDims = true } = opts;
+  const { showGrid = true, showDims = true, photo = null, photoAlpha = 0.55 } = opts;
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
   const W = canvas.clientWidth;
   const H = canvas.clientHeight;
+  // panneau masqué ou pas encore dimensionné : rien à dessiner
+  if (W < 60 || H < 60) return;
   canvas.width = W * dpr;
   canvas.height = H * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -25,6 +27,22 @@ export function drawBlueprint(canvas, bp, opts = {}) {
   // repère : X vers la droite, Y vers le haut, origine au centre de la pièce
   const tx = (x) => W / 2 + x * scale;
   const ty = (y) => H / 2 - y * scale;
+
+  // photo de référence, calée par son propre tracé : superposition exacte
+  if (photo && photo.image) {
+    const k = photo.mmPerPx * scale;
+    ctx.save();
+    ctx.globalAlpha = photoAlpha;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(
+      photo.image,
+      tx(-photo.axis * photo.mmPerPx),
+      ty(photo.center * photo.mmPerPx),
+      photo.image.naturalWidth * k,
+      photo.image.naturalHeight * k,
+    );
+    ctx.restore();
+  }
 
   if (showGrid) {
     ctx.strokeStyle = 'rgba(108,199,255,0.08)';
@@ -58,7 +76,7 @@ export function drawBlueprint(canvas, bp, opts = {}) {
   // perçages
   ctx.strokeStyle = '#ffb454';
   ctx.lineWidth = 1.2;
-  for (const c of bp.circles) {
+  for (const c of bp.circles || []) {
     ctx.beginPath();
     ctx.arc(tx(c.x), ty(c.y), c.r * scale, 0, Math.PI * 2);
     ctx.stroke();
@@ -73,24 +91,37 @@ export function drawBlueprint(canvas, bp, opts = {}) {
   }
 
   // découpes rectangulaires
-  for (const r of bp.rects) {
+  for (const r of bp.rects || []) {
     ctx.beginPath();
     ctx.rect(tx(r.x - r.w / 2), ty(r.y + r.h / 2), r.w * scale, r.h * scale);
     ctx.stroke();
   }
 
-  // octogone
-  const o = bp.octagon;
-  const R = o.acrossFlats / 2 / Math.cos(Math.PI / 8);
-  ctx.beginPath();
-  for (let i = 0; i < 8; i++) {
-    const a = Math.PI / 8 + (i * Math.PI) / 4;
-    const X = tx(o.x + R * Math.cos(a));
-    const Y = ty(o.y + R * Math.sin(a));
-    if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+  // découpes quelconques (issues du tracé photo)
+  for (const poly of bp.polys || []) {
+    ctx.beginPath();
+    poly.forEach((p, i) => {
+      const X = tx(p.x), Y = ty(p.y);
+      if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+    });
+    ctx.closePath();
+    ctx.stroke();
   }
-  ctx.closePath();
-  ctx.stroke();
+
+  // octogone
+  if (bp.octagon) {
+    const o = bp.octagon;
+    const R = o.acrossFlats / 2 / Math.cos(Math.PI / 8);
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const a = Math.PI / 8 + (i * Math.PI) / 4;
+      const X = tx(o.x + R * Math.cos(a));
+      const Y = ty(o.y + R * Math.sin(a));
+      if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  }
 
   if (showDims) {
     ctx.fillStyle = '#8fa3bf';

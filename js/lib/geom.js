@@ -178,7 +178,9 @@ export function extrudePlate(outline, holes, thickness, bevel = 0.08) {
     bevelThickness: bevel,
     bevelSize: bevel,
     bevelSegments: 2,
-    curveSegments: 24,
+    // les contours sont déjà fournis échantillonnés (congés ou tracé photo) :
+    // re-subdiviser chaque segment ferait exploser le maillage pour rien
+    curveSegments: 1,
   });
   geo.translate(0, 0, -thickness / 2 + bevel);
   geo.computeVertexNormals();

@@ -1,20 +1,23 @@
 /**
  * Viewer du build FPV — TinyHoop MK1.
- * Scène 3D + plan coté, 100 % hors-ligne.
+ * Scène 3D + plan coté + calibration photo, 100 % hors-ligne.
  */
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { PARTS, PLANNED } from './parts/index.js';
 import { drawBlueprint } from './blueprint.js';
+import * as cal from './calibrate.js';
+
+const $ = (id) => document.getElementById(id);
 
 /* ------------------------------------------------------------------ *
  * Scène
  * ------------------------------------------------------------------ */
 
-const viewport = document.getElementById('viewport');
+const viewport = $('viewport');
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -48,7 +51,7 @@ Object.assign(key.shadow.camera, { left: -d, right: d, top: d, bottom: -d });
 key.shadow.bias = -0.0006;
 scene.add(key);
 
-const rim = new THREE.DirectionalLight(0x93b4dd, 0.40);
+const rim = new THREE.DirectionalLight(0x93b4dd, 0.4);
 rim.position.set(-90, 40, -80);
 scene.add(rim);
 
@@ -77,45 +80,131 @@ scene.add(grid);
 const buildRoot = new THREE.Group();
 scene.add(buildRoot);
 
-const entries = PARTS.map((mod) => {
-  const object = mod.build();
-  object.position.y = mod.meta.stackHeight;
-  buildRoot.add(object);
-  return { mod, object, baseY: mod.meta.stackHeight };
+const entries = PARTS.map((mod) => ({ mod, object: null, baseY: mod.meta.stackHeight }));
+
+function disposeObject(obj) {
+  obj.traverse((o) => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose());
+  });
+}
+
+/** (Re)construit une pièce, depuis le tracé photo s'il a été appliqué. */
+function mountPart(entry, traceMm) {
+  if (entry.object) {
+    buildRoot.remove(entry.object);
+    disposeObject(entry.object);
+  }
+  entry.object = traceMm && entry.mod.buildFromTrace
+    ? entry.mod.buildFromTrace(traceMm)
+    : entry.mod.build();
+  entry.object.position.y = entry.baseY;
+  buildRoot.add(entry.object);
+  applyDisplayOptions();
+}
+
+entries.forEach((e) => mountPart(e, null));
+
+/* ------------------------------------------------------------------ *
+ * Calque photo en 3D
+ * ------------------------------------------------------------------ */
+
+let photoPlane = null;
+
+function rebuildPhotoPlane() {
+  if (photoPlane) {
+    scene.remove(photoPlane);
+    disposeObject(photoPlane);
+    photoPlane = null;
+  }
+  const t = cal.state.traceMm;
+  if (!cal.state.image || !t || !$('opt-photo').checked) return;
+
+  const img = cal.state.image;
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  const w = iw * t.mmPerPx, h = ih * t.mmPerPx;
+
+  const tex = new THREE.Texture(img);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+
+  photoPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(w, h),
+    new THREE.MeshBasicMaterial({
+      map: tex,
+      transparent: true,
+      opacity: Number($('photo-op').value) / 100,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+  );
+  // centre de l'image, exprimé dans le repère du modèle
+  photoPlane.position.set(
+    (iw / 2 - t.axis) * t.mmPerPx,
+    0,
+    -(t.center - ih / 2) * t.mmPerPx,
+  );
+  photoPlane.rotation.x = -Math.PI / 2;
+  photoPlane.position.y = PARTS[0].THICKNESS_MM / 2 + 0.4;
+  scene.add(photoPlane);
+}
+
+function updatePhotoOpacity() {
+  const v = Number($('photo-op').value);
+  $('photo-val').textContent = `${v} %`;
+  if (photoPlane) photoPlane.material.opacity = v / 100;
+  if (!$('pane-bp').classList.contains('hidden')) renderBlueprint();
+}
+
+$('photo-op').addEventListener('input', updatePhotoOpacity);
+$('opt-photo').addEventListener('change', () => {
+  rebuildPhotoPlane();
+  applyDisplayOptions();
 });
 
 /* ------------------------------------------------------------------ *
- * Interface
+ * Interface latérale
  * ------------------------------------------------------------------ */
 
-const partList = document.getElementById('part-list');
+function renderPartList() {
+  const partList = $('part-list');
+  partList.innerHTML = '';
+  for (const e of entries) {
+    const m = e.mod.meta;
+    const t = cal.state.traceMm;
+    const traced = cal.state.applied && t;
+    const dims = traced
+      ? { length: t.height, width: t.width, thickness: m.dims.thickness, holes: t.holes.length, mmPerPx: t.mmPerPx }
+      : m.dims;
 
-for (const e of entries) {
-  const m = e.mod.meta;
-  const dims = m.dims;
-  const li = document.createElement('li');
-  li.className = 'part';
-  li.innerHTML = `
-    <label class="part-head">
-      <input type="checkbox" checked data-id="${m.id}">
-      <span class="idx">${String(m.index).padStart(2, '0')}</span>
-      <span class="nm">${m.name}</span>
-    </label>
-    <dl class="specs">
-      <div><dt>Longueur</dt><dd>${dims.length.toFixed(1)} mm</dd></div>
-      <div><dt>Largeur</dt><dd>${dims.width.toFixed(1)} mm</dd></div>
-      <div><dt>Épaisseur</dt><dd>${dims.thickness.toFixed(1)} mm</dd></div>
-      <div><dt>Perçages</dt><dd>${dims.holes}</dd></div>
-      <div><dt>Matière</dt><dd>${m.material}</dd></div>
-      <div><dt>Échelle</dt><dd>1 px = ${dims.mmPerPx.toFixed(4)} mm</dd></div>
-    </dl>`;
-  li.querySelector('input').addEventListener('change', (ev) => {
-    e.object.visible = ev.target.checked;
-  });
-  partList.appendChild(li);
+    const li = document.createElement('li');
+    li.className = 'part';
+    li.innerHTML = `
+      <label class="part-head">
+        <input type="checkbox" checked>
+        <span class="idx">${String(m.index).padStart(2, '0')}</span>
+        <span class="nm">${m.name}</span>
+      </label>
+      <p class="origin ${traced ? 'ok' : ''}">${traced
+        ? 'contour tracé sur la photo'
+        : 'contour saisi à la main — à calibrer'}</p>
+      <dl class="specs">
+        <div><dt>Longueur</dt><dd>${dims.length.toFixed(1)} mm</dd></div>
+        <div><dt>Largeur</dt><dd>${dims.width.toFixed(1)} mm</dd></div>
+        <div><dt>Épaisseur</dt><dd>${dims.thickness.toFixed(1)} mm</dd></div>
+        <div><dt>Perçages</dt><dd>${dims.holes}</dd></div>
+        <div><dt>Matière</dt><dd>${m.material}</dd></div>
+        <div><dt>Échelle</dt><dd>1 px = ${dims.mmPerPx.toFixed(4)} mm</dd></div>
+      </dl>`;
+    li.querySelector('input').addEventListener('change', (ev) => {
+      if (e.object) e.object.visible = ev.target.checked;
+    });
+    partList.appendChild(li);
+  }
 }
+renderPartList();
 
-const plannedList = document.getElementById('planned-list');
+const plannedList = $('planned-list');
 for (const p of PLANNED) {
   const li = document.createElement('li');
   li.className = 'planned';
@@ -124,12 +213,7 @@ for (const p of PLANNED) {
 }
 
 // Vues prédéfinies
-const VIEWS = {
-  iso: [95, 78, 118],
-  top: [0, 175, 0.01],
-  front: [0, 8, 165],
-  side: [165, 8, 0],
-};
+const VIEWS = { iso: [95, 78, 118], top: [0, 175, 0.01], front: [0, 8, 165], side: [165, 8, 0] };
 document.querySelectorAll('[data-view]').forEach((btn) => {
   btn.addEventListener('click', () => {
     const [x, y, z] = VIEWS[btn.dataset.view];
@@ -140,32 +224,41 @@ document.querySelectorAll('[data-view]').forEach((btn) => {
   });
 });
 
-// Options d'affichage
-const optEdges = document.getElementById('opt-edges');
-const optGrid = document.getElementById('opt-grid');
-const optRotate = document.getElementById('opt-rotate');
+/** Arêtes, transparence de la plaque sous le calque photo. */
+function applyDisplayOptions() {
+  const showEdges = $('opt-edges').checked;
+  const ghost = $('opt-photo').checked && !!photoPlane;
+  buildRoot.traverse((o) => {
+    if (o.name === 'edges') o.visible = showEdges;
+    if (o.name === 'body' && o.material) {
+      o.material.transparent = ghost;
+      o.material.opacity = ghost ? 0.55 : 1;
+      o.material.needsUpdate = true;
+    }
+  });
+}
 
-optEdges.addEventListener('change', () => {
-  buildRoot.traverse((o) => { if (o.name === 'edges') o.visible = optEdges.checked; });
-});
-optGrid.addEventListener('change', () => { grid.visible = optGrid.checked; });
+$('opt-edges').addEventListener('change', applyDisplayOptions);
+$('opt-grid').addEventListener('change', () => { grid.visible = $('opt-grid').checked; });
 
-// Vue éclatée (utile dès la 2e pièce)
-const explode = document.getElementById('explode');
+const explode = $('explode');
 explode.addEventListener('input', () => {
   const f = Number(explode.value);
-  entries.forEach((e, i) => { e.object.position.y = e.baseY + i * f; });
-  document.getElementById('explode-val').textContent = `${f} mm`;
+  entries.forEach((e, i) => { if (e.object) e.object.position.y = e.baseY + i * f; });
+  $('explode-val').textContent = `${f} mm`;
 });
 
-// Onglets 3D / plan
-const tabs = document.querySelectorAll('.tab');
-const panes = { '3d': document.getElementById('pane-3d'), bp: document.getElementById('pane-bp') };
-tabs.forEach((t) => t.addEventListener('click', () => {
-  tabs.forEach((x) => x.classList.remove('on'));
+/* ------------------------------------------------------------------ *
+ * Onglets
+ * ------------------------------------------------------------------ */
+
+const panes = { '3d': $('pane-3d'), bp: $('pane-bp'), cal: $('pane-cal') };
+document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach((x) => x.classList.remove('on'));
   t.classList.add('on');
   Object.entries(panes).forEach(([k, el]) => el.classList.toggle('hidden', k !== t.dataset.tab));
   if (t.dataset.tab === 'bp') renderBlueprint();
+  else if (t.dataset.tab === 'cal') renderCalibration();
   else resize();
 }));
 
@@ -173,32 +266,207 @@ tabs.forEach((t) => t.addEventListener('click', () => {
  * Plan coté
  * ------------------------------------------------------------------ */
 
-const bpCanvas = document.getElementById('bp-canvas');
+const bpCanvas = $('bp-canvas');
+
+/** Données du plan : issues du tracé si appliqué, sinon du contour manuel. */
+function blueprintData() {
+  const t = cal.state.traceMm;
+  if (!cal.state.applied || !t) return PARTS[0].blueprint();
+
+  const outline = t.outline.map(([x, y]) => ({ x, y }));
+  const circles = [];
+  const polys = [];
+  for (const h of t.holes) {
+    if (h.kind === 'circle') circles.push({ x: h.cx, y: h.cy, r: h.r, d: h.r * 2 });
+    else polys.push(h.points.map(([x, y]) => ({ x, y })));
+  }
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const p of outline) {
+    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+    minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+  }
+  return {
+    outline, circles, polys,
+    box: { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY },
+    mmPerPx: t.mmPerPx,
+  };
+}
+
 function renderBlueprint() {
-  drawBlueprint(bpCanvas, PARTS[0].blueprint(), {
-    showGrid: document.getElementById('bp-grid').checked,
+  const t = cal.state.traceMm;
+  drawBlueprint(bpCanvas, blueprintData(), {
+    showGrid: $('bp-grid').checked,
     showDims: true,
+    photo: $('bp-photo').checked && t && cal.state.image
+      ? { image: cal.state.image, axis: t.axis, center: t.center, mmPerPx: t.mmPerPx }
+      : null,
+    photoAlpha: Number($('photo-op').value) / 100,
   });
 }
-document.getElementById('bp-grid').addEventListener('change', renderBlueprint);
+$('bp-grid').addEventListener('change', renderBlueprint);
+$('bp-photo').addEventListener('change', renderBlueprint);
+
+/* ------------------------------------------------------------------ *
+ * Calibration
+ * ------------------------------------------------------------------ */
+
+const calCanvas = $('cal-canvas');
+const dropzone = $('dropzone');
+const status = $('cal-status');
+
+function say(msg, kind = '') {
+  status.textContent = msg;
+  status.className = `status ${kind}`;
+}
+
+function traceOptions() {
+  return {
+    threshold: Number($('c-thr').value),
+    epsilon: Number($('c-eps').value),
+    smoothing: Number($('c-smo').value),
+    minHoleArea: Number($('c-min').value),
+    circleMaxRadius: Number($('c-circ').value),
+    symmetric: $('c-sym').checked,
+  };
+}
+
+function renderCalibration() {
+  dropzone.classList.toggle('hidden', !!cal.state.image);
+  cal.drawCalibration(calCanvas, {
+    showMask: $('c-mask').checked,
+    threshold: Number($('c-thr').value),
+    showTrace: true,
+    photoAlpha: 1,
+  });
+}
+
+['c-eps', 'c-smo', 'c-min', 'c-thr', 'c-circ'].forEach((id) => {
+  $(id).addEventListener('input', () => {
+    $('v-thr').value = $('c-thr').value;
+    $('v-eps').value = `${Number($('c-eps').value).toFixed(1)} px`;
+    $('v-smo').value = $('c-smo').value;
+    $('v-min').value = `${$('c-min').value} px²`;
+    $('v-circ').value = `${$('c-circ').value} px`;
+    renderCalibration();
+  });
+});
+$('c-mask').addEventListener('change', renderCalibration);
+
+async function onImage(promise) {
+  try {
+    await promise;
+    $('c-thr').value = cal.autoThreshold();
+    $('v-thr').value = $('c-thr').value;
+    dropzone.classList.add('hidden');
+    say('Photo chargée. Lance le tracé.', 'ok');
+    runTrace();
+  } catch (e) {
+    say(e.message, 'err');
+  }
+}
+
+function runTrace() {
+  try {
+    const t = cal.run(traceOptions(), Number($('c-len').value));
+    say(
+      `Tracé : ${cal.state.trace.outline.length} points de contour, ` +
+      `${t.holes.length} perçages · ${t.width.toFixed(1)} x ${t.height.toFixed(1)} mm`,
+      'ok',
+    );
+    renderCalibration();
+    $('photo-hint').textContent =
+      "Coche « Photo en transparence » pour superposer la photo au modèle 3D.";
+  } catch (e) {
+    say(e.message, 'err');
+  }
+}
+
+$('c-run').addEventListener('click', runTrace);
+
+$('c-apply').addEventListener('click', () => {
+  if (!cal.state.traceMm) { say("Lance d'abord le tracé.", 'err'); return; }
+  try {
+    cal.state.applied = true;
+    entries.forEach((e) => mountPart(e, cal.state.traceMm));
+    rebuildPhotoPlane();
+    renderPartList();
+    if (!$('pane-bp').classList.contains('hidden')) renderBlueprint();
+    say('Modèle 3D reconstruit à partir du tracé photo.', 'ok');
+  } catch (e) {
+    cal.state.applied = false;
+    say(`Reconstruction impossible : ${e.message}`, 'err');
+  }
+});
+
+$('c-export').addEventListener('click', () => {
+  try {
+    cal.download(
+      'contour-piece-01.js',
+      cal.exportModule(Number($('c-len').value), Number($('c-thick').value)),
+    );
+    say('Contour exporté : dépose le fichier dans js/parts/ pour le figer.', 'ok');
+  } catch (e) {
+    say(e.message, 'err');
+  }
+});
+
+$('c-clear').addEventListener('click', () => {
+  cal.forget();
+  $('opt-photo').checked = false;
+  rebuildPhotoPlane();
+  entries.forEach((e) => mountPart(e, null));
+  renderPartList();
+  renderCalibration();
+  say('Photo oubliée, retour au contour manuel.');
+});
+
+// chargement : fichier, glisser-déposer, presse-papier
+$('c-file').addEventListener('change', (e) => {
+  if (e.target.files[0]) onImage(cal.loadFromFile(e.target.files[0]));
+});
+['dragenter', 'dragover'].forEach((ev) =>
+  $('pane-cal').addEventListener(ev, (e) => { e.preventDefault(); dropzone.classList.add('hot'); }));
+['dragleave', 'drop'].forEach((ev) =>
+  $('pane-cal').addEventListener(ev, () => dropzone.classList.remove('hot')));
+$('pane-cal').addEventListener('drop', (e) => {
+  e.preventDefault();
+  const f = [...e.dataTransfer.files].find((x) => x.type.startsWith('image/'));
+  if (f) onImage(cal.loadFromFile(f));
+});
+window.addEventListener('paste', (e) => {
+  const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith('image/'));
+  if (item) onImage(cal.loadFromFile(item.getAsFile()));
+});
+
+// photo mémorisée d'une session à l'autre
+cal.restoreSaved().then((data) => {
+  if (!data) return;
+  $('c-thr').value = cal.autoThreshold();
+  $('v-thr').value = $('c-thr').value;
+  runTrace();
+});
 
 /* ------------------------------------------------------------------ *
  * Boucle
  * ------------------------------------------------------------------ */
 
 function resize() {
-  const w = viewport.clientWidth;
-  const h = viewport.clientHeight;
+  const w = viewport.clientWidth, h = viewport.clientHeight;
   if (!w || !h) return;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
-window.addEventListener('resize', () => { resize(); renderBlueprint(); });
+window.addEventListener('resize', () => {
+  resize();
+  if (!$('pane-bp').classList.contains('hidden')) renderBlueprint();
+  if (!$('pane-cal').classList.contains('hidden')) renderCalibration();
+});
 resize();
+updatePhotoOpacity();
 
 renderer.setAnimationLoop(() => {
-  if (optRotate.checked) buildRoot.rotation.y += 0.0035;
+  if ($('opt-rotate').checked) buildRoot.rotation.y += 0.0035;
   controls.update();
   renderer.render(scene, camera);
 });

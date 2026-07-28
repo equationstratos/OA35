@@ -14,58 +14,78 @@ python3 -m http.server 8000
 # puis http://localhost:8000
 ```
 
-## Ce qui est déjà modélisé
+## Les trois onglets
+
+| Onglet | À quoi il sert |
+|--------|----------------|
+| **Calibration photo** | charge la photo d'une pièce et en trace le contour au pixel près |
+| **Vue 3D** | le build monté, avec la photo superposable en transparence |
+| **Plan coté** | vue de dessus cotée, photo en dessous, grille 10 mm |
+
+## Modéliser une pièce au pixel près
+
+Le contour n'est pas dessiné à l'œil : il est **calculé sur les pixels de la
+photo**.
+
+1. onglet **Calibration photo**, dépose l'image (ou Ctrl+V, ou fichier)
+2. la photo est binarisée (seuil d'Otsu automatique), puis le contour extérieur
+   et chaque perçage sont suivis pixel par pixel
+3. règle si besoin : seuil, simplification, lissage, aire mini d'un perçage
+4. saisis la **longueur réelle** de la pièce — c'est la seule mesure physique
+   nécessaire, tout le reste en découle
+5. **Appliquer au modèle** : la géométrie 3D est reconstruite depuis le tracé
+
+Précision mesurée sur une image de contrôle (silhouette de 156 × 318 px) :
+
+| | |
+|---|---|
+| écart moyen au contour source | **0,22 px** (73 µm) |
+| écart maximum | 1,38 px (454 µm) |
+| boîte englobante restituée | à 0,2 px près sur 318 px |
+
+### Vérifier la conformité
+
+Coche **Photo en transparence** : la photo se superpose au modèle, à l'échelle
+et parfaitement recalée (le calage vient du tracé lui-même, il n'y a rien à
+ajuster à la main). Tout écart se voit immédiatement, en 3D comme sur le plan
+coté.
+
+### Réglages du traçage
+
+| Réglage | Effet |
+|---------|-------|
+| Seuil noir/blanc | sépare la pièce du fond ; Otsu par défaut |
+| Simplification | tolérance Douglas-Peucker, en px (0 = aucun point supprimé) |
+| Lissage | passes de Chaikin, gomme l'escalier des pixels |
+| Perçage mini | ignore les taches plus petites que N px² |
+| Arrondir perçages ≤ N px | les petits trous deviennent des cercles parfaits ; au-delà le tracé brut est gardé, pour ne pas déformer un octogone ou une lumière |
+| Forcer la symétrie G/D | moyenne les deux moitiés, utile si la prise de vue est légèrement de travers |
+
+Bonne photo = vue de dessus, à plat, fond clair uni, pièce sombre, sans
+perspective ni ombre portée marquée. La résolution n'a pas besoin d'être
+énorme, mais plus elle est haute, plus le contour est fin.
+
+### Figer un tracé
+
+**Exporter le contour** génère un module JS contenant les coordonnées tracées,
+en pixels de l'image. Déposé dans `js/parts/`, il rend le modèle indépendant
+de la photo.
+
+## Ce qui est modélisé
 
 | # | Pièce | Matière | Cotes |
 |---|-------|---------|-------|
-| 01 | Plaque inférieure châssis | Carbone 3K sergé 2,0 mm | 102,6 × 50,2 mm, 18 perçages |
+| 01 | Plaque inférieure châssis | Carbone 3K sergé 2,0 mm | calées sur la longueur réelle saisie |
 
-L'onglet **Plan coté** affiche la vue de dessus avec grille 10 mm et cotes —
-c'est là qu'on vérifie la fidélité au pixel près par rapport à la photo.
-
-## Comment les cotes sont calées
-
-Le contour et les perçages sont saisis **en pixels de la photo source**
-(268 × 371 px, origine en haut à gauche, Y vers le bas) dans
-`js/parts/01-bottom-plate.js`. Une seule constante fixe l'échelle :
-
-```js
-export const REF_LENGTH_MM = 105.0;  // longueur hors-tout réelle de la plaque
-```
-
-Le rapport de forme reste donc exact quelle que soit l'échelle : si la plaque
-fait 98 mm et non 105, change cette valeur et **toutes** les cotes suivent.
-
-Contrôle de cohérence à l'échelle actuelle (1 px = 0,3221 mm) :
-
-- gros trous Ø22 px → **Ø7,1 mm** (silent-blocs)
-- petits trous Ø7 px → **Ø2,25 mm** (vis M2)
-- octogone 48 px entre plats → **15,5 mm**
-
-## Corriger une cote
-
-Tout est dans un seul fichier par pièce, en pixels, avec un commentaire par
-point :
-
-```js
-const HALF_OUTLINE_PX = [
-  { px: 134, py: 72,  r: 9,  note: "fond de l'échancrure avant (sur l'axe)" },
-  { px: 152, py: 40,  r: 20, note: "flanc interne de l'oreille avant droite" },
-  ...
-];
-```
-
-- `px` / `py` : coordonnées en pixels de la photo
-- `r` : rayon de congé en pixels (`0` = angle vif)
-- seul le **demi-profil droit** est saisi ; `mirrorHalf()` génère la symétrie,
-  donc la pièce est parfaitement symétrique par construction
-
-Idem pour `BIG_HOLES_PX`, `M2_HOLES_PX`, `SQUARE_CUT_PX`, `SLOT_CUT_PX` et
-`OCTAGON_CUT_PX`.
+Tant qu'aucune photo n'a été appliquée, la pièce 01 utilise un contour de
+secours saisi à la main (marqué **à calibrer** dans le panneau) : il donne la
+bonne allure générale mais **n'est pas conforme au pixel** — c'est le tracé
+photo qui fait foi.
 
 ## Ajouter la pièce suivante
 
-1. créer `js/parts/0N-<nom>.js` exportant `build()`, `blueprint()` et `meta`
+1. créer `js/parts/0N-<nom>.js` exportant `build()`, `meta`, et si la pièce est
+   plate `buildFromTrace()` pour profiter de la calibration photo
    (`meta.stackHeight` = altitude de la pièce dans le build, en mm)
 2. l'importer dans `js/parts/index.js` et l'ajouter à `PARTS`
 
@@ -75,12 +95,14 @@ d'affichage, ses cotes et sa place dans la vue éclatée.
 ## Arborescence
 
 ```
-index.html               interface
+index.html                 interface
 css/style.css
-js/main.js               scène, éclairage, UI
-js/blueprint.js          plan coté 2D
-js/lib/geom.js           pixels -> mm, congés, symétrie, extrusion
-js/lib/materials.js      carbone sergé 2x2 généré au runtime
+js/main.js                 scène, éclairage, UI, calque photo
+js/calibrate.js            chargement photo, pilotage du tracé, export
+js/blueprint.js            plan coté 2D + photo en dessous
+js/lib/trace.js            binarisation, suivi de contour, simplification
+js/lib/geom.js             pixels -> mm, congés, symétrie, extrusion
+js/lib/materials.js        carbone sergé 2x2 généré au runtime
 js/parts/01-bottom-plate.js
-vendor/three/            Three.js r160 (embarqué)
+vendor/three/              Three.js r160 (embarqué)
 ```
