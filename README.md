@@ -251,6 +251,27 @@ Une pièce pas encore assemblée reste à sa place sur l'établi plutôt que d'a
 à l'origine : sinon les pièces se recouvriraient et deviendraient impossibles
 à viser.
 
+## Recalibrer une pièce existante
+
+Une pièce créée avant l'arrivée du calage sur les perçages garde son échelle
+estimée : ses trous ne tombent pas en face de ceux des autres pièces.
+
+- **Recalibrer** sur la fiche d'une pièce, ou **Recalibrer les pièces** dans le
+  panneau Assemblage pour toutes à la fois
+- l'échelle est relue sur les **motifs normalisés de la pièce elle-même**, donc
+  sans sa photo ni aucune mesure
+- le placement d'assemblage de la pièce est effacé au passage : il avait été
+  calculé à l'ancienne échelle et n'a plus de sens
+
+Trois réponses possibles, distinguées parce qu'elles appellent des suites
+différentes : *recalée* (avec l'ancienne et la nouvelle longueur), *déjà à
+l'échelle*, ou *motifs non concluants* — dans ce dernier cas les carrés
+détectés ne se confirment pas entre eux et rien n'est modifié ; il faut alors
+retracer la pièce depuis sa photo.
+
+Le sélecteur de **rôle** sur chaque fiche remet l'épaisseur d'après la fiche
+technique du châssis.
+
 ## Récupérer une pièce supprimée
 
 - pièce créée depuis l'outil : elle vit dans le stockage local du navigateur,

@@ -516,10 +516,32 @@ function renderPartList() {
         <div><dt>Perçages</dt><dd>${dims.holes}</dd></div>
         <div><dt>Matière</dt><dd>${m.material}</dd></div>
         <div><dt>Échelle</dt><dd>1 px = ${dims.mmPerPx.toFixed(4)} mm</dd></div>
-      </dl>`;
+      </dl>
+      ${e.mod.isCustom ? `
+      <div class="part-tools">
+        <select class="role" title="Rôle dans le châssis">
+          <option value="">rôle…</option>
+          ${FRAME.roles.filter((r) => r.thickness).map((r) =>
+    `<option value="${r.id}"${Math.abs(r.thickness - dims.thickness) < 0.01 ? ' selected' : ''}>`
+            + `${r.name} — ${r.thickness.toFixed(1)} mm</option>`).join('')}
+        </select>
+        <button class="recal" title="Recaler l'échelle sur les perçages normalisés">Recalibrer</button>
+      </div>` : ''}`;
     li.querySelector('input').addEventListener('change', (ev) => {
       if (e.object) e.object.visible = ev.target.checked;
     });
+
+    const role = li.querySelector('.role');
+    if (role) role.addEventListener('change', () => {
+      const thickness = thicknessForRole(role.value);
+      if (!thickness) return;
+      custom.setThickness(m.id, thickness);
+      remountAll();
+    });
+
+    const recal = li.querySelector('.recal');
+    if (recal) recal.addEventListener('click', () => rescalePart(m.id, m.name));
+
     const del = li.querySelector('.del');
     if (del) del.addEventListener('click', () => {
       if (!confirm(`Supprimer « ${m.name} » ?`)) return;
@@ -584,6 +606,72 @@ explode.addEventListener('input', () => {
 $('opt-layout').addEventListener('change', () => {
   layoutParts();
   frameAll();
+});
+
+/**
+ * Recale une pièce sur ses propres motifs de perçage. Les pièces créées avant
+ * l'arrivée de ce calage gardent une échelle estimée, donc des perçages qui ne
+ * tombent pas en face de ceux des autres pièces.
+ */
+function rescalePart(id, name) {
+  const result = custom.rescaleToPatterns(id);
+
+  if (result.status === 'already') {
+    updateAsmHint(
+      `« ${name} » est déjà à l'échelle de ses motifs `
+      + `(${result.length.toFixed(1)} mm, ${result.patterns}).`,
+      'ok',
+    );
+    return;
+  }
+  if (result.status !== 'rescaled') {
+    updateAsmHint(
+      `« ${name} » : les motifs de perçage ne se confirment pas entre eux, `
+      + "l'échelle n'est pas modifiée. Trace la pièce depuis sa photo pour trancher.",
+      'warn',
+    );
+    return;
+  }
+
+  // le placement d'assemblage avait été calculé à l'ancienne échelle
+  delete placements[id];
+  asm.savePlacements(placements);
+  remountAll();
+  updateAsmHint(
+    `« ${name} » recalée : ${result.current.toFixed(1)} -> `
+    + `${result.length.toFixed(1)} mm (motifs ${result.patterns}).`,
+    'ok',
+  );
+}
+
+$('asm-rescale-all').addEventListener('click', () => {
+  const custom_ = entries.filter((e) => e.mod.isCustom);
+  if (!custom_.length) {
+    updateAsmHint('Aucune pièce créée depuis l\'outil à recaler.', 'warn');
+    return;
+  }
+  const done = [];
+  const already = [];
+  const inconclusive = [];
+  for (const e of custom_) {
+    const result = custom.rescaleToPatterns(e.mod.meta.id);
+    if (result.status === 'rescaled') {
+      delete placements[e.mod.meta.id];
+      done.push(`${e.mod.meta.name} ${result.current.toFixed(1)} -> ${result.length.toFixed(1)} mm`);
+    } else if (result.status === 'already') {
+      already.push(e.mod.meta.name);
+    } else {
+      inconclusive.push(e.mod.meta.name);
+    }
+  }
+  asm.savePlacements(placements);
+  remountAll();
+
+  const parts = [];
+  if (done.length) parts.push(`Recalées : ${done.join(' · ')}.`);
+  if (already.length) parts.push(`Déjà à l'échelle : ${already.join(', ')}.`);
+  if (inconclusive.length) parts.push(`Motifs non concluants : ${inconclusive.join(', ')}.`);
+  updateAsmHint(parts.join(' '), inconclusive.length && !done.length ? 'warn' : 'ok');
 });
 
 $('asm-reset').addEventListener('click', () => {

@@ -7,7 +7,8 @@
  * aucune différence entre les deux.
  */
 
-import { plateFromTrace, blueprintFromTrace } from '../lib/plate.js';
+import { plateFromTrace, blueprintFromTrace, holeAnchors } from '../lib/plate.js';
+import { findSquares, proposeScales } from '../lib/patterns.js';
 
 const STORAGE_KEY = 'tinyhoop-mk1:custom-parts';
 
@@ -78,6 +79,79 @@ export function renameSpec(id, name) {
   const list = loadSpecs();
   const s = list.find((x) => x.id === id);
   if (s) { s.name = name; saveSpecs(list); }
+}
+
+export function setThickness(id, thickness) {
+  const list = loadSpecs();
+  const s = list.find((x) => x.id === id);
+  if (!s) return;
+  s.thickness = thickness;
+  saveSpecs(list);
+}
+
+/* ------------------------------------------------------------------ *
+ * Recalibrage
+ * ------------------------------------------------------------------ */
+
+/** Applique un facteur d'échelle à un tracé déjà converti en millimètres. */
+function scaleTrace(trace, factor) {
+  const point = ([x, y]) => [x * factor, y * factor];
+  return {
+    outline: trace.outline.map(point),
+    holes: trace.holes.map((h) => ({
+      ...h,
+      points: h.points.map(point),
+      ...(h.kind === 'circle'
+        ? { cx: h.cx * factor, cy: h.cy * factor, r: h.r * factor }
+        : {}),
+    })),
+    mmPerPx: trace.mmPerPx * factor,
+    width: trace.width * factor,
+    height: trace.height * factor,
+  };
+}
+
+/**
+ * Échelle qu'impliquent les motifs de perçage normalisés d'une pièce.
+ * @returns {{length:number, current:number, factor:number, patterns:string}|null}
+ *          null si les motifs ne se confirment pas entre eux
+ */
+export function proposeRescale(spec) {
+  const groups = proposeScales(findSquares(holeAnchors(spec.trace)), spec.trace.height);
+  const best = groups[0];
+  // un carré isolé peut correspondre à plusieurs standards : on n'agit que
+  // lorsque des carrés de tailles différentes désignent la même échelle
+  if (!best || best.distinctSquares < 2 || best.spread > best.length * 0.02) return null;
+  return {
+    length: best.length,
+    current: spec.trace.height,
+    factor: best.length / spec.trace.height,
+    patterns: [...new Set(best.matches.map((m) => m.pattern.name))].join(' + '),
+  };
+}
+
+/**
+ * Recale une pièce sur ses propres perçages.
+ *
+ * Le résultat distingue les trois cas, qui appellent des réponses différentes :
+ * une pièce déjà juste n'est pas un échec de lecture des motifs.
+ *
+ * @returns {{status:'rescaled'|'already'|'inconclusive'|'unknown'} & object}
+ */
+export function rescaleToPatterns(id, minRelativeChange = 0.005) {
+  const list = loadSpecs();
+  const spec = list.find((x) => x.id === id);
+  if (!spec) return { status: 'unknown' };
+
+  const proposal = proposeRescale(spec);
+  if (!proposal) return { status: 'inconclusive' };
+  if (Math.abs(proposal.factor - 1) < minRelativeChange) {
+    return { status: 'already', ...proposal };
+  }
+
+  spec.trace = scaleTrace(spec.trace, proposal.factor);
+  saveSpecs(list);
+  return { status: 'rescaled', ...proposal };
 }
 
 /* ------------------------------------------------------------------ *

@@ -357,3 +357,23 @@ ul { list-style: none; margin: 0; padding: 0; }
   padding: 3px 6px;
   font-size: 12px;
 }
+
+.part-tools {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+.part-tools select,
+.part-tools button {
+  flex: 1;
+  min-width: 0;
+  background: #0c121a;
+  border: 1px solid var(--line);
+  color: var(--txt);
+  border-radius: 5px;
+  padding: 4px 6px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.part-tools button:hover,
+.part-tools select:hover { border-color: var(--accent); }
