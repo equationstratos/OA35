@@ -379,3 +379,36 @@ ul { list-style: none; margin: 0; padding: 0; }
 .part-tools select:hover { border-color: var(--accent); }
 
 .part-tools + .part-tools { margin-top: 6px; }
+
+/* ------------------------------------------- téléchargement d'une pièce */
+
+.download-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.download-label {
+  flex: 0 0 100%;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--dim);
+}
+.part .dl {
+  flex: 1;
+  min-width: 0;
+  background: rgba(108, 199, 255, 0.12);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.part .dl:hover { background: var(--accent); color: var(--bg); }

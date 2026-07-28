@@ -518,9 +518,10 @@ function renderPartList() {
         <div><dt>Matière</dt><dd>${m.material}</dd></div>
         <div><dt>Échelle</dt><dd>1 px = ${dims.mmPerPx.toFixed(4)} mm</dd></div>
       </dl>
-      <div class="part-tools">
-        <button class="dl-stl" title="Géométrie 3D, en mm, à plat">STL</button>
-        <button class="dl-js" title="Module prêt à déposer dans js/parts/">Module JS</button>
+      <div class="download-row">
+        <span class="download-label">Télécharger</span>
+        <button class="dl dl-stl" title="Géométrie 3D en millimètres, pièce à plat — CAO, impression">⬇ STL</button>
+        <button class="dl dl-js" title="Module autonome à déposer dans js/parts/ du dépôt">⬇ .js pour le dépôt</button>
       </div>
       ${e.mod.isCustom ? `
       <div class="part-tools">

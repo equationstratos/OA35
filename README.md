@@ -6,7 +6,9 @@ a aucune dépendance réseau ni build à lancer.
 
 ## Lancer
 
-Ouvre `index.html` dans un navigateur. Si les modules ES sont bloqués en
+Ouvre `index.html` dans un navigateur. Après un `git pull`, force le
+rechargement (Ctrl+Maj+R) : le navigateur garde les modules en cache et
+continuerait sinon à servir l'ancienne version. Si les modules ES sont bloqués en
 `file://`, sers le dossier :
 
 ```bash
@@ -253,13 +255,14 @@ Une pièce pas encore assemblée reste à sa place sur l'établi plutôt que d'a
 
 ## Exporter une pièce
 
-Deux boutons sur la fiche de chaque pièce :
+Deux boutons sous la rubrique **Télécharger**, sur la fiche de chaque pièce
+dans le panneau de gauche :
 
-- **STL** — la géométrie 3D, en millimètres, pièce à plat dans son propre
+- **⬇ STL** — la géométrie 3D, en millimètres, pièce à plat dans son propre
   repère : l'orientation attendue par un logiciel de CAO ou un trancheur, pas
   celle de l'assemblage. Le STL n'ayant pas d'unité, le millimètre est la
   convention universelle et c'est déjà celle du modèle.
-- **Module JS** — un fichier autonome à déposer dans `js/parts/`, contenant le
+- **⬇ .js pour le dépôt** — un fichier autonome à déposer dans `js/parts/`, contenant le
   tracé en millimètres et exposant la même interface que les pièces livrées
   avec le projet. Il ne reste qu'à l'importer dans `js/parts/index.js` et à
   l'ajouter au tableau `PARTS`. C'est le moyen de faire passer une pièce du
