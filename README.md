@@ -146,7 +146,22 @@ Deux voies, au choix :
   l'importer dans `js/parts/index.js` et l'ajouter à `PARTS`.
 
 Dans les deux cas elle apparaît dans le panneau latéral avec sa case
-d'affichage, ses cotes et sa place dans la vue éclatée.
+d'affichage et ses cotes, et se pose **à côté des pièces déjà créées** dans la
+vue 3D.
+
+## Disposition des pièces
+
+Deux modes, via **Pièces côte à côte** dans le panneau Affichage :
+
+- **côte à côte** (par défaut) — les pièces sont alignées et posées à plat,
+  sans se recouvrir : c'est la vue de travail quand on modélise pièce par pièce
+- **assemblée** — décochée, chaque pièce reprend son altitude dans le build
+  (*Hauteur dans le build*), et le curseur **Vue éclatée** les écarte
+  verticalement
+
+Le cadrage suit : les boutons ISO / Dessus / Avant / Côté choisissent une
+direction, la distance est calculée pour que tout le build tienne dans l'image,
+quel que soit le nombre de pièces.
 
 ## Récupérer une pièce supprimée
 

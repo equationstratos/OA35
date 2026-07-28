@@ -114,10 +114,8 @@ function mountPart(entry, traceMm) {
   entry.object = traceMm && entry.mod.buildFromTrace
     ? entry.mod.buildFromTrace(traceMm)
     : entry.mod.build();
-  entry.object.position.y = entry.baseY;
   buildRoot.add(entry.object);
   applyDisplayOptions();
-  invalidate();
 }
 
 /** Remonte toute la scène après ajout ou suppression d'une pièce. */
@@ -127,12 +125,91 @@ function remountAll() {
   });
   entries = collectParts();
   entries.forEach((e) => mountPart(e, e.mod.isCustom ? null : appliedTrace()));
+  layoutParts();
+  frameAll();
   renderPartList();
 }
 
 /** Le tracé photo ne remplace que la pièce 01, et seulement si demandé. */
 function appliedTrace() {
   return cal.state.applied ? cal.state.traceMm : null;
+}
+
+/* ------------------------------------------------------------------ *
+ * Disposition des pièces
+ * ------------------------------------------------------------------ */
+
+/** Espace laissé entre deux pièces posées côte à côte, en mm. */
+const LAYOUT_GAP_MM = 12;
+
+/**
+ * Deux dispositions :
+ * - côte à côte : les pièces sont alignées sur X et posées à plat, sans se
+ *   recouvrir ; c'est la vue de travail quand on modélise pièce par pièce
+ * - assemblée : chaque pièce reprend son altitude dans le build, et la vue
+ *   éclatée les écarte verticalement
+ */
+function layoutParts() {
+  const sideBySide = $('opt-layout').checked;
+  const spread = Number($('explode').value);
+
+  if (sideBySide) {
+    const widths = entries.map((e) => e.mod.meta.dims.width);
+    const total = widths.reduce((a, b) => a + b, 0)
+      + LAYOUT_GAP_MM * Math.max(0, entries.length - 1);
+    let x = -total / 2;
+    entries.forEach((e, i) => {
+      if (e.object) e.object.position.set(x + widths[i] / 2, 0, 0);
+      x += widths[i] + LAYOUT_GAP_MM;
+    });
+  } else {
+    entries.forEach((e, i) => {
+      if (e.object) e.object.position.set(0, e.baseY + i * spread, 0);
+    });
+  }
+
+  $('explode').disabled = sideBySide;
+  invalidate();
+}
+
+/* ------------------------------------------------------------------ *
+ * Cadrage
+ * ------------------------------------------------------------------ */
+
+const ISO_DIR = new THREE.Vector3(0.85, 0.7, 1).normalize();
+
+/** Sphère englobant le build : le cadrage suit le nombre de pièces. */
+function buildSphere() {
+  const box = new THREE.Box3().setFromObject(buildRoot);
+  const sphere = new THREE.Sphere();
+  if (box.isEmpty()) { sphere.set(new THREE.Vector3(), 60); return sphere; }
+  box.getBoundingSphere(sphere);
+  sphere.radius = Math.max(sphere.radius, 20);
+  return sphere;
+}
+
+/** Distance à laquelle la sphère tient entièrement dans le cadre. */
+function fitDistance(radius) {
+  const vFov = (camera.fov * Math.PI) / 180;
+  const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
+  return (radius / Math.sin(Math.min(vFov, hFov) / 2)) * 1.08;
+}
+
+/** Recadre, en conservant la direction de vue courante si aucune n'est donnée. */
+function frameAll(direction) {
+  const sphere = buildSphere();
+  const dir = direction
+    ? direction.clone().normalize()
+    : camera.position.clone().sub(controls.target).normalize();
+  if (!Number.isFinite(dir.x) || dir.lengthSq() < 1e-6) dir.copy(ISO_DIR);
+
+  controls.target.copy(sphere.center);
+  camera.position.copy(sphere.center).addScaledVector(dir, fitDistance(sphere.radius));
+  camera.near = Math.max(0.1, sphere.radius / 100);
+  camera.far = sphere.radius * 20;
+  camera.updateProjectionMatrix();
+  controls.update();
+  invalidate();
 }
 
 entries = collectParts();
@@ -258,16 +335,18 @@ for (const p of PLANNED) {
   plannedList.appendChild(li);
 }
 
-// Vues prédéfinies
-const VIEWS = { iso: [95, 78, 118], top: [0, 175, 0.01], front: [0, 8, 165], side: [165, 8, 0] };
+// Vues prédéfinies : on choisit une direction, la distance cadre tout le build
+const VIEWS = {
+  iso: ISO_DIR,
+  top: new THREE.Vector3(0, 1, 0.0001),
+  front: new THREE.Vector3(0, 0.08, 1),
+  side: new THREE.Vector3(1, 0.08, 0),
+};
 document.querySelectorAll('[data-view]').forEach((btn) => {
   btn.addEventListener('click', () => {
-    const [x, y, z] = VIEWS[btn.dataset.view];
-    camera.position.set(x, y, z);
-    controls.target.set(0, 4, 0);
+    frameAll(VIEWS[btn.dataset.view]);
     document.querySelectorAll('[data-view]').forEach((b) => b.classList.remove('on'));
     btn.classList.add('on');
-    invalidate();
   });
 });
 
@@ -294,10 +373,13 @@ $('opt-grid').addEventListener('change', () => {
 
 const explode = $('explode');
 explode.addEventListener('input', () => {
-  const f = Number(explode.value);
-  entries.forEach((e, i) => { if (e.object) e.object.position.y = e.baseY + i * f; });
-  $('explode-val').textContent = `${f} mm`;
-  invalidate();
+  $('explode-val').textContent = `${explode.value} mm`;
+  layoutParts();
+});
+
+$('opt-layout').addEventListener('change', () => {
+  layoutParts();
+  frameAll();
 });
 
 /* ------------------------------------------------------------------ *
@@ -469,26 +551,9 @@ $('c-clear').addEventListener('click', () => {
   cal.forget();
   $('opt-photo').checked = false;
   rebuildPhotoPlane();
-  /** Remonte toute la scène après ajout ou suppression d'une pièce. */
-function remountAll() {
-  entries.forEach((e) => {
-    if (e.object) { buildRoot.remove(e.object); disposeObject(e.object); }
-  });
-  entries = collectParts();
-  entries.forEach((e) => mountPart(e, e.mod.isCustom ? null : appliedTrace()));
-  renderPartList();
-}
-
-/** Le tracé photo ne remplace que la pièce 01, et seulement si demandé. */
-function appliedTrace() {
-  return cal.state.applied ? cal.state.traceMm : null;
-}
-
-entries = collectParts();
-entries.forEach((e) => mountPart(e, null));
-  renderPartList();
+  remountAll();
   renderCalibration();
-  say('Photo oubliée, retour au contour manuel.');
+  say('Photo oubliée. Les pièces déjà créées sont conservées.');
 });
 
 // chargement : fichier, glisser-déposer, presse-papier
@@ -535,6 +600,8 @@ window.addEventListener('resize', () => {
   if (!$('pane-cal').classList.contains('hidden')) renderCalibration();
 });
 resize();
+layoutParts();
+frameAll(ISO_DIR);
 updatePhotoOpacity();
 
 renderer.setAnimationLoop(() => {
