@@ -4,6 +4,8 @@
  */
 
 import { traceImage, traceToMm, otsuThreshold, buildMask, denoise } from './lib/trace.js';
+import { holeAnchors } from './lib/plate.js';
+import { findSquares, proposeScales } from './lib/patterns.js';
 
 const STORAGE_KEY = 'tinyhoop-mk1:ref-image';
 
@@ -14,6 +16,8 @@ export const state = {
   traceMm: null,      // tracé en mm
   opacity: 0.55,
   applied: false,
+  /** échelles déduites des motifs de perçage normalisés */
+  scaleProposals: [],
 };
 
 /* ------------------------------------------------------------------ *
@@ -77,6 +81,10 @@ export function run(opts, refLengthMm) {
   if (!state.imageData) throw new Error("Charge d'abord la photo de la pièce.");
   state.trace = traceImage(state.imageData, opts);
   state.traceMm = traceToMm(state.trace, refLengthMm);
+  state.scaleProposals = proposeScales(
+    findSquares(holeAnchors(state.traceMm)),
+    state.traceMm.height,
+  );
   return state.traceMm;
 }
 

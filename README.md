@@ -31,8 +31,8 @@ photo**.
 2. la photo est binarisée (seuil d'Otsu automatique), puis le contour extérieur
    et chaque perçage sont suivis pixel par pixel
 3. règle si besoin : seuil, simplification, lissage, aire mini d'un perçage
-4. saisis la **longueur réelle** de la pièce — c'est la seule mesure physique
-   nécessaire, tout le reste en découle
+4. l'échelle se cale toute seule sur les **motifs de perçage normalisés**
+   (voir ci-dessous) ; à défaut, saisis la longueur réelle de la pièce
 5. **Appliquer au modèle** : la géométrie 3D est reconstruite depuis le tracé
 
 Précision mesurée en aller-retour (la pièce est rendue en silhouette, puis
@@ -43,6 +43,39 @@ retracée, et le résultat comparé à la source) :
 | écart moyen au contour source | **0,28 px** (94 µm) |
 | écart maximum | 1,23 px (412 µm) |
 | boîte englobante restituée | à 0,9 px près sur 313 px |
+
+### L'échelle, sans rien mesurer
+
+Mettre une pièce à l'échelle par sa longueur hors-tout suppose de connaître
+cette longueur. À défaut on la devine — et **deux pièces calibrées séparément
+ne s'emboîtent pas**, leurs perçages tombent à côté.
+
+Les châssis FPV portent en revanche des motifs de fixation normalisés : le
+carré de 20 × 20 mm des contrôleurs de vol, celui de 25,5 × 25,5, parfois
+16 × 16 ou 30,5 × 30,5. L'outil cherche ces carrés dans les perçages tracés et
+en déduit l'échelle exacte.
+
+Un carré isolé reste ambigu — il peut correspondre à plusieurs standards. Mais
+quand des carrés de **tailles différentes désignent la même échelle**, ils se
+confirment mutuellement : ce n'est plus une supposition. L'échelle n'est
+appliquée d'office que dans ce cas ; sinon les candidats sont proposés et c'est
+toi qui tranches.
+
+Sur la plaque 01, quatre lectures indépendantes convergent :
+
+| carré mesuré | standard | longueur impliquée |
+|---|---|---|
+| 22,94 mm | 20 × 20 | 91,5 mm |
+| 23,06 mm | 20 × 20 | 91,1 mm |
+| 29,37 mm | 25,5 × 25,5 | 91,2 mm |
+
+D'où **91,2 mm ± 0,3** — et non les 105 mm supposés au départ, soit 13 %
+d'erreur. Après recalage, les carrés du modèle mesurent 19,95 / 20,08 / 25,52 /
+25,52 mm : les deux standards à 0,08 mm près, ce qui vaut vérification.
+
+Effet sur l'assemblage : sur deux pièces mises à l'échelle par ce moyen, une
+paire de perçages correspondants se superpose à **0,01 mm**, contre 4,25 mm
+quand l'une gardait une longueur devinée.
 
 ### Le lissage
 
@@ -93,7 +126,8 @@ Une fois le tracé fait, renseigne en bas du panneau :
 | Champ | Rôle |
 |-------|------|
 | Nom de la pièce | son libellé dans le panneau latéral |
-| Longueur réelle | l'échelle de la pièce |
+| Longueur réelle | l'échelle de la pièce, calée d'office sur les motifs de perçage quand ils la confirment |
+| Rôle dans le châssis | donne l'épaisseur d'après la fiche technique |
 | Épaisseur | l'épaisseur extrudée |
 | Hauteur dans le build | son altitude dans l'empilement, en mm (0 = plaque du bas) |
 
@@ -118,11 +152,34 @@ Les deux autres boutons :
 en pixels de l'image. Déposé dans `js/parts/`, il rend le modèle indépendant
 de la photo.
 
+## Le châssis
+
+Fiche technique du fabricant, dans `js/frame-spec.js`. C'est la **seule source
+de cotes absolues** du projet : tout le reste est mesuré sur les photos.
+
+| | |
+|---|---|
+| Modèle | Sub250 OasisFly35 DC |
+| Empattement | 175 mm |
+| Plaque inférieure | 1,5 mm |
+| Plaque intermédiaire | 2,5 mm |
+| Plaque supérieure | 2,0 mm |
+| Bras | 3,5 mm |
+
+Choisir le **rôle** d'une pièce à sa création lui donne son épaisseur : elle
+n'est pas à saisir deux fois. L'empattement servira de contrôle une fois les
+bras modélisés — c'est la diagonale d'axe moteur à axe moteur.
+
 ## Ce qui est modélisé
 
 | # | Pièce | Matière | Cotes |
 |---|-------|---------|-------|
-| 01 | Plaque inférieure châssis | Carbone 3K sergé 2,0 mm | 105,0 × 62,7 mm, 29 perçages |
+| 01 | Plaque intermédiaire | Carbone 3K sergé 2,5 mm | 91,2 × 54,4 mm, 29 perçages |
+
+> La pièce 01 porte les deux motifs de fixation du contrôleur de vol, ce qui
+> désigne la plaque intermédiaire (2,5 mm). Si c'en est une autre, corriger
+> `THICKNESS_MM` dans `js/parts/contour-piece-01.js` d'après le tableau
+> ci-dessus.
 
 La géométrie de la pièce 01 vient du tracé de sa photo, figé dans
 `js/parts/contour-piece-01.js`. Pour la mettre à jour : refaire un tracé,
@@ -210,7 +267,9 @@ js/main.js                 scène, éclairage, UI, calque photo
 js/calibrate.js            chargement photo, pilotage du tracé, export
 js/blueprint.js            plan coté 2D + photo en dessous
 js/assembly.js             contraintes de perçages, placement, sélection
+js/frame-spec.js           fiche technique du châssis : empattement, épaisseurs
 js/lib/trace.js            binarisation, suivi de contour, simplification
+js/lib/patterns.js         motifs de perçage normalisés, calage de l'échelle
 js/lib/geom.js             pixels -> mm, congés, symétrie, extrusion
 js/lib/materials.js        carbone sergé 2x2 généré au runtime
 js/parts/01-bottom-plate.js

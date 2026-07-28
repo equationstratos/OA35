@@ -11,6 +11,8 @@ import { blueprintFromTrace } from './lib/plate.js';
 import * as cal from './calibrate.js';
 import * as custom from './parts/custom.js';
 import * as asm from './assembly.js';
+import { describe as describeScale } from './lib/patterns.js';
+import { FRAME, thicknessForRole } from './frame-spec.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -680,6 +682,29 @@ function renderCalibration() {
 });
 $('c-mask').addEventListener('change', renderCalibration);
 
+// le rôle d'une pièce donne son épaisseur : elle vient de la fiche technique
+// du châssis, il n'y a pas à la saisir deux fois
+for (const role of FRAME.roles) {
+  const option = document.createElement('option');
+  option.value = role.id;
+  option.textContent = role.thickness
+    ? `${role.name} — ${role.thickness.toFixed(1)} mm`
+    : role.name;
+  if (role.id === 'mid') option.selected = true;
+  $('c-role').appendChild(option);
+}
+$('c-role').addEventListener('change', () => {
+  const thickness = thicknessForRole($('c-role').value);
+  if (thickness) $('c-thick').value = thickness;
+});
+
+// rappel de la fiche technique, seule source de cotes absolues du projet
+$('frame-spec').innerHTML = `
+  <div><dt>Modèle</dt><dd>${FRAME.model}</dd></div>
+  <div><dt>Empattement</dt><dd>${FRAME.wheelbaseMm} mm</dd></div>
+  ${FRAME.roles.filter((r) => r.thickness).map((r) =>
+    `<div><dt>${r.name}</dt><dd>${r.thickness.toFixed(1)} mm</dd></div>`).join('')}`;
+
 async function onImage(promise) {
   try {
     await promise;
@@ -693,15 +718,62 @@ async function onImage(promise) {
   }
 }
 
-function runTrace() {
+/** Propositions d'échelle déduites des motifs de perçage normalisés. */
+function renderScaleProposals() {
+  const block = $('scale-block');
+  const list = $('scale-list');
+  const proposals = cal.state.scaleProposals || [];
+  list.innerHTML = '';
+  block.classList.toggle('hidden', proposals.length === 0);
+
+  proposals.slice(0, 4).forEach((group) => {
+    const li = document.createElement('li');
+    li.className = 'scale-choice';
+    li.innerHTML = `<button type="button">${describeScale(group)}</button>`;
+    li.querySelector('button').addEventListener('click', () => {
+      $('c-len').value = group.length.toFixed(2);
+      runTrace(false);
+      say(`Échelle calée sur les motifs normalisés : ${group.length.toFixed(1)} mm hors-tout.`, 'ok');
+    });
+    list.appendChild(li);
+  });
+}
+
+/**
+ * Une proposition n'est retenue d'office que si des carrés de tailles
+ * différentes désignent la même échelle : un carré isolé peut correspondre à
+ * plusieurs standards, deux qui concordent ne sont plus une supposition.
+ */
+function isTrustworthy(group) {
+  return group && group.distinctSquares >= 2 && group.spread < group.length * 0.02;
+}
+
+function runTrace(allowAutoScale = true) {
   try {
     const t = cal.run(traceOptions(), Number($('c-len').value));
+
+    // recalage automatique sur les motifs normalisés : sans lui, chaque pièce
+    // garde l'échelle devinée à la saisie et les perçages ne tombent pas en face
+    const best = (cal.state.scaleProposals || [])[0];
+    if (allowAutoScale && isTrustworthy(best)
+        && Math.abs(best.length - t.height) > t.height * 0.01) {
+      $('c-len').value = best.length.toFixed(2);
+      runTrace(false);
+      say(
+        `Échelle calée sur les perçages : ${best.length.toFixed(1)} mm hors-tout `
+        + `(motifs ${[...new Set(best.matches.map((m) => m.pattern.name))].join(' + ')}).`,
+        'ok',
+      );
+      return;
+    }
+
     say(
       `Tracé : ${cal.state.trace.outline.length} points de contour, ` +
       `${t.holes.length} perçages · ${t.width.toFixed(1)} x ${t.height.toFixed(1)} mm`,
       'ok',
     );
     renderCalibration();
+    renderScaleProposals();
     $('photo-hint').textContent =
       "Coche « Photo en transparence » pour superposer la photo au modèle 3D.";
   } catch (e) {

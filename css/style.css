@@ -331,3 +331,29 @@ ul { list-style: none; margin: 0; padding: 0; }
 .asm-hint.warn { border-color: #8a6a2a; color: var(--warm); }
 
 #sidebar .btn-row button { padding: 7px 6px; }
+
+#scale-block.hidden { display: none; }
+#scale-block h3 { margin-top: 0; }
+.scale-choice { margin-bottom: 6px; }
+.scale-choice button {
+  width: 100%;
+  text-align: left;
+  background: #101a26;
+  border: 1px solid var(--line);
+  color: var(--txt);
+  border-radius: 6px;
+  padding: 7px 9px;
+  font-size: 11.5px;
+  line-height: 1.35;
+  cursor: pointer;
+}
+.scale-choice button:hover { border-color: var(--accent); background: #142234; }
+
+.ctl select {
+  background: #0c121a;
+  border: 1px solid var(--line);
+  color: var(--txt);
+  border-radius: 5px;
+  padding: 3px 6px;
+  font-size: 12px;
+}
