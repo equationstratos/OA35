@@ -214,14 +214,30 @@ ul { list-style: none; margin: 0; padding: 0; }
 }
 #cal-panel hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
 
-.ctl { display: block; margin-bottom: 12px; font-size: 13px; color: var(--dim); }
+.ctl {
+  /* flex plutôt que float : un float non nettoyé débordait du libellé et
+     recouvrait les boutons, qui devenaient incliquables */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--dim);
+}
 .ctl output {
-  float: right;
   color: var(--warm);
   font: 12px ui-monospace, monospace;
 }
-.ctl input[type=range] { width: 100%; margin-top: 6px; accent-color: var(--accent); }
-.ctl .unit { float: right; color: var(--warm); font: 12px ui-monospace, monospace; }
+.ctl input[type=range] { flex: 0 0 100%; accent-color: var(--accent); }
+.ctl .unit {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--warm);
+  font: 12px ui-monospace, monospace;
+}
 .ctl input[type=number] {
   width: 66px;
   background: #0c121a;
@@ -261,3 +277,31 @@ ul { list-style: none; margin: 0; padding: 0; }
 }
 .status.ok { color: #4ec98a; }
 .status.err { color: #ff6b81; }
+
+.part { position: relative; }
+.part .del {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  line-height: 1;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--dim);
+  cursor: pointer;
+  font-size: 11px;
+}
+.part .del:hover { color: #ff6b81; border-color: #ff6b81; }
+
+.ctl input[type=text] {
+  width: 150px;
+  background: #0c121a;
+  border: 1px solid var(--line);
+  color: var(--txt);
+  border-radius: 5px;
+  padding: 3px 6px;
+  font-size: 12px;
+}

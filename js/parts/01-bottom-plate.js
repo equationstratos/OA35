@@ -13,13 +13,11 @@
  * cotes en découlent, donc le rapport de forme reste exact au pixel près.
  */
 
-import * as THREE from 'three';
 import {
   makeScale, roundPolygon, mirrorHalf,
-  circlePath, roundedRectPath, regularPolyPath,
-  extrudePlate, bbox2d,
+  circlePath, roundedRectPath, regularPolyPath, bbox2d,
 } from '../lib/geom.js';
-import { carbonMaterial, outlineMaterial } from '../lib/materials.js';
+import { plateObject, plateFromTrace } from '../lib/plate.js';
 
 /* ------------------------------------------------------------------ *
  * 1. Calibration
@@ -163,50 +161,15 @@ export function blueprint() {
 
 /** Objet 3D prêt à poser dans la scène (plaque à plat, avant vers -Z). */
 export function build() {
-  return meshFrom(outlinePoints(), holePaths());
+  return plateObject(outlinePoints(), holePaths(), THICKNESS_MM);
 }
 
 /**
  * Variante construite à partir du tracé automatique de la photo
  * (voir js/lib/trace.js) : la géométrie vient alors des pixels réels.
- * @param {{outline:number[][], holes:{points:number[][]}[]}} traceMm en mm
  */
 export function buildFromTrace(traceMm) {
-  const outline = traceMm.outline.map(([x, y]) => new THREE.Vector2(x, y));
-  const holes = traceMm.holes.map(
-    (h) => new THREE.Path(h.points.map(([x, y]) => new THREE.Vector2(x, y))),
-  );
-  return meshFrom(outline, holes);
-}
-
-function meshFrom(outline, holes) {
-  const geo = extrudePlate(outline, holes, THICKNESS_MM);
-
-  // UV planaires pour que le tissage suive la plaque, pas l'extrusion
-  const pos = geo.attributes.position;
-  const uv = new Float32Array(pos.count * 2);
-  for (let i = 0; i < pos.count; i++) {
-    uv[i * 2] = pos.getX(i) / 100;
-    uv[i * 2 + 1] = pos.getY(i) / 100;
-  }
-  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-
-  const mesh = new THREE.Mesh(geo, carbonMaterial(1));
-  mesh.name = 'body';
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-
-  const group = new THREE.Group();
-  group.add(mesh);
-
-  // liseré de contour (aide à la lecture des arêtes)
-  const edgeGeo = new THREE.EdgesGeometry(geo, 35);
-  const edges = new THREE.LineSegments(edgeGeo, outlineMaterial());
-  edges.name = 'edges';
-  group.add(edges);
-
-  group.rotation.x = -Math.PI / 2; // à plat, +Y du dessin -> -Z monde (avant)
-  return group;
+  return plateFromTrace(traceMm, THICKNESS_MM);
 }
 
 export const meta = {

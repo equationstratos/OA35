@@ -65,6 +65,32 @@ Bonne photo = vue de dessus, à plat, fond clair uni, pièce sombre, sans
 perspective ni ombre portée marquée. La résolution n'a pas besoin d'être
 énorme, mais plus elle est haute, plus le contour est fin.
 
+### Créer une pièce depuis l'outil
+
+Une fois le tracé fait, renseigne en bas du panneau :
+
+| Champ | Rôle |
+|-------|------|
+| Nom de la pièce | son libellé dans le panneau latéral |
+| Longueur réelle | l'échelle de la pièce |
+| Épaisseur | l'épaisseur extrudée |
+| Hauteur dans le build | son altitude dans l'empilement, en mm (0 = plaque du bas) |
+
+puis **Créer la pièce**. Elle est ajoutée au build, apparaît dans la liste avec
+ses cotes et sa case d'affichage, et est **conservée dans le navigateur** :
+elle est toujours là au rechargement. La croix ✕ sur sa fiche la supprime.
+
+Aucun fichier à écrire : le tracé et les métadonnées vivent dans le stockage
+local du navigateur. Pour rendre une pièce permanente dans le dépôt, passe par
+**Exporter le contour** ci-dessous.
+
+Les deux autres boutons :
+
+- **Remplacer la pièce 01** — écrase la géométrie de la plaque livrée avec le
+  projet par le tracé courant, sans créer de pièce supplémentaire
+- **Oublier la photo** — efface la photo mémorisée ; les pièces déjà créées
+  sont conservées
+
 ### Figer un tracé
 
 **Exporter le contour** génère un module JS contenant les coordonnées tracées,
@@ -82,15 +108,26 @@ secours saisi à la main (marqué **à calibrer** dans le panneau) : il donne la
 bonne allure générale mais **n'est pas conforme au pixel** — c'est le tracé
 photo qui fait foi.
 
-## Ajouter la pièce suivante
+## Ajouter une pièce
 
-1. créer `js/parts/0N-<nom>.js` exportant `build()`, `meta`, et si la pièce est
-   plate `buildFromTrace()` pour profiter de la calibration photo
-   (`meta.stackHeight` = altitude de la pièce dans le build, en mm)
-2. l'importer dans `js/parts/index.js` et l'ajouter à `PARTS`
+Deux voies, au choix :
 
-Elle apparaît automatiquement dans le panneau latéral, avec sa case
+- **depuis l'outil** — onglet Calibration, *Créer la pièce* (voir plus haut).
+  Rien à coder, la pièce est stockée dans le navigateur.
+- **dans le dépôt** — créer `js/parts/0N-<nom>.js` exportant `build()`, `meta`,
+  et si la pièce est plate `buildFromTrace()` pour profiter de la calibration
+  photo (`meta.stackHeight` = altitude de la pièce dans le build, en mm), puis
+  l'importer dans `js/parts/index.js` et l'ajouter à `PARTS`.
+
+Dans les deux cas elle apparaît dans le panneau latéral avec sa case
 d'affichage, ses cotes et sa place dans la vue éclatée.
+
+## Récupérer une pièce supprimée
+
+- pièce créée depuis l'outil : elle vit dans le stockage local du navigateur,
+  la supprimer est définitif — refais le tracé, c'est l'affaire de quelques
+  secondes
+- pièce du dépôt : `git checkout js/parts/01-bottom-plate.js` la restaure
 
 ## Arborescence
 

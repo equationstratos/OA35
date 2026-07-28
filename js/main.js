@@ -8,6 +8,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { PARTS, PLANNED } from './parts/index.js';
 import { drawBlueprint } from './blueprint.js';
 import * as cal from './calibrate.js';
+import * as custom from './parts/custom.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -37,13 +38,19 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.target.set(0, 4, 0);
 
+/* Rendu à la demande : au repos la scène ne consomme rien, et le thread
+ * principal reste disponible pour l'interface. */
+let needsRender = true;
+const invalidate = () => { needsRender = true; };
+controls.addEventListener('change', invalidate);
+
 // Éclairage studio
 scene.add(new THREE.HemisphereLight(0x9ba2aa, 0x05070a, 0.22));
 
 const key = new THREE.DirectionalLight(0xfff4e6, 2.0);
 key.position.set(80, 120, 60);
 key.castShadow = true;
-key.shadow.mapSize.set(2048, 2048);
+key.shadow.mapSize.set(1536, 1536);
 key.shadow.camera.near = 10;
 key.shadow.camera.far = 400;
 const d = 110;
@@ -80,7 +87,15 @@ scene.add(grid);
 const buildRoot = new THREE.Group();
 scene.add(buildRoot);
 
-const entries = PARTS.map((mod) => ({ mod, object: null, baseY: mod.meta.stackHeight }));
+let entries = [];
+
+/** Reconstruit la liste des pièces : celles du projet + celles créées ici. */
+function collectParts() {
+  return [
+    ...PARTS,
+    ...custom.loadPartModules(PARTS.length + 1),
+  ].map((mod) => ({ mod, object: null, baseY: mod.meta.stackHeight }));
+}
 
 function disposeObject(obj) {
   obj.traverse((o) => {
@@ -101,8 +116,25 @@ function mountPart(entry, traceMm) {
   entry.object.position.y = entry.baseY;
   buildRoot.add(entry.object);
   applyDisplayOptions();
+  invalidate();
 }
 
+/** Remonte toute la scène après ajout ou suppression d'une pièce. */
+function remountAll() {
+  entries.forEach((e) => {
+    if (e.object) { buildRoot.remove(e.object); disposeObject(e.object); }
+  });
+  entries = collectParts();
+  entries.forEach((e) => mountPart(e, e.mod.isCustom ? null : appliedTrace()));
+  renderPartList();
+}
+
+/** Le tracé photo ne remplace que la pièce 01, et seulement si demandé. */
+function appliedTrace() {
+  return cal.state.applied ? cal.state.traceMm : null;
+}
+
+entries = collectParts();
 entries.forEach((e) => mountPart(e, null));
 
 /* ------------------------------------------------------------------ *
@@ -147,12 +179,14 @@ function rebuildPhotoPlane() {
   photoPlane.rotation.x = -Math.PI / 2;
   photoPlane.position.y = PARTS[0].THICKNESS_MM / 2 + 0.4;
   scene.add(photoPlane);
+  invalidate();
 }
 
 function updatePhotoOpacity() {
   const v = Number($('photo-op').value);
   $('photo-val').textContent = `${v} %`;
   if (photoPlane) photoPlane.material.opacity = v / 100;
+  invalidate();
   if (!$('pane-bp').classList.contains('hidden')) renderBlueprint();
 }
 
@@ -172,10 +206,14 @@ function renderPartList() {
   for (const e of entries) {
     const m = e.mod.meta;
     const t = cal.state.traceMm;
-    const traced = cal.state.applied && t;
+    // le tracé photo ne se substitue qu'aux cotes de la pièce 01
+    const traced = !e.mod.isCustom && cal.state.applied && t;
     const dims = traced
       ? { length: t.height, width: t.width, thickness: m.dims.thickness, holes: t.holes.length, mmPerPx: t.mmPerPx }
       : m.dims;
+    const origin = e.mod.isCustom || traced
+      ? 'contour tracé sur la photo'
+      : 'contour saisi à la main — à calibrer';
 
     const li = document.createElement('li');
     li.className = 'part';
@@ -185,9 +223,8 @@ function renderPartList() {
         <span class="idx">${String(m.index).padStart(2, '0')}</span>
         <span class="nm">${m.name}</span>
       </label>
-      <p class="origin ${traced ? 'ok' : ''}">${traced
-        ? 'contour tracé sur la photo'
-        : 'contour saisi à la main — à calibrer'}</p>
+        ${e.mod.isCustom ? '<button class="del" title="Supprimer la pièce">✕</button>' : ''}
+      <p class="origin ${e.mod.isCustom || traced ? 'ok' : ''}">${origin}</p>
       <dl class="specs">
         <div><dt>Longueur</dt><dd>${dims.length.toFixed(1)} mm</dd></div>
         <div><dt>Largeur</dt><dd>${dims.width.toFixed(1)} mm</dd></div>
@@ -198,6 +235,12 @@ function renderPartList() {
       </dl>`;
     li.querySelector('input').addEventListener('change', (ev) => {
       if (e.object) e.object.visible = ev.target.checked;
+    });
+    const del = li.querySelector('.del');
+    if (del) del.addEventListener('click', () => {
+      if (!confirm(`Supprimer « ${m.name} » ?`)) return;
+      custom.removeSpec(m.id);
+      remountAll();
     });
     partList.appendChild(li);
   }
@@ -221,6 +264,7 @@ document.querySelectorAll('[data-view]').forEach((btn) => {
     controls.target.set(0, 4, 0);
     document.querySelectorAll('[data-view]').forEach((b) => b.classList.remove('on'));
     btn.classList.add('on');
+    invalidate();
   });
 });
 
@@ -236,16 +280,21 @@ function applyDisplayOptions() {
       o.material.needsUpdate = true;
     }
   });
+  invalidate();
 }
 
 $('opt-edges').addEventListener('change', applyDisplayOptions);
-$('opt-grid').addEventListener('change', () => { grid.visible = $('opt-grid').checked; });
+$('opt-grid').addEventListener('change', () => {
+  grid.visible = $('opt-grid').checked;
+  invalidate();
+});
 
 const explode = $('explode');
 explode.addEventListener('input', () => {
   const f = Number(explode.value);
   entries.forEach((e, i) => { if (e.object) e.object.position.y = e.baseY + i * f; });
   $('explode-val').textContent = `${f} mm`;
+  invalidate();
 });
 
 /* ------------------------------------------------------------------ *
@@ -387,7 +436,7 @@ $('c-apply').addEventListener('click', () => {
   if (!cal.state.traceMm) { say("Lance d'abord le tracé.", 'err'); return; }
   try {
     cal.state.applied = true;
-    entries.forEach((e) => mountPart(e, cal.state.traceMm));
+    entries.forEach((e) => mountPart(e, e.mod.isCustom ? null : cal.state.traceMm));
     rebuildPhotoPlane();
     renderPartList();
     if (!$('pane-bp').classList.contains('hidden')) renderBlueprint();
@@ -395,6 +444,26 @@ $('c-apply').addEventListener('click', () => {
   } catch (e) {
     cal.state.applied = false;
     say(`Reconstruction impossible : ${e.message}`, 'err');
+  }
+});
+
+$('c-create').addEventListener('click', () => {
+  if (!cal.state.traceMm) { say("Lance d'abord le tracé.", 'err'); return; }
+  try {
+    const spec = custom.addSpec({
+      name: $('c-name').value.trim(),
+      thickness: Number($('c-thick').value),
+      stackHeight: Number($('c-stack').value),
+      traceMm: cal.state.traceMm,
+    });
+    remountAll();
+    say(
+      `Pièce « ${spec.name} » créée et ajoutée au build.` +
+      (spec.persisted ? '' : ' (trop volumineuse pour être mémorisée : elle disparaîtra au rechargement)'),
+      'ok',
+    );
+  } catch (e) {
+    say(`Création impossible : ${e.message}`, 'err');
   }
 });
 
@@ -414,7 +483,23 @@ $('c-clear').addEventListener('click', () => {
   cal.forget();
   $('opt-photo').checked = false;
   rebuildPhotoPlane();
-  entries.forEach((e) => mountPart(e, null));
+  /** Remonte toute la scène après ajout ou suppression d'une pièce. */
+function remountAll() {
+  entries.forEach((e) => {
+    if (e.object) { buildRoot.remove(e.object); disposeObject(e.object); }
+  });
+  entries = collectParts();
+  entries.forEach((e) => mountPart(e, e.mod.isCustom ? null : appliedTrace()));
+  renderPartList();
+}
+
+/** Le tracé photo ne remplace que la pièce 01, et seulement si demandé. */
+function appliedTrace() {
+  return cal.state.applied ? cal.state.traceMm : null;
+}
+
+entries = collectParts();
+entries.forEach((e) => mountPart(e, null));
   renderPartList();
   renderCalibration();
   say('Photo oubliée, retour au contour manuel.');
@@ -456,6 +541,7 @@ function resize() {
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
+  invalidate();
 }
 window.addEventListener('resize', () => {
   resize();
@@ -466,7 +552,12 @@ resize();
 updatePhotoOpacity();
 
 renderer.setAnimationLoop(() => {
-  if ($('opt-rotate').checked) buildRoot.rotation.y += 0.0035;
-  controls.update();
+  if ($('opt-rotate').checked) {
+    buildRoot.rotation.y += 0.0035;
+    needsRender = true;
+  }
+  if (controls.update()) needsRender = true; // amortissement en cours
+  if (!needsRender) return;
+  needsRender = false;
   renderer.render(scene, camera);
 });
