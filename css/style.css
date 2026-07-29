@@ -430,7 +430,7 @@ ul { list-style: none; margin: 0; padding: 0; }
   transform: translateX(-50%);
   bottom: 92px;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 6px;
   padding: 7px 10px;
   border: 1px solid var(--line);
@@ -439,6 +439,8 @@ ul { list-style: none; margin: 0; padding: 0; }
   z-index: 3;
 }
 .part-toolbar.hidden { display: none; }
+.part-toolbar .row { display: flex; align-items: center; gap: 6px; }
+.part-toolbar .row.move { border-top: 1px solid var(--line); padding-top: 6px; }
 .part-toolbar .sel-name {
   font-size: 12.5px;
   font-weight: 600;
@@ -457,6 +459,21 @@ ul { list-style: none; margin: 0; padding: 0; }
 .part-toolbar button:hover:not(:disabled) { border-color: var(--accent); }
 .part-toolbar button.on { border-color: var(--accent); color: var(--accent); }
 .part-toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.move-axis {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--dim);
+}
+.move-axis input[type=range] { width: 72px; accent-color: var(--accent); }
+.move-axis output {
+  width: 40px;
+  text-align: right;
+  font: 11px ui-monospace, monospace;
+  color: var(--warm);
+}
 
 .part.selected {
   border-color: var(--warm);

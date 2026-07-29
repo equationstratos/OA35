@@ -236,9 +236,12 @@ function layoutParts() {
     if (!e.holder) return;
     const stored = placements[e.mod.meta.id];
     // un placement peut n'exister que pour le miroir, sans coordonnées : il ne
-    // vaut position que s'il en porte une
-    const placement = sideBySide || !stored || !Number.isFinite(stored.x)
-      ? null : stored;
+    // vaut position que s'il en porte une. Une pièce déplacée à la main
+    // (curseurs de la barre d'outils) garde sa position partout, y compris
+    // « côte à côte » — sinon les curseurs n'auraient aucun effet visible là
+    // où on s'en sert le plus, en train d'organiser l'établi.
+    const hasPosition = stored && Number.isFinite(stored.x);
+    const placement = hasPosition && (stored.manual || !sideBySide) ? stored : null;
     if (placement) {
       e.holder.position.set(placement.x, placement.y + i * spread, placement.z);
       e.holder.rotation.y = placement.rotY;
@@ -758,6 +761,10 @@ function bodyTargets() {
  * Barre d'actions de la pièce sélectionnée
  * ------------------------------------------------------------------ */
 
+/** Bornes des curseurs de déplacement, en mm : couvre toute la disposition d'établi actuelle. */
+const MOVE_RANGE_XZ = 260;
+const MOVE_RANGE_Y = [-20, 160];
+
 function renderPartToolbar() {
   const bar = $('part-toolbar');
   const entry = selectedId ? entryById(selectedId) : null;
@@ -767,21 +774,51 @@ function renderPartToolbar() {
   const placement = placements[selectedId] || {};
   const reference = placement.refId ? entryById(placement.refId) : null;
   const noRef = "Assemble d'abord la pièce sur une autre, par leurs perçages";
+  const pos = entry.holder.position;
+
+  const axisSlider = (axis, value, min, max) => `
+    <label class="move-axis">${axis.toUpperCase()}
+      <input type="range" class="mv" data-axis="${axis}" min="${min}" max="${max}" step="0.2" value="${value.toFixed(1)}">
+      <output>${value.toFixed(1)}</output>
+    </label>`;
 
   bar.innerHTML = `
-    <span class="sel-name">${entry.mod.meta.name}</span>
-    <button data-act="mirror" class="${placement.mirrored ? 'on' : ''}"
-      title="Symétrie gauche/droite de la pièce">⇋ Miroir</button>
-    <button data-act="above" class="${placement.side !== 'below' ? 'on' : ''}"
-      ${reference ? '' : 'disabled'}
-      title="${reference ? `Poser au-dessus de « ${reference.mod.meta.name} »` : noRef}">⬆ Dessus</button>
-    <button data-act="below" class="${placement.side === 'below' ? 'on' : ''}"
-      ${reference ? '' : 'disabled'}
-      title="${reference ? `Poser en dessous de « ${reference.mod.meta.name} »` : noRef}">⬇ Dessous</button>
-    <button data-act="clear" title="Désélectionner">✕</button>`;
+    <div class="row">
+      <span class="sel-name">${entry.mod.meta.name}</span>
+      <button data-act="mirror" class="${placement.mirrored ? 'on' : ''}"
+        title="Symétrie gauche/droite de la pièce">⇋ Miroir</button>
+      <button data-act="above" class="${placement.side !== 'below' ? 'on' : ''}"
+        ${reference ? '' : 'disabled'}
+        title="${reference ? `Poser au-dessus de « ${reference.mod.meta.name} »` : noRef}">⬆ Dessus</button>
+      <button data-act="below" class="${placement.side === 'below' ? 'on' : ''}"
+        ${reference ? '' : 'disabled'}
+        title="${reference ? `Poser en dessous de « ${reference.mod.meta.name} »` : noRef}">⬇ Dessous</button>
+      <button data-act="clear" title="Désélectionner">✕</button>
+    </div>
+    <div class="row move" title="Comme dans Cura : déplace la pièce à la souris, sa position reste ensuite fixée telle quelle, dans toutes les vues.">
+      ${axisSlider('x', pos.x, -MOVE_RANGE_XZ, MOVE_RANGE_XZ)}
+      ${axisSlider('y', pos.y, MOVE_RANGE_Y[0], MOVE_RANGE_Y[1])}
+      ${axisSlider('z', pos.z, -MOVE_RANGE_XZ, MOVE_RANGE_XZ)}
+      <button data-act="reset-pos" title="Revenir à la position automatique">↺</button>
+    </div>`;
 
-  bar.querySelectorAll('button').forEach((btn) => {
+  bar.querySelectorAll('.row:first-child button').forEach((btn) => {
     btn.addEventListener('click', () => partAction(btn.dataset.act));
+  });
+  bar.querySelector('[data-act="reset-pos"]').addEventListener('click', () => partAction('reset-pos'));
+
+  bar.querySelectorAll('.mv').forEach((input) => {
+    input.addEventListener('input', () => {
+      const axis = input.dataset.axis;
+      const value = Number(input.value);
+      input.nextElementSibling.textContent = value.toFixed(1);
+      entry.holder.position[axis] = value;
+      entry.holder.updateMatrixWorld(true);
+      // une pièce déplacée à la main garde cette position partout, y compris
+      // en vue « côte à côte » — sinon le curseur n'aurait aucun effet visible
+      storePlacement(entry, { manual: true });
+      invalidate();
+    });
   });
 }
 
@@ -791,6 +828,15 @@ function partAction(action) {
   const id = entry.mod.meta.id;
 
   if (action === 'clear') { clearPartSelection(); return; }
+
+  if (action === 'reset-pos') {
+    delete placements[id];
+    asm.savePlacements(placements);
+    layoutParts();
+    renderPartToolbar();
+    updateAsmHint(`« ${entry.mod.meta.name} » remise à sa position automatique.`, 'ok');
+    return;
+  }
 
   const placement = placements[id] || {};
 
@@ -1395,6 +1441,65 @@ $('asm-reset').addEventListener('click', () => {
 });
 
 /* ------------------------------------------------------------------ *
+ * Plan de travail : sauvegarde / rechargement de toute la disposition
+ * ------------------------------------------------------------------ */
+
+const WORKSPACE_FILE_VERSION = 1;
+
+$('wp-export').addEventListener('click', () => {
+  const data = {
+    tool: 'tinyhoop-mk1-workspace',
+    version: WORKSPACE_FILE_VERSION,
+    savedAt: new Date().toISOString(),
+    placements,
+    standoffs,
+    customParts: custom.loadSpecs(),
+  };
+  exporter.download(
+    `tinyhoop-mk1-plan-${new Date().toISOString().slice(0, 10)}.json`,
+    JSON.stringify(data, null, 2),
+    'application/json',
+  );
+  updateAsmHint('Plan de travail exporté.', 'ok');
+});
+
+$('wp-import-btn').addEventListener('click', () => $('wp-file').click());
+$('wp-file').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = ''; // même fichier rechoisi deux fois de suite -> déclenche quand même 'change'
+  if (!file) return;
+
+  let data;
+  try {
+    data = JSON.parse(await file.text());
+  } catch {
+    updateAsmHint(`« ${file.name} » n'est pas un plan de travail lisible (JSON invalide).`, 'warn');
+    return;
+  }
+  if (!data || data.tool !== 'tinyhoop-mk1-workspace') {
+    updateAsmHint(`« ${file.name} » ne ressemble pas à un plan de travail exporté par cet outil.`, 'warn');
+    return;
+  }
+
+  custom.importSpecs(data.customParts || []);
+  placements = data.placements && typeof data.placements === 'object' ? data.placements : {};
+  asm.savePlacements(placements);
+  standoffs = Array.isArray(data.standoffs) ? data.standoffs : [];
+  so.save(standoffs);
+
+  clearSelection();
+  clearStandoffSelection();
+  remountAll();
+  renderStandoffs();
+  renderStandoffList();
+  updateAsmHint(
+    `Plan de travail « ${file.name} » chargé : ${entries.length} pièce(s), `
+    + `${standoffs.length} entretoise(s).`,
+    'ok',
+  );
+});
+
+/* ------------------------------------------------------------------ *
  * Onglets
  * ------------------------------------------------------------------ */
 
@@ -1754,7 +1859,9 @@ if (new URLSearchParams(location.search).has('debug')) {
       parts: entries.map((e) => ({
         id: e.mod.meta.id,
         name: e.mod.meta.name,
+        x: e.holder.position.x,
         y: e.holder.position.y,
+        z: e.holder.position.z,
         rotY: e.holder.rotation.y,
         mirrored: !!(placements[e.mod.meta.id] || {}).mirrored,
         holes: (e.markers || []).map((m) => {

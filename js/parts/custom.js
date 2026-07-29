@@ -80,6 +80,17 @@ export function removeSpec(id) {
   saveSpecs(loadSpecs().filter((s) => s.id !== id));
 }
 
+/**
+ * Remplace toutes les specs enregistrées, telles quelles (mêmes id).
+ *
+ * Sert au rechargement d'un plan de travail exporté : les placements qu'il
+ * contient sont indexés par ces mêmes id, donc il faut les conserver à
+ * l'identique plutôt que passer par addSpec (qui en fabrique de nouveaux).
+ */
+export function importSpecs(list) {
+  saveSpecs(Array.isArray(list) ? list : []);
+}
+
 export function renameSpec(id, name) {
   const list = loadSpecs();
   const s = list.find((x) => x.id === id);
