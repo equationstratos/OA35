@@ -161,16 +161,41 @@ export function regularPolyPath(cx, cy, sides, acrossFlats, rotation = 0, corner
  * Extrusion
  * ------------------------------------------------------------------ */
 
+/** Aire signée d'un polygone : positive dans le sens trigonométrique. */
+function signedArea(points) {
+  let a = 0;
+  for (let i = 0, n = points.length; i < n; i++) {
+    const p = points[i];
+    const q = points[(i + 1) % n];
+    a += p.x * q.y - q.x * p.y;
+  }
+  return a / 2;
+}
+
 /**
  * Extrude un contour + ses perçages sur une épaisseur donnée, centré en Z.
- * @param {THREE.Vector2[]} outline
- * @param {THREE.Path[]} holes
- * @param {number} thickness  épaisseur en mm
- * @param {number} bevel      chanfrein d'arête en mm (réalisme)
+ *
+ * Le sens de parcours est normalisé ici, et ce n'est pas cosmétique :
+ * Three.js retourne le contour extérieur s'il n'est pas dans le sens attendu,
+ * et ne redresse les perçages QUE dans ce cas. Un contour déjà dans le bon
+ * sens laisse donc les perçages tels quels — et s'ils tournent dans le même
+ * sens que lui, leurs parois sortent retournées. Le maillage reste fermé, mais
+ * une partie pointe vers l'intérieur : un trancheur n'y distingue plus le
+ * plein du vide et bouche les trous à l'impression.
+ *
+ * @param {THREE.Vector2[]} outline contour extérieur
+ * @param {THREE.Vector2[][]} holes perçages, en listes de points
+ * @param {number} thickness épaisseur en mm
+ * @param {number} bevel chanfrein d'arête en mm (réalisme)
  */
 export function extrudePlate(outline, holes, thickness, bevel = 0.08) {
-  const shape = new THREE.Shape(outline);
-  holes.forEach((h) => shape.holes.push(h));
+  // contour extérieur dans le sens trigonométrique, perçages en sens inverse
+  const outer = signedArea(outline) < 0 ? outline.slice().reverse() : outline;
+  const shape = new THREE.Shape(outer);
+  for (const points of holes) {
+    const ordered = signedArea(points) > 0 ? points.slice().reverse() : points;
+    shape.holes.push(new THREE.Path(ordered));
+  }
 
   const geo = new THREE.ExtrudeGeometry(shape, {
     depth: thickness - bevel * 2,

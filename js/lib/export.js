@@ -72,6 +72,69 @@ export function geometryToSTL(geometry) {
   return new Blob([buffer], { type: 'model/stl' });
 }
 
+/**
+ * Contrôle du maillage avant export.
+ *
+ * Un STL destiné à l'impression doit être fermé et orienté de façon cohérente :
+ * chaque arête appartient à exactement deux triangles, parcourus en sens
+ * inverse l'un de l'autre. Sinon le trancheur ne distingue plus le plein du
+ * vide — et sa « réparation » bouche typiquement les perçages.
+ *
+ * @returns {{triangles:number, openEdges:number, flippedEdges:number,
+ *            volume:number, watertight:boolean}}
+ */
+export function meshDiagnostics(geometry) {
+  const position = geometry.attributes.position;
+  const index = geometry.index;
+  const count = index ? index.count : position.count;
+
+  const key = (i) => {
+    const k = index ? index.getX(i) : i;
+    return `${Math.round(position.getX(k) * 1000)},`
+      + `${Math.round(position.getY(k) * 1000)},`
+      + `${Math.round(position.getZ(k) * 1000)}`;
+  };
+
+  const edges = new Map();
+  let volume = 0;
+
+  for (let t = 0; t < count; t += 3) {
+    for (let k = 0; k < 3; k++) {
+      const a = key(t + k);
+      const b = key(t + ((k + 1) % 3));
+      const id = a < b ? `${a}|${b}` : `${b}|${a}`;
+      const direction = a < b ? 1 : -1;
+      const entry = edges.get(id) || { count: 0, sum: 0 };
+      entry.count++;
+      entry.sum += direction;
+      edges.set(id, entry);
+    }
+
+    const p = [0, 1, 2].map((k) => {
+      const i = index ? index.getX(t + k) : t + k;
+      return [position.getX(i), position.getY(i), position.getZ(i)];
+    });
+    volume += (p[0][0] * (p[1][1] * p[2][2] - p[2][1] * p[1][2])
+      - p[0][1] * (p[1][0] * p[2][2] - p[2][0] * p[1][2])
+      + p[0][2] * (p[1][0] * p[2][1] - p[2][0] * p[1][1])) / 6;
+  }
+
+  let openEdges = 0;
+  let flippedEdges = 0;
+  for (const entry of edges.values()) {
+    if (entry.count !== 2) openEdges++;
+    else if (entry.sum !== 0) flippedEdges++;
+  }
+
+  return {
+    triangles: count / 3,
+    openEdges,
+    flippedEdges,
+    volume,
+    watertight: openEdges === 0 && flippedEdges === 0,
+  };
+}
+
 /* ------------------------------------------------------------------ *
  * Module JS
  * ------------------------------------------------------------------ */

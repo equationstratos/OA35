@@ -90,7 +90,7 @@ function holeMarkers(anchors, thickness) {
 
 /**
  * @param {THREE.Vector2[]} outline contour extérieur, en mm
- * @param {THREE.Path[]} holes perçages, en mm
+ * @param {THREE.Vector2[][]} holes perçages, en mm
  * @param {number} thickness épaisseur, en mm
  * @param {object[]} [anchors] centres de perçage, pour les repères cliquables
  * @returns {THREE.Group} plaque à plat, avant vers -Z
@@ -155,7 +155,7 @@ export function plateFromTrace(traceMm, thickness, mirrored = false) {
   const source = mirrored ? mirrorTrace(traceMm) : traceMm;
   const outline = source.outline.map(([x, y]) => new THREE.Vector2(x, y));
   const holes = source.holes.map(
-    (h) => new THREE.Path(h.points.map(([x, y]) => new THREE.Vector2(x, y))),
+    (h) => h.points.map(([x, y]) => new THREE.Vector2(x, y)),
   );
   return plateObject(outline, holes, thickness, holeAnchors(source));
 }

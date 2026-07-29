@@ -340,6 +340,11 @@ dans le panneau de gauche :
   repère : l'orientation attendue par un logiciel de CAO ou un trancheur, pas
   celle de l'assemblage. Le STL n'ayant pas d'unité, le millimètre est la
   convention universelle et c'est déjà celle du modèle.
+
+  Le maillage est **contrôlé avant chaque export** : arêtes libres, arêtes mal
+  orientées, volume. Le message de confirmation donne le verdict. Un maillage
+  fermé mais mal orienté s'imprime de travers sans prévenir — le trancheur ne
+  distingue plus le plein du vide et bouche les perçages.
 - **⬇ .js pour le dépôt** — un fichier autonome à déposer dans `js/parts/`, contenant le
   tracé en millimètres et exposant la même interface que les pièces livrées
   avec le projet. Il ne reste qu'à l'importer dans `js/parts/index.js` et à

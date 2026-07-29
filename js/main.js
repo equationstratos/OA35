@@ -918,11 +918,18 @@ function exportSTL(entry) {
   if (!geometry) { say('Géométrie introuvable pour cette pièce.', 'err'); return; }
 
   const name = exporter.slug(entry.mod.meta.name);
+  const check = exporter.meshDiagnostics(geometry);
   exporter.download(`${name}.stl`, exporter.geometryToSTL(geometry));
+
   updateAsmHint(
-    `${name}.stl exporté — ${(geometry.attributes.position.count / 3) | 0} facettes, `
-    + 'en millimètres, pièce à plat.',
-    'ok',
+    `${name}.stl exporté — ${check.triangles} facettes, ${(check.volume / 1000).toFixed(2)} cm³, `
+    + 'en millimètres, pièce à plat. '
+    + (check.watertight
+      ? 'Maillage vérifié : fermé et orienté, prêt à trancher.'
+      : `MAILLAGE DÉFECTUEUX : ${check.openEdges} arêtes libres, `
+        + `${check.flippedEdges} arêtes mal orientées. Un trancheur risque de `
+        + 'boucher les perçages — signale-le moi plutôt que d\'imprimer.'),
+    check.watertight ? 'ok' : 'warn',
   );
 }
 
