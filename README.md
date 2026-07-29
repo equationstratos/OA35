@@ -331,6 +331,34 @@ la structure. C'est une hypothèse, pas une lecture : le nombre de candidats
 La nomenclature qui en découle est une base de commande, à confronter à ton
 montage réel.
 
+### Entretoises à la référence
+
+L'autre sens de lecture : tu connais la référence de l'entretoise — *M2×4×22*,
+soit filetage × sur-plats × longueur — mais pas encore son emplacement. Le bloc
+**Entretoises à la référence** la crée à ses cotes exactes, en autant
+d'exemplaires que voulu.
+
+La pose automatique n'est tentée que si elle est **démontrable** : il faut un
+couple de plaques dont l'écart vaut la longueur de l'entretoise, à 0,6 mm près.
+Une entretoise ne rattrape pas un écart, elle l'impose — poser une 22 entre deux
+plaques distantes de 18 serait un mensonge géométrique. Quand aucun couple ne
+convient, l'écart le plus proche est affiché, et rien n'est posé.
+
+Ce qui n'est pas posé n'est pas caché : les entretoises en attente s'alignent en
+rangée à droite du build, en orange. Pour en placer une :
+
+1. clique-la, dans la scène ou dans la liste du panneau — elle passe en bleu ;
+2. clique le perçage qui doit la recevoir.
+
+Elle s'y pose, base sur la **face supérieure** de la plaque percée, et l'entretoise
+suivante du lot est sélectionnée automatiquement. Le bouton **Copier les
+coordonnées** rend la liste en clair (X · Y · Z, repère châssis, Y = altitude de
+la base), avec pour chacune le perçage d'appui et l'origine du placement — *auto*
+ou *clic*.
+
+Une entretoise sélectionnée détourne le clic sur perçage : il la pose au lieu
+d'ouvrir une contrainte d'assemblage. Un clic dans le vide annule la sélection.
+
 ## Exporter une pièce
 
 Deux boutons sous la rubrique **Télécharger**, sur la fiche de chaque pièce
@@ -388,6 +416,8 @@ js/main.js                 scène, éclairage, UI, calque photo
 js/calibrate.js            chargement photo, pilotage du tracé, export
 js/blueprint.js            plan coté 2D + photo en dessous
 js/assembly.js             contraintes de perçages, placement, sélection
+js/hardware.js             visserie déduite de l'assemblage, nomenclature
+js/standoffs.js            entretoises créées à la référence, posées au clic
 js/frame-spec.js           fiche technique du châssis : empattement, épaisseurs
 js/lib/trace.js            binarisation, suivi de contour, simplification
 js/lib/patterns.js         motifs de perçage normalisés, calage de l'échelle

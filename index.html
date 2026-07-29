@@ -91,6 +91,33 @@
         <button id="hw-clear">Retirer</button>
       </div>
       <dl class="specs" id="bom"></dl>
+
+      <h3>Entretoises à la référence</h3>
+      <p class="hint">Pour une entretoise dont tu connais la référence mais pas
+        encore l'emplacement. Elle apparaît dans la scène ; l'outil ne la pose
+        tout seul que s'il trouve un écart entre plaques égal à sa longueur.
+        Sinon, sélectionne-la puis clique le perçage qui doit la recevoir.</p>
+      <div class="ctl-grid">
+        <label class="ctl">Filetage
+          <span class="unit"><select id="so-thread">
+            <option value="M2" selected>M2</option>
+            <option value="M3">M3</option>
+          </select></span></label>
+        <label class="ctl">Sur plats
+          <span class="unit"><input type="number" id="so-flats" value="4" step="0.5" min="2"> mm</span></label>
+        <label class="ctl">Longueur
+          <span class="unit"><input type="number" id="so-len" value="22" step="0.5" min="1"> mm</span></label>
+        <label class="ctl">Quantité
+          <span class="unit"><input type="number" id="so-count" value="4" step="1" min="1" max="16"></span></label>
+      </div>
+      <div class="btn-row">
+        <button id="so-create" class="primary">Créer les entretoises</button>
+        <button id="so-clear">Retirer</button>
+      </div>
+      <ol id="so-list" class="so-list"></ol>
+      <div class="btn-row">
+        <button id="so-copy">Copier les coordonnées</button>
+      </div>
     </section>
 
     <section>

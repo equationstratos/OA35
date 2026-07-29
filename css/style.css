@@ -465,3 +465,46 @@ ul { list-style: none; margin: 0; padding: 0; }
 
 #bom { margin-top: 12px; }
 #bom:empty { display: none; }
+
+/* --- entretoises posées à la main --- */
+
+#sidebar h3 {
+  margin: 18px 0 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  color: var(--dim);
+}
+
+/* deux colonnes : quatre cotes tiennent alors sans faire défiler le panneau */
+.ctl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+.ctl-grid .ctl {
+  /* une cote par cellule, libellé et champ sur la même ligne */
+  flex-wrap: nowrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 11.5px;
+}
+.ctl-grid .ctl .unit { font-size: 11px; }
+.ctl-grid .ctl input[type=number] { width: 42px; }
+
+.so-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 4px; }
+.so-list:empty { display: none; }
+.so-list li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font: 11.5px ui-monospace, monospace;
+  color: var(--warm);
+  cursor: pointer;
+}
+.so-list li:hover { border-color: var(--accent); }
+.so-list li.on { border-color: var(--accent); color: var(--accent); }
+.so-list li.pending { color: #e6a14a; border-color: #6b4a1c; }
+.so-list li.pending.on { border-color: var(--accent); }
+.so-list .so-ref { flex: 0 0 auto; }
+.so-list .so-pos { text-align: right; opacity: 0.85; }

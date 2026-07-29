@@ -17,6 +17,7 @@ import {
 import { FRAME, thicknessForRole } from './frame-spec.js';
 import * as exporter from './lib/export.js';
 import * as hw from './hardware.js';
+import * as so from './standoffs.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -210,6 +211,8 @@ function layoutParts() {
   setMarkersVisible(!sideBySide);
   // la visserie a été calculée pour les positions précédentes
   if (hardwareGroup.children.length) clearHardware();
+  // la rangée d'attente des entretoises est calée sur l'encombrement du build
+  if (standoffs.some((s) => s.x === null)) renderStandoffs();
   invalidate();
 }
 
@@ -366,7 +369,214 @@ $('hw-clear').addEventListener('click', () => {
 });
 $('opt-hardware').addEventListener('change', () => {
   hardwareGroup.visible = $('opt-hardware').checked;
+  standoffGroup.visible = $('opt-hardware').checked;
   invalidate();
+});
+
+/* ------------------------------------------------------------------ *
+ * Entretoises posées à la main
+ * ------------------------------------------------------------------ */
+
+/* Dans buildRoot, et non dans la scène : une entretoise appartient au châssis,
+ * elle doit suivre la rotation automatique comme les plaques. */
+const standoffGroup = new THREE.Group();
+standoffGroup.name = 'standoffs';
+buildRoot.add(standoffGroup);
+
+let standoffs = so.load();
+let selectedStandoff = null;
+
+/** Écart laissé entre deux entretoises en attente, sur leur rangée. */
+const PARK_PITCH_MM = 9;
+
+/**
+ * Emplacement d'attente : une rangée à droite du build.
+ *
+ * Une entretoise non placée doit rester visible et visable. La poser à
+ * l'origine la mettrait sous les plaques, où elle serait invisible et
+ * incliquable — donc impossible à placer.
+ */
+function parkingSpot(rank) {
+  const box = new THREE.Box3();
+  entries.forEach((e) => { if (e.holder) box.expandByObject(e.holder); });
+  const x = box.isEmpty() ? 40 : box.max.x + 14;
+  const z = box.isEmpty() ? 0 : box.min.z;
+  return { x, y: 0, z: z + rank * PARK_PITCH_MM };
+}
+
+/** (Re)construit les entretoises de la scène d'après leur description. */
+function renderStandoffs() {
+  while (standoffGroup.children.length) {
+    const child = standoffGroup.children[0];
+    standoffGroup.remove(child);
+    disposeObject(child);
+  }
+  standoffs.forEach((spec, i) => {
+    const mesh = so.standoffMesh(spec, spec.id === selectedStandoff);
+    const at = spec.x === null ? parkingSpot(i) : spec;
+    mesh.position.set(at.x, at.y, at.z);
+    standoffGroup.add(mesh);
+  });
+  standoffGroup.visible = $('opt-hardware').checked;
+  invalidate();
+}
+
+function renderStandoffList() {
+  const list = $('so-list');
+  list.innerHTML = standoffs.map((s, i) => {
+    const cls = [s.x === null ? 'pending' : '', s.id === selectedStandoff ? 'on' : '']
+      .filter(Boolean).join(' ');
+    const pos = s.x === null
+      ? 'à placer'
+      : `${s.x.toFixed(1)} · ${s.y.toFixed(1)} · ${s.z.toFixed(1)}`;
+    return `<li class="${cls}" data-id="${s.id}">`
+      + `<span class="so-ref">${i + 1}. ${so.reference(s)}</span>`
+      + `<span class="so-pos">${pos}</span></li>`;
+  }).join('');
+
+  list.querySelectorAll('li').forEach((li) => {
+    li.addEventListener('click', () => selectStandoff(li.dataset.id));
+  });
+  $('so-copy').disabled = standoffs.length === 0;
+}
+
+function selectStandoff(id) {
+  selectedStandoff = selectedStandoff === id ? null : id;
+  if (selectedStandoff) {
+    clearPartSelection();
+    const spec = standoffs.find((s) => s.id === selectedStandoff);
+    updateAsmHint(
+      `Entretoise ${so.reference(spec)} sélectionnée. Clique le perçage qui doit `
+      + 'la recevoir : elle se pose dessus, base sur la face supérieure de la plaque.',
+      'ok',
+    );
+  } else {
+    updateAsmHint();
+  }
+  renderStandoffs();
+  renderStandoffList();
+}
+
+function clearStandoffSelection() {
+  if (!selectedStandoff) return;
+  selectedStandoff = null;
+  renderStandoffs();
+  renderStandoffList();
+}
+
+function standoffTargets() {
+  if (!standoffGroup.visible) return [];
+  return standoffGroup.children
+    .map((g) => g.getObjectByName('standoff-body'))
+    .filter(Boolean);
+}
+
+/** Pose l'entretoise sélectionnée sur le perçage cliqué. */
+function placeStandoffOnMarker(marker) {
+  const spec = standoffs.find((s) => s.id === selectedStandoff);
+  const entry = entryById(marker.userData.partId);
+  if (!spec || !entry) return;
+
+  // la base appuie sur la face supérieure de la plaque percée, pas sur le
+  // repère de perçage — celui-ci flotte quelques dixièmes au-dessus
+  const world = marker.getWorldPosition(new THREE.Vector3());
+  world.y = entry.holder.position.y + entry.mod.meta.dims.thickness / 2;
+  const local = buildRoot.worldToLocal(world);
+
+  spec.x = local.x; spec.y = local.y; spec.z = local.z;
+  spec.source = 'click';
+  spec.holeLabel = `${entry.mod.meta.name} #${marker.userData.anchor.index}`;
+  so.save(standoffs);
+
+  const remaining = standoffs.filter((s) => s.x === null);
+  selectedStandoff = remaining.length ? remaining[0].id : null;
+  renderStandoffs();
+  renderStandoffList();
+  updateAsmHint(
+    `Entretoise posée sur ${spec.holeLabel} — X ${spec.x.toFixed(2)} · `
+    + `Y ${spec.y.toFixed(2)} · Z ${spec.z.toFixed(2)} mm.`
+    + (remaining.length
+      ? ` ${remaining.length} entretoise${remaining.length > 1 ? 's' : ''} en attente, `
+        + 'la suivante est sélectionnée.'
+      : ' Lot complet.'),
+    'ok',
+  );
+}
+
+$('so-create').addEventListener('click', () => {
+  const threadId = $('so-thread').value;
+  const thread = hw.THREADS[threadId];
+  const spec = {
+    threadId,
+    diameter: thread.diameter,
+    acrossFlats: Number($('so-flats').value),
+    length: Number($('so-len').value),
+    count: Math.max(1, Math.min(16, Number($('so-count').value))),
+  };
+  const lot = so.create(spec);
+
+  // tentative de pose automatique : seulement si des plaques sont écartées
+  // exactement de la longueur de l'entretoise
+  const sites = hw.findFastenerSites(assembledParts())
+    .filter((s) => s.thread.id === threadId);
+  const proposal = so.proposeSites(sites, spec.length, spec.count);
+  proposal.sites.forEach((site, i) => {
+    const s = lot[i];
+    const world = new THREE.Vector3(site.x, site.lower.y + site.lower.thickness / 2, site.z);
+    const local = buildRoot.worldToLocal(world);
+    s.x = local.x; s.y = local.y; s.z = local.z;
+    s.source = 'auto';
+    s.holeLabel = `${site.lower.name} → ${site.upper.name}`;
+  });
+
+  standoffs = standoffs.concat(lot);
+  so.save(standoffs);
+  selectedStandoff = lot.find((s) => s.x === null)?.id ?? null;
+  renderStandoffs();
+  renderStandoffList();
+
+  const placed = proposal.sites.length;
+  if (placed === spec.count) {
+    updateAsmHint(
+      `${placed} entretoises ${so.reference(lot[0])} posées : `
+      + `l'écart entre plaques vaut ${proposal.gap.toFixed(2)} mm.`,
+      'ok',
+    );
+  } else {
+    updateAsmHint(
+      `${spec.count} entretoises ${so.reference(lot[0])} créées`
+      + (placed ? `, ${placed} posée${placed > 1 ? 's' : ''}` : '')
+      + '. Pas d\'écart entre plaques égal à leur longueur'
+      + (proposal.nearest !== null
+        ? ` — le plus proche vaut ${proposal.nearest.toFixed(2)} mm`
+        : ' — aucune plaque n\'est assemblée au-dessus d\'une autre')
+      + '. Elles attendent en rangée à droite du build : sélectionne-en une, '
+      + 'puis clique son perçage.',
+      'warn',
+    );
+  }
+  frameAll();
+});
+
+$('so-clear').addEventListener('click', () => {
+  standoffs = [];
+  selectedStandoff = null;
+  so.save(standoffs);
+  renderStandoffs();
+  renderStandoffList();
+  updateAsmHint('Entretoises retirées.');
+});
+
+$('so-copy').addEventListener('click', async () => {
+  const text = so.coordinateReport(standoffs);
+  try {
+    await navigator.clipboard.writeText(text);
+    updateAsmHint('Coordonnées copiées dans le presse-papiers.', 'ok');
+  } catch {
+    // presse-papiers refusé (page non sécurisée, permission) : on affiche le
+    // texte, il reste sélectionnable à la main
+    updateAsmHint(text, 'ok');
+  }
 });
 
 /* ------------------------------------------------------------------ *
@@ -537,14 +747,31 @@ function storePlacement(entry, extra = {}) {
 let lastPick = null;
 
 function onPick(event) {
+  // une entretoise sous le curseur prime : c'est elle qu'on veut placer, et
+  // elle recouvre justement le perçage qui la porte
+  const standoff = asm.pickFirst(event, renderer.domElement, camera, standoffTargets());
+  if (standoff) {
+    let node = standoff;
+    while (node && !node.userData.standoffId) node = node.parent;
+    if (node) { selectStandoff(node.userData.standoffId); return; }
+  }
+
   if ($('opt-layout').checked) return;
   const hits = asm.pickMarkers(event, renderer.domElement, camera, pickTargets());
+
+  // une entretoise sélectionnée détourne le clic sur perçage : il la pose,
+  // au lieu d'ouvrir une contrainte d'assemblage
+  if (selectedStandoff && hits.length) {
+    placeStandoffOnMarker(hits[0]);
+    return;
+  }
 
   if (!hits.length) {
     // pas de perçage sous le curseur : le clic sélectionne la pièce, et solde
     // les surbrillances de la contrainte précédente
     const body = asm.pickFirst(event, renderer.domElement, camera, bodyTargets());
     clearSelection();
+    clearStandoffSelection();
     if (body) {
       let node = body;
       while (node && !node.userData.partId) node = node.parent;
@@ -1343,6 +1570,8 @@ window.addEventListener('resize', () => {
 });
 resize();
 layoutParts();
+renderStandoffs();
+renderStandoffList();
 frameAll(ISO_DIR);
 updatePhotoOpacity();
 
@@ -1368,6 +1597,15 @@ if (new URLSearchParams(location.search).has('debug')) {
       hint: $('asm-hint').textContent,
       lastPick,
       selectedId,
+      standoffs: standoffs.map((s) => ({
+        ref: so.reference(s),
+        placed: s.x !== null,
+        x: s.x === null ? null : +s.x.toFixed(3),
+        y: s.y === null ? null : +s.y.toFixed(3),
+        z: s.z === null ? null : +s.z.toFixed(3),
+        hole: s.holeLabel,
+        selected: s.id === selectedStandoff,
+      })),
       hardware: hardwareGroup.children.map((o) => ({
         type: o.name,
         y: +o.position.y.toFixed(2),
