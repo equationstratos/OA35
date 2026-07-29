@@ -4,8 +4,10 @@
  */
 
 import * as bottomPlate from './01-bottom-plate.js';
+import * as flancGauche from './09-flanc-gauche.js';
+import * as flancDroit from './10-flanc-droit.js';
 
-export const PARTS = [bottomPlate];
+export const PARTS = [bottomPlate, flancGauche, flancDroit];
 
 /** Emplacements réservés — remplis au fur et à mesure des pièces envoyées. */
 export const PLANNED = [

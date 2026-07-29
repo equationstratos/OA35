@@ -1000,9 +1000,11 @@ function renderPartList() {
     const dims = overridden
       ? { length: t.height, width: t.width, thickness: m.dims.thickness, holes: t.holes.length, mmPerPx: t.mmPerPx }
       : m.dims;
-    const origin = fromPhoto
-      ? 'contour tracé sur la photo'
-      : 'contour saisi à la main — à calibrer';
+    // une pièce importée (fichier CAO externe) n'a ni contour de photo ni
+    // motif de perçage à afficher : la fiche prend une forme plus courte
+    const origin = m.isMesh
+      ? (m.source || 'maillage importé')
+      : fromPhoto ? 'contour tracé sur la photo' : 'contour saisi à la main — à calibrer';
     const unconfirmed = e.mod.isCustom && e.mod.spec
       && e.mod.spec.scaleSource !== 'patterns' && e.mod.spec.scaleSource !== 'manual';
 
@@ -1016,20 +1018,20 @@ function renderPartList() {
         <span class="nm">${m.name}</span>
       </label>
         ${e.mod.isCustom ? '<button class="del" title="Supprimer la pièce">✕</button>' : ''}
-      <p class="origin ${fromPhoto ? 'ok' : ''}">${origin}</p>
+      <p class="origin ${m.isMesh || fromPhoto ? 'ok' : ''}">${origin}</p>
       ${unconfirmed ? '<p class="origin warn">échelle non confirmée — vérifie la longueur</p>' : ''}
       <dl class="specs">
         <div><dt>Longueur</dt><dd>${dims.length.toFixed(1)} mm</dd></div>
         <div><dt>Largeur</dt><dd>${dims.width.toFixed(1)} mm</dd></div>
-        <div><dt>Épaisseur</dt><dd>${dims.thickness.toFixed(1)} mm</dd></div>
-        <div><dt>Perçages</dt><dd>${dims.holes}</dd></div>
+        <div><dt>${m.isMesh ? 'Hauteur' : 'Épaisseur'}</dt><dd>${dims.thickness.toFixed(1)} mm</dd></div>
+        ${m.isMesh ? '' : `<div><dt>Perçages</dt><dd>${dims.holes}</dd></div>`}
         <div><dt>Matière</dt><dd>${m.material}</dd></div>
-        <div><dt>Échelle</dt><dd>1 px = ${dims.mmPerPx.toFixed(4)} mm</dd></div>
+        ${m.isMesh ? '' : `<div><dt>Échelle</dt><dd>1 px = ${dims.mmPerPx.toFixed(4)} mm</dd></div>`}
       </dl>
       <div class="download-row">
         <span class="download-label">Télécharger</span>
         <button class="dl dl-stl" title="Géométrie 3D en millimètres, pièce à plat — CAO, impression">⬇ STL</button>
-        <button class="dl dl-js" title="Module autonome à déposer dans js/parts/ du dépôt">⬇ .js pour le dépôt</button>
+        ${m.isMesh ? '' : '<button class="dl dl-js" title="Module autonome à déposer dans js/parts/ du dépôt">⬇ .js pour le dépôt</button>'}
       </div>
       ${e.mod.isCustom ? `
       <div class="part-tools">
@@ -1051,7 +1053,7 @@ function renderPartList() {
       selectPart(m.id);
     });
     li.querySelector('.dl-stl').addEventListener('click', () => exportSTL(e));
-    li.querySelector('.dl-js').addEventListener('click', () => exportModule(e));
+    li.querySelector('.dl-js')?.addEventListener('click', () => exportModule(e));
 
     const role = li.querySelector('.role');
     if (role) role.addEventListener('change', () => {

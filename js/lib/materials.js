@@ -95,6 +95,13 @@ export function carbonEdgeMaterial() {
   });
 }
 
+/** Plastique imprimé, mat : pièces importées telles quelles d'un fichier CAO. */
+export function printedMaterial(color = 0x393f47) {
+  return new THREE.MeshPhysicalMaterial({
+    color, roughness: 0.55, metalness: 0.06, clearcoat: 0.12, clearcoatRoughness: 0.4,
+  });
+}
+
 /** Fil de contour blanc pour la lisibilité des arêtes. */
 export function outlineMaterial() {
   return new THREE.LineBasicMaterial({ color: 0x6cc7ff, transparent: true, opacity: 0.55 });
