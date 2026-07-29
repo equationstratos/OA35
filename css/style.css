@@ -462,3 +462,6 @@ ul { list-style: none; margin: 0; padding: 0; }
   border-color: var(--warm);
   box-shadow: 0 0 0 1px rgba(255, 180, 84, 0.35);
 }
+
+#bom { margin-top: 12px; }
+#bom:empty { display: none; }

@@ -301,6 +301,36 @@ Une pièce pas encore assemblée reste à sa place sur l'établi plutôt que d'a
 à l'origine : sinon les pièces se recouvriraient et deviendraient impossibles
 à viser.
 
+## Visserie
+
+La visserie est le seul élément qui n'a pas à être photographié : elle est
+normalisée. Elle n'est donc pas dessinée à la main mais **déduite de
+l'assemblage**, par le bouton *Détecter et poser* :
+
+| Grandeur | D'où elle vient |
+|----------|-----------------|
+| filetage (M2, M3) | du diamètre du perçage tracé |
+| longueur d'entretoise | de l'écart entre les deux plaques |
+| longueur de vis | de l'épaisseur traversée, plus la longueur vissée dans l'entretoise |
+
+Les cotes sont arrondies à la **série du commerce** (3, 4, 5, 6, 8, 10, 12…) :
+proposer 9,75 mm n'aurait aucun intérêt, ça ne se commande pas. Quand
+l'entretoise normalisée dépasse l'écart mesuré de plus de 0,35 mm, c'est dit.
+
+Deux plaques au contact reçoivent une vis traversante et pas d'entretoise.
+
+### Ce que l'outil ne peut pas savoir
+
+Tout perçage en regard d'un autre est un point de fixation **possible** — sur
+deux plaques semblables, il y en a des dizaines. L'outil ne sait pas lesquels
+tu vas réellement visser : le curseur **espacement minimal** écarte les
+redondants, en gardant d'abord les perçages les plus larges, ceux qui portent
+la structure. C'est une hypothèse, pas une lecture : le nombre de candidats
+écartés est affiché, et mettre le curseur à 0 les montre tous.
+
+La nomenclature qui en découle est une base de commande, à confronter à ton
+montage réel.
+
 ## Exporter une pièce
 
 Deux boutons sous la rubrique **Télécharger**, sur la fiche de chaque pièce

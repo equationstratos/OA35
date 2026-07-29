@@ -16,6 +16,7 @@ import {
 } from './lib/patterns.js';
 import { FRAME, thicknessForRole } from './frame-spec.js';
 import * as exporter from './lib/export.js';
+import * as hw from './hardware.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -207,6 +208,8 @@ function layoutParts() {
 
   entries.forEach((e) => { if (e.holder) e.holder.updateMatrixWorld(true); });
   setMarkersVisible(!sideBySide);
+  // la visserie a été calculée pour les positions précédentes
+  if (hardwareGroup.children.length) clearHardware();
   invalidate();
 }
 
@@ -243,6 +246,128 @@ function pickTargets() {
 function entryById(id) {
   return entries.find((e) => e.mod.meta.id === id);
 }
+
+/* ------------------------------------------------------------------ *
+ * Visserie
+ * ------------------------------------------------------------------ */
+
+const hardwareGroup = new THREE.Group();
+hardwareGroup.name = 'hardware';
+scene.add(hardwareGroup);
+
+/** Perçages d'une pièce, en coordonnées monde. */
+function partHolesInWorld(entry) {
+  const v = new THREE.Vector3();
+  return (entry.markers || []).map((marker) => {
+    marker.getWorldPosition(v);
+    return { x: v.x, z: v.z, diameter: marker.userData.anchor.r * 2 };
+  });
+}
+
+/** Pièces assemblées, sous la forme attendue par la détection. */
+function assembledParts() {
+  return entries
+    .filter((e) => e.holder && e.object.visible !== false)
+    .map((e) => ({
+      id: e.mod.meta.id,
+      name: e.mod.meta.name,
+      y: e.holder.position.y,
+      thickness: e.mod.meta.dims.thickness,
+      holes: partHolesInWorld(e),
+    }));
+}
+
+function clearHardware() {
+  while (hardwareGroup.children.length) {
+    const child = hardwareGroup.children[0];
+    hardwareGroup.remove(child);
+    disposeObject(child);
+  }
+  $('bom').innerHTML = '';
+  invalidate();
+}
+
+/**
+ * Déduit la visserie de l'assemblage et la pose.
+ *
+ * Rien n'est demandé à l'auteur : le diamètre vient du perçage, la longueur
+ * d'entretoise de l'écart entre les plaques, la longueur de vis de l'épaisseur
+ * traversée. Les valeurs sont arrondies aux longueurs du commerce.
+ */
+function placeHardware() {
+  clearHardware();
+
+  const candidates = hw.findFastenerSites(assembledParts());
+  const spacing = Number($('hw-spacing').value);
+  const sites = hw.spaceOut(candidates, spacing);
+  if (!sites.length) {
+    updateAsmHint(
+      "Aucun perçage ne s'aligne entre deux pièces d'altitudes différentes. "
+      + 'Assemble d\'abord les plaques par leurs perçages.',
+      'warn',
+    );
+    return;
+  }
+
+  const items = [];
+  for (const site of sites) {
+    const item = hw.fastenerFor(site);
+    items.push(item);
+
+    if (item.standoffLength > 0) {
+      const standoff = hw.standoffMesh(site.thread, item.standoffLength);
+      standoff.position.set(site.x, site.lower.y + site.lower.thickness / 2, site.z);
+      hardwareGroup.add(standoff);
+    }
+
+    // la vis appuie sur la face supérieure de la pièce haute
+    const screw = hw.screwMesh(site.thread, item.screwLength);
+    screw.position.set(site.x, site.upper.y + site.upper.thickness / 2, site.z);
+    hardwareGroup.add(screw);
+  }
+
+  renderBom(items, sites, candidates.length);
+  hardwareGroup.visible = $('opt-hardware').checked;
+  invalidate();
+}
+
+function renderBom(items, sites, candidateCount) {
+  const bom = hw.billOfMaterials(items);
+  const play = Math.max(...items.map((i) => i.standoffPlay), 0);
+  const filtered = candidateCount - sites.length;
+
+  $('bom').innerHTML = bom.map((line) =>
+    `<div><dt>${line.label}</dt><dd>× ${line.count}</dd></div>`).join('')
+    + `<div><dt>Fixations</dt><dd>${sites.length} / ${candidateCount} candidates</dd></div>`;
+
+  updateAsmHint(
+    `${sites.length} fixation${sites.length > 1 ? 's' : ''} posée${sites.length > 1 ? 's' : ''} : `
+    + `${bom.map((l) => `${l.count} × ${l.label.toLowerCase()}`).join(', ')}.`
+    + (filtered > 0
+      ? ` ${filtered} autre${filtered > 1 ? 's' : ''} perçage${filtered > 1 ? 's' : ''} en regard `
+        + `écarté${filtered > 1 ? 's' : ''} par l'espacement minimal — c'est une hypothèse, `
+        + 'ajuste-la si ton montage en veut plus.'
+      : '')
+    + (play > 0.35
+      ? ` L'entretoise du commerce la plus proche dépasse l'écart mesuré de ${play.toFixed(1)} mm.`
+      : ''),
+    play > 0.35 ? 'warn' : 'ok',
+  );
+}
+
+$('hw-place').addEventListener('click', placeHardware);
+$('hw-spacing').addEventListener('input', () => {
+  $('v-spacing').value = `${$('hw-spacing').value} mm`;
+  if (hardwareGroup.children.length) placeHardware();
+});
+$('hw-clear').addEventListener('click', () => {
+  clearHardware();
+  updateAsmHint('Visserie retirée.');
+});
+$('opt-hardware').addEventListener('change', () => {
+  hardwareGroup.visible = $('opt-hardware').checked;
+  invalidate();
+});
 
 /* ------------------------------------------------------------------ *
  * Sélection d'une pièce
@@ -1236,6 +1361,12 @@ if (new URLSearchParams(location.search).has('debug')) {
       hint: $('asm-hint').textContent,
       lastPick,
       selectedId,
+      hardware: hardwareGroup.children.map((o) => ({
+        type: o.name,
+        y: +o.position.y.toFixed(2),
+        x: +o.position.x.toFixed(2),
+        z: +o.position.z.toFixed(2),
+      })),
       ringColors: entries.flatMap((e) => (e.markers || [])
         .map((m) => m.getObjectByName('ring').material.color.getHexString())
         .filter((c) => c !== '6cc7ff')),

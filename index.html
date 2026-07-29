@@ -77,6 +77,23 @@
     </section>
 
     <section>
+      <h2>Visserie</h2>
+      <p class="hint">Déduite de l'assemblage : le diamètre vient du perçage,
+        la longueur d'entretoise de l'écart entre les plaques, la longueur de
+        vis de l'épaisseur traversée. Les cotes sont arrondies aux longueurs du
+        commerce.<br>Tout perçage en regard d'un autre est un point de fixation
+        <em>possible</em> : l'espacement minimal écarte les redondants.</p>
+      <label class="ctl">Espacement minimal <output id="v-spacing">8 mm</output>
+        <input type="range" id="hw-spacing" min="0" max="30" step="1" value="8"></label>
+      <label class="opt"><input type="checkbox" id="opt-hardware" checked> Afficher la visserie</label>
+      <div class="btn-row">
+        <button id="hw-place" class="primary">Détecter et poser</button>
+        <button id="hw-clear">Retirer</button>
+      </div>
+      <dl class="specs" id="bom"></dl>
+    </section>
+
+    <section>
       <h2>À venir</h2>
       <ul id="planned-list"></ul>
     </section>
