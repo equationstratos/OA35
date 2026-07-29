@@ -148,6 +148,20 @@ ul { list-style: none; margin: 0; padding: 0; }
   gap: 6px;
   z-index: 2;
 }
+/* la vue 3D a le cube de navigation au-dessus : ses boutons descendent
+   d'autant, les autres panneaux (plan coté) gardent leur position */
+#pane-3d .view-btns { top: 108px; }
+
+#navcube {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 84px;
+  height: 84px;
+  z-index: 2;
+  touch-action: none;
+}
+#navcube canvas { display: block; width: 100%; height: 100%; }
 
 .tip {
   position: absolute;

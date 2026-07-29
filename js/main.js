@@ -18,6 +18,7 @@ import { FRAME, thicknessForRole } from './frame-spec.js';
 import * as exporter from './lib/export.js';
 import * as hw from './hardware.js';
 import * as so from './standoffs.js';
+import { createNavCube } from './navcube.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -1272,12 +1273,13 @@ const VIEWS = {
   front: new THREE.Vector3(0, 0.08, 1),
   side: new THREE.Vector3(1, 0.08, 0),
 };
+/** Cadre la vue et met à jour le bouton actif — utilisé par les boutons ET le cube de navigation. */
+function setView(dir, viewKey) {
+  frameAll(dir);
+  document.querySelectorAll('[data-view]').forEach((b) => b.classList.toggle('on', b.dataset.view === viewKey));
+}
 document.querySelectorAll('[data-view]').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    frameAll(VIEWS[btn.dataset.view]);
-    document.querySelectorAll('[data-view]').forEach((b) => b.classList.remove('on'));
-    btn.classList.add('on');
-  });
+  btn.addEventListener('click', () => setView(VIEWS[btn.dataset.view], btn.dataset.view));
 });
 
 /** Arêtes, transparence de la plaque sous le calque photo. */
@@ -1817,6 +1819,21 @@ frameAll(ISO_DIR);
 updatePhotoOpacity();
 
 /* ------------------------------------------------------------------ *
+ * Cube de navigation
+ * ------------------------------------------------------------------ */
+
+/** Correspondance entre les faces du cube et les boutons de vue existants. */
+const NAVCUBE_VIEW_KEY = { DESSUS: 'top', AVANT: 'front', DROITE: 'side' };
+
+const navCube = createNavCube({
+  canvas: $('navcube-canvas'),
+  mainCamera: camera,
+  controls,
+  frameAll: (face) => setView(face.dir, NAVCUBE_VIEW_KEY[face.label] || null),
+  invalidate,
+});
+
+/* ------------------------------------------------------------------ *
  * Diagnostic
  * ------------------------------------------------------------------ */
 
@@ -1890,4 +1907,7 @@ renderer.setAnimationLoop(() => {
   if (!needsRender) return;
   needsRender = false;
   renderer.render(scene, camera);
+  // le cube suit la caméra principale : recalé à chaque rendu de la scène
+  navCube.sync();
+  navCube.render();
 });
