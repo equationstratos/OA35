@@ -217,7 +217,9 @@ export function coordinateReport(list) {
   const lines = list.map((s, i) => {
     const ref = reference(s);
     if (s.x === null) return `${i + 1}. ${ref} — non placée`;
-    const origin = s.source === 'auto' ? 'auto' : 'clic';
+    const origin = s.source === 'auto' ? 'auto (motif)'
+      : s.source === 'assemble' ? 'auto (assembler le châssis)'
+        : 'clic';
     return `${i + 1}. ${ref} — X ${s.x.toFixed(2)} · Y ${s.y.toFixed(2)} `
       + `· Z ${s.z.toFixed(2)} mm (${origin}${s.holeLabel ? `, ${s.holeLabel}` : ''})`;
   });

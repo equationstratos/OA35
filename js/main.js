@@ -170,24 +170,52 @@ function appliedTrace() {
 const LAYOUT_GAP_MM = 12;
 
 /**
+ * Position d'établi par pièce, en plan (X, Z) : la plaque intermédiaire au
+ * centre, la clamp-plate au-dessus sur le plan (vers l'avant, -Z, sans être
+ * empilée en hauteur — « pas assemblée, juste posée dessus »), les flancs en
+ * haut à gauche et bien espacés l'un de l'autre pour rester lisibles.
+ *
+ * Les bras n'ont pas encore de fichier fourni : les colonnes 'bras-arriere'
+ * (longs, cf. dead-cat — ce sont les arrières qui sont longs) et
+ * 'bras-avant' (courts) sont réservées dès maintenant, plus loin sur la même
+ * rangée de gauche, pour qu'ils tombent au bon endroit dès leur arrivée sans
+ * retoucher cette disposition.
+ */
+const BENCH_ZONES = {
+  'bottom-plate': { x: 0, z: 0 },
+  'clamp-plate': { x: 0, z: -75 },
+  'flanc-gauche': { x: -75, z: -30 },
+  'flanc-droit': { x: -75, z: 20 },
+  'bras-arriere': { x: -115, z: -20 }, // réservé — longs
+  'bras-avant': { x: -155, z: -20 },   // réservé — courts
+};
+
+/** Rangée basse, pour toute pièce sans zone dédiée (créée depuis l'outil). */
+const UNZONED_ROW_Z = 70;
+
+/**
  * Deux dispositions :
- * - côte à côte : les pièces sont alignées sur X et posées à plat, sans se
- *   recouvrir ; c'est la vue de travail quand on modélise pièce par pièce
+ * - côte à côte : les pièces sont alignées à plat, chacune à la place fixe
+ *   de BENCH_ZONES quand elle en a une ; c'est la vue de travail qui reflète
+ *   le plan du châssis
  * - assemblée : chaque pièce reprend son altitude dans le build, et la vue
- *   éclatée les écarte verticalement
+ *   éclatée les écarte verticalement. Une pièce jamais assemblée y reste
+ *   quand même à sa place d'établi, sinon elle serait invisible sous les
+ *   autres.
  */
 function layoutParts() {
   const sideBySide = $('opt-layout').checked;
   const spread = Number($('explode').value);
 
-  // position d'établi : sert de disposition par défaut, et de point de départ
-  // aux pièces pas encore assemblées
-  const widths = entries.map((e) => e.mod.meta.dims.width);
+  // pièces sans zone dédiée : rangée basse, comme l'ancienne disposition
+  const unzoned = entries.filter((e) => !BENCH_ZONES[e.mod.meta.id]);
+  const widths = unzoned.map((e) => e.mod.meta.dims.width);
   const total = widths.reduce((a, b) => a + b, 0)
-    + LAYOUT_GAP_MM * Math.max(0, entries.length - 1);
-  const benchX = [];
+    + LAYOUT_GAP_MM * Math.max(0, unzoned.length - 1);
+  const rowX = [];
   let x = -total / 2;
-  widths.forEach((w) => { benchX.push(x + w / 2); x += w + LAYOUT_GAP_MM; });
+  widths.forEach((w) => { rowX.push(x + w / 2); x += w + LAYOUT_GAP_MM; });
+  let rowRank = 0;
 
   entries.forEach((e, i) => {
     if (!e.holder) return;
@@ -200,9 +228,13 @@ function layoutParts() {
       e.holder.position.set(placement.x, placement.y + i * spread, placement.z);
       e.holder.rotation.y = placement.rotY;
     } else {
+      const zone = BENCH_ZONES[e.mod.meta.id];
+      const bx = zone ? zone.x : rowX[rowRank];
+      const bz = zone ? zone.z : UNZONED_ROW_Z;
+      if (!zone) rowRank++;
       // une pièce non assemblée reste sur l'établi : la poser à l'origine la
       // rendrait indiscernable, donc impossible à viser
-      e.holder.position.set(benchX[i], sideBySide ? 0 : e.baseY + i * spread, 0);
+      e.holder.position.set(bx, sideBySide ? 0 : e.baseY + i * spread, bz);
       e.holder.rotation.y = 0;
     }
   });
@@ -211,7 +243,7 @@ function layoutParts() {
   setMarkersVisible(!sideBySide);
   // la visserie a été calculée pour les positions précédentes
   if (hardwareGroup.children.length) clearHardware();
-  // la rangée d'attente des entretoises est calée sur l'encombrement du build
+  // la colonne d'attente des entretoises est calée sur l'encombrement du build
   if (standoffs.some((s) => s.x === null)) renderStandoffs();
   invalidate();
 }
@@ -386,22 +418,22 @@ buildRoot.add(standoffGroup);
 let standoffs = so.load();
 let selectedStandoff = null;
 
-/** Écart laissé entre deux entretoises en attente, sur leur rangée. */
+/** Écart laissé entre deux entretoises en attente, sur leur colonne. */
 const PARK_PITCH_MM = 9;
 
+/** Colonne des entretoises : à gauche, comme les autres pièces de cette zone. */
+const PARK_COLUMN_X = -45;
+
 /**
- * Emplacement d'attente : une rangée à droite du build.
+ * Emplacement d'attente : une colonne à gauche du build, groupée avec les
+ * autres pièces de cette zone plutôt que reléguée hors du build.
  *
  * Une entretoise non placée doit rester visible et visable. La poser à
  * l'origine la mettrait sous les plaques, où elle serait invisible et
  * incliquable — donc impossible à placer.
  */
-function parkingSpot(rank) {
-  const box = new THREE.Box3();
-  entries.forEach((e) => { if (e.holder) box.expandByObject(e.holder); });
-  const x = box.isEmpty() ? 40 : box.max.x + 14;
-  const z = box.isEmpty() ? 0 : box.min.z;
-  return { x, y: 0, z: z + rank * PARK_PITCH_MM };
+function parkingSpot(rank, total) {
+  return { x: PARK_COLUMN_X, y: 0, z: (rank - (total - 1) / 2) * PARK_PITCH_MM };
 }
 
 /** (Re)construit les entretoises de la scène d'après leur description. */
@@ -413,7 +445,7 @@ function renderStandoffs() {
   }
   standoffs.forEach((spec, i) => {
     const mesh = so.standoffMesh(spec, spec.id === selectedStandoff);
-    const at = spec.x === null ? parkingSpot(i) : spec;
+    const at = spec.x === null ? parkingSpot(i, standoffs.length) : spec;
     mesh.position.set(at.x, at.y, at.z);
     standoffGroup.add(mesh);
   });
@@ -577,6 +609,77 @@ $('so-copy').addEventListener('click', async () => {
     // texte, il reste sélectionnable à la main
     updateAsmHint(text, 'ok');
   }
+});
+
+/**
+ * Assemble le châssis en un clic : pose 4 entretoises M2×4×22 sur la plaque
+ * intermédiaire, aux perçages repérés à la main (#16, #17, #27, #28).
+ *
+ * La position vient de l'index du perçage sur la pièce, pas de coordonnées
+ * figées : elle reste juste quelle que soit la disposition courante de la
+ * plaque (établi ou assemblée), contrairement à des coordonnées monde notées
+ * une fois puis recopiées.
+ */
+const CHASSIS_STANDOFF_HOLES = [27, 28, 16, 17];
+const CHASSIS_STANDOFF_SPEC = { threadId: 'M2', diameter: 2, acrossFlats: 4, length: 22 };
+
+$('asm-assemble-chassis').addEventListener('click', () => {
+  const plate = entryById('bottom-plate');
+  if (!plate || !plate.holder) {
+    updateAsmHint('Plaque intermédiaire châssis introuvable.', 'warn');
+    return;
+  }
+
+  const targets = CHASSIS_STANDOFF_HOLES.map(
+    (idx) => (plate.markers || []).find((m) => m.userData.anchor.index === idx),
+  );
+  const missing = CHASSIS_STANDOFF_HOLES.filter((_, i) => !targets[i]);
+  if (missing.length) {
+    updateAsmHint(
+      `Perçage${missing.length > 1 ? 's' : ''} #${missing.join(', #')} introuvable`
+      + `${missing.length > 1 ? 's' : ''} sur la plaque intermédiaire — le tracé a peut-être changé.`,
+      'warn',
+    );
+    return;
+  }
+
+  // ré-appuyer sur le bouton doit reposer les MÊMES entretoises, pas en créer
+  // de nouvelles : on retrouve d'abord celles déjà posées par ce bouton sur
+  // chacun de ces perçages, avant de piocher dans les non placées, avant de
+  // n'en créer que s'il en manque encore
+  const labelFor = (idx) => `${plate.mod.meta.name} #${idx}`;
+  const free = standoffs.filter((s) => s.x === null && s.threadId === 'M2');
+  const batch = CHASSIS_STANDOFF_HOLES.map((idx) => {
+    const already = standoffs.find((s) => s.source === 'assemble' && s.holeLabel === labelFor(idx));
+    if (already) return already;
+    if (free.length) return free.shift();
+    const [s] = so.create({ ...CHASSIS_STANDOFF_SPEC, count: 1 });
+    standoffs.push(s);
+    return s;
+  });
+
+  plate.holder.updateMatrixWorld(true);
+  batch.forEach((s, i) => {
+    const marker = targets[i];
+    const world = marker.getWorldPosition(new THREE.Vector3());
+    // la base appuie sur la face supérieure de la plaque, pas sur le repère
+    // de perçage — celui-ci flotte quelques dixièmes au-dessus
+    world.y = plate.holder.position.y + plate.mod.meta.dims.thickness / 2;
+    const local = buildRoot.worldToLocal(world);
+    s.x = local.x; s.y = local.y; s.z = local.z;
+    s.source = 'assemble';
+    s.holeLabel = labelFor(marker.userData.anchor.index);
+  });
+
+  so.save(standoffs);
+  selectedStandoff = null;
+  renderStandoffs();
+  renderStandoffList();
+  updateAsmHint(
+    `Châssis assemblé : ${batch.length} entretoises M2×4×22 posées sur la plaque `
+    + `intermédiaire, perçages #${CHASSIS_STANDOFF_HOLES.join(', #')}.`,
+    'ok',
+  );
 });
 
 /* ------------------------------------------------------------------ *
