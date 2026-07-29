@@ -170,10 +170,12 @@ function appliedTrace() {
 const LAYOUT_GAP_MM = 12;
 
 /**
- * Position d'établi par pièce, en plan (X, Z) : la plaque intermédiaire au
- * centre, la clamp-plate au-dessus sur le plan (vers l'avant, -Z, sans être
- * empilée en hauteur — « pas assemblée, juste posée dessus »), les flancs en
- * haut à gauche et bien espacés l'un de l'autre pour rester lisibles.
+ * Position d'établi par pièce, en plan (X, Z) : la bottom-plate au centre, la
+ * clamp-plate au-dessus sur le plan (vers l'avant, -Z, sans être empilée en
+ * hauteur — « pas assemblée, juste posée dessus »), les flancs en haut à
+ * gauche, tournés à 90° et bien espacés l'un de l'autre pour rester
+ * lisibles. Middle-plate et top-plate n'avaient pas de place demandée : je
+ * les ai mises à droite, à ajuster si besoin.
  *
  * Les bras n'ont pas encore de fichier fourni : les colonnes 'bras-arriere'
  * (longs, cf. dead-cat — ce sont les arrières qui sont longs) et
@@ -184,14 +186,23 @@ const LAYOUT_GAP_MM = 12;
 const BENCH_ZONES = {
   'bottom-plate': { x: 0, z: 0 },
   'clamp-plate': { x: 0, z: -75 },
-  'flanc-gauche': { x: -75, z: -30 },
-  'flanc-droit': { x: -75, z: 20 },
+  'middle-plate': { x: 90, z: 0 },
+  'top-plate': { x: 90, z: 115 },
+  // tournés à 90°, leur grand côté (63,7 mm) passe sur Z : l'écart entre les
+  // deux doit suivre, sinon ils se chevauchent malgré le X commun
+  'flanc-gauche': { x: -75, z: -55, rotY: -Math.PI / 2 }, // 90° horaire (vu de dessus)
+  'flanc-droit': { x: -75, z: 55, rotY: -Math.PI / 2 },
   'bras-arriere': { x: -115, z: -20 }, // réservé — longs
   'bras-avant': { x: -155, z: -20 },   // réservé — courts
 };
 
-/** Rangée basse, pour toute pièce sans zone dédiée (créée depuis l'outil). */
-const UNZONED_ROW_Z = 70;
+/**
+ * Rangée pour toute pièce sans zone dédiée (typiquement un bras créé depuis
+ * l'outil de calibration). Placée loin devant (+Z) plutôt qu'à une distance
+ * fixe : un bras est long, une distance fixe l'aurait fait mordre sur la
+ * pièce centrale. L'écart tient compte de la plus longue des pièces à ranger.
+ */
+const UNZONED_ROW_CLEARANCE_MM = 46; // au-delà du bord de la bottom-plate (Z ±37,6 mm)
 
 /**
  * Deux dispositions :
@@ -207,7 +218,8 @@ function layoutParts() {
   const sideBySide = $('opt-layout').checked;
   const spread = Number($('explode').value);
 
-  // pièces sans zone dédiée : rangée basse, comme l'ancienne disposition
+  // pièces sans zone dédiée : rangée dégagée, assez loin pour qu'un bras
+  // entier (long) ne morde pas sur la pièce centrale
   const unzoned = entries.filter((e) => !BENCH_ZONES[e.mod.meta.id]);
   const widths = unzoned.map((e) => e.mod.meta.dims.width);
   const total = widths.reduce((a, b) => a + b, 0)
@@ -215,6 +227,8 @@ function layoutParts() {
   const rowX = [];
   let x = -total / 2;
   widths.forEach((w) => { rowX.push(x + w / 2); x += w + LAYOUT_GAP_MM; });
+  const unzonedRowZ = UNZONED_ROW_CLEARANCE_MM
+    + Math.max(0, ...unzoned.map((e) => e.mod.meta.dims.length)) / 2;
   let rowRank = 0;
 
   entries.forEach((e, i) => {
@@ -230,12 +244,12 @@ function layoutParts() {
     } else {
       const zone = BENCH_ZONES[e.mod.meta.id];
       const bx = zone ? zone.x : rowX[rowRank];
-      const bz = zone ? zone.z : UNZONED_ROW_Z;
+      const bz = zone ? zone.z : unzonedRowZ;
       if (!zone) rowRank++;
       // une pièce non assemblée reste sur l'établi : la poser à l'origine la
       // rendrait indiscernable, donc impossible à viser
       e.holder.position.set(bx, sideBySide ? 0 : e.baseY + i * spread, bz);
-      e.holder.rotation.y = 0;
+      e.holder.rotation.y = zone ? (zone.rotY || 0) : 0;
     }
   });
 
@@ -612,21 +626,28 @@ $('so-copy').addEventListener('click', async () => {
 });
 
 /**
- * Assemble le châssis en un clic : pose 4 entretoises M2×4×22 sur la plaque
- * intermédiaire, aux perçages repérés à la main (#16, #17, #27, #28).
+ * Assemble le châssis en un clic : pose 4 entretoises M2×4×22 sur la
+ * middle-plate, aux perçages repérés à la main.
+ *
+ * Ces 4 perçages avaient été repérés #16, #17, #27, #28 sur l'ancien tracé
+ * photo de cette pièce (alors mal nommée « bottom-plate ») ; le contour vient
+ * maintenant du fichier middleplate.stl fourni, dont l'extraction numérote
+ * les mêmes perçages dans un autre ordre — #26, #10, #22, #16 ci-dessous.
+ * Les positions concordent à 0,22 mm près avec l'ancien tracé : ce sont bien
+ * les mêmes trous physiques.
  *
  * La position vient de l'index du perçage sur la pièce, pas de coordonnées
  * figées : elle reste juste quelle que soit la disposition courante de la
  * plaque (établi ou assemblée), contrairement à des coordonnées monde notées
  * une fois puis recopiées.
  */
-const CHASSIS_STANDOFF_HOLES = [27, 28, 16, 17];
+const CHASSIS_STANDOFF_HOLES = [26, 10, 22, 16];
 const CHASSIS_STANDOFF_SPEC = { threadId: 'M2', diameter: 2, acrossFlats: 4, length: 22 };
 
 $('asm-assemble-chassis').addEventListener('click', () => {
-  const plate = entryById('bottom-plate');
+  const plate = entryById('middle-plate');
   if (!plate || !plate.holder) {
-    updateAsmHint('Plaque intermédiaire châssis introuvable.', 'warn');
+    updateAsmHint('Middle-plate introuvable.', 'warn');
     return;
   }
 
@@ -676,8 +697,8 @@ $('asm-assemble-chassis').addEventListener('click', () => {
   renderStandoffs();
   renderStandoffList();
   updateAsmHint(
-    `Châssis assemblé : ${batch.length} entretoises M2×4×22 posées sur la plaque `
-    + `intermédiaire, perçages #${CHASSIS_STANDOFF_HOLES.join(', #')}.`,
+    `Châssis assemblé : ${batch.length} entretoises M2×4×22 posées sur la `
+    + `middle-plate, perçages #${CHASSIS_STANDOFF_HOLES.join(', #')}.`,
     'ok',
   );
 });
@@ -1145,6 +1166,7 @@ function renderPartList() {
             + `${r.name} — ${r.thickness.toFixed(1)} mm</option>`).join('')}
         </select>
         <button class="recal" title="Recaler l'échelle sur les perçages normalisés">Recalibrer</button>
+        <button class="mirror-dup" title="Crée une nouvelle pièce, symétrique de celle-ci — les deux restent visibles en même temps (utile pour un bras dont un seul côté a été tracé)">⇋ Dupliquer en miroir</button>
       </div>` : ''}`;
     li.querySelector('input').addEventListener('change', (ev) => {
       if (e.object) e.object.visible = ev.target.checked;
@@ -1168,6 +1190,14 @@ function renderPartList() {
 
     const recal = li.querySelector('.recal');
     if (recal) recal.addEventListener('click', () => rescalePart(m.id, m.name));
+
+    const mirrorDup = li.querySelector('.mirror-dup');
+    if (mirrorDup) mirrorDup.addEventListener('click', () => {
+      const created = custom.duplicateMirrored(m.id);
+      if (!created) { updateAsmHint(`« ${m.name} » introuvable.`, 'warn'); return; }
+      remountAll();
+      updateAsmHint(`« ${created.name} » créée — symétrique de « ${m.name} », les deux sont posées.`, 'ok');
+    });
 
     const del = li.querySelector('.del');
     if (del) del.addEventListener('click', () => {

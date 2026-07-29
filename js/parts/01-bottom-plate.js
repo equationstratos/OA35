@@ -1,64 +1,26 @@
 /**
- * PIÈCE 01 — Plaque intermédiaire du châssis carbone.
- * Base du build "TinyHoop MK1".
+ * PIÈCE 01 — Bottom-plate.
  *
- * La géométrie n'est pas saisie à la main : elle vient du tracé de la photo
- * de la pièce, figé dans ./contour-piece-01.js (coordonnées en pixels de
- * l'image source, générées par l'onglet Calibration).
+ * Contour et perçages extraits directement du fichier bottomplate.stl fourni
+ * (déjà en millimètres réels — rien à calibrer, contrairement aux pièces
+ * tracées depuis une photo). Voir js/parts/contour-bottom-plate.js.
  *
- * Pour la mettre à jour : onglet Calibration -> Tracer -> Exporter le contour,
- * puis remplacer contour-piece-01.js. Ce fichier-ci n'a pas à changer.
+ * Épaisseur mesurée sur le fichier fourni : 1,5 mm, conforme à la fiche
+ * technique du châssis (Bottom Plate Thickness: 1.5 mm).
  */
 
-import * as CONTOUR from './contour-piece-01.js';
-import { traceToMm } from '../lib/trace.js';
-import { plateFromTrace, blueprintFromTrace } from '../lib/plate.js';
+import { TRACE } from './contour-bottom-plate.js';
+import { plateFromSTL } from './plate-from-stl.js';
 
-/** Longueur hors-tout réelle de la plaque, en mm : seul réglage d'échelle. */
-export const REF_LENGTH_MM = CONTOUR.REF_LENGTH_MM;
+export const THICKNESS_MM = 1.5;
 
-/** Épaisseur du carbone, en mm. */
-export const THICKNESS_MM = CONTOUR.THICKNESS_MM;
-
-/** Tracé converti en millimètres, pièce centrée sur l'origine. */
-const TRACE = traceToMm(
-  { bbox: CONTOUR.BBOX, outline: CONTOUR.OUTLINE_PX, holes: CONTOUR.HOLES_PX },
-  REF_LENGTH_MM,
-);
-
-/** Tracé en millimètres, exposé pour l'export. */
-export const trace = TRACE;
-
-/** Objet 3D prêt à poser dans la scène (plaque à plat, avant vers -Z). */
-export function build(mirrored = false) {
-  return plateFromTrace(TRACE, THICKNESS_MM, mirrored);
-}
-
-/** Reconstruction depuis un nouveau tracé, sans toucher au fichier de contour. */
-export function buildFromTrace(traceMm) {
-  return plateFromTrace(traceMm, THICKNESS_MM);
-}
-
-/** Données 2D en mm, pour le plan coté. */
-export function blueprint() {
-  return blueprintFromTrace(TRACE);
-}
-
-export const meta = {
+const part = plateFromSTL({
+  trace: TRACE,
   id: 'bottom-plate',
   index: 1,
-  // porte les deux motifs de fixation du contrôleur de vol, donc la plaque
-  // intermédiaire d'après la fiche technique (le nom de fichier est d'origine)
-  name: 'Plaque intermédiaire châssis',
-  material: 'Carbone 3K sergé, ' + THICKNESS_MM.toFixed(1) + ' mm',
-  stackHeight: 0,        // altitude Y dans le build, en mm
-  traced: true,          // contour issu de la photo, pas d'une saisie manuelle
-  source: `photo ${CONTOUR.BBOX.width} x ${CONTOUR.BBOX.height} px`,
-  dims: {
-    length: TRACE.height,
-    width: TRACE.width,
-    thickness: THICKNESS_MM,
-    mmPerPx: TRACE.mmPerPx,
-    holes: TRACE.holes.length,
-  },
-};
+  name: 'Bottom-plate',
+  thickness: THICKNESS_MM,
+  source: 'contour extrait du fichier bottomplate.stl fourni',
+});
+
+export const { trace, build, buildFromTrace, blueprint, meta } = part;

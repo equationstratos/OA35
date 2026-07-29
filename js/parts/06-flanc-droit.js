@@ -1,7 +1,7 @@
 /**
- * PIÈCE 10 — Flanc droit.
+ * PIÈCE 06 — Flanc droit.
  *
- * Symétrique du flanc gauche (js/parts/09-flanc-gauche.js) : même maillage,
+ * Symétrique du flanc gauche (js/parts/05-flanc-gauche.js) : même maillage,
  * miroir en X. Les deux flancs sont posés en même temps — contrairement au
  * bouton Miroir du panneau latéral, qui remplace l'orientation d'UNE pièce,
  * un châssis dead-cat porte les deux côtés en même temps.
@@ -27,7 +27,7 @@ export function build(mirrored = false) {
 
 export const meta = {
   id: 'flanc-droit',
-  index: 10,
+  index: 6,
   name: 'Flanc droit',
   material: 'Plastique imprimé (import STEP)',
   stackHeight: 0,

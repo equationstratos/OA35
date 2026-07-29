@@ -1,5 +1,5 @@
 /**
- * PIÈCE 09 — Flanc gauche.
+ * PIÈCE 05 — Flanc gauche.
  *
  * Importée telle quelle depuis le fichier STEP fourni (Creo Parametric),
  * pas tracée depuis une photo : ce n'est pas une plaque plane, mais une
@@ -33,7 +33,7 @@ export function build(mirrored = false) {
 
 export const meta = {
   id: 'flanc-gauche',
-  index: 9,
+  index: 5,
   name: 'Flanc gauche',
   material: 'Plastique imprimé (import STEP)',
   stackHeight: 0,

@@ -7,7 +7,9 @@
  * aucune différence entre les deux.
  */
 
-import { plateFromTrace, blueprintFromTrace, holeAnchors } from '../lib/plate.js';
+import {
+  plateFromTrace, blueprintFromTrace, holeAnchors, mirrorTrace,
+} from '../lib/plate.js';
 import { findSquares, proposeScales } from '../lib/patterns.js';
 
 const STORAGE_KEY = 'tinyhoop-mk1:custom-parts';
@@ -82,6 +84,31 @@ export function renameSpec(id, name) {
   const list = loadSpecs();
   const s = list.find((x) => x.id === id);
   if (s) { s.name = name; saveSpecs(list); }
+}
+
+/**
+ * Duplique une pièce créée en sa symétrique, comme une nouvelle pièce à part
+ * entière — pas un simple bouton Miroir sur LA pièce.
+ *
+ * Sert typiquement à un bras dont un seul côté a été tracé : le dead-cat a
+ * besoin des deux en même temps dans la scène (comme flanc-gauche /
+ * flanc-droit), pas d'un miroir qu'on bascule.
+ *
+ * @param {string} id spec à dupliquer
+ * @returns {object|null} la nouvelle spec, ou null si l'originale est introuvable
+ */
+export function duplicateMirrored(id) {
+  const list = loadSpecs();
+  const src = list.find((s) => s.id === id);
+  if (!src) return null;
+
+  return addSpec({
+    name: `${src.name} (miroir)`,
+    thickness: src.thickness,
+    stackHeight: src.stackHeight,
+    traceMm: mirrorTrace(src.trace),
+    scaleSource: src.scaleSource,
+  });
 }
 
 export function setThickness(id, thickness) {
