@@ -173,9 +173,9 @@ const LAYOUT_GAP_MM = 12;
  * Position d'établi par pièce, en plan (X, Z) : la bottom-plate au centre, la
  * clamp-plate au-dessus sur le plan (vers l'avant, -Z, sans être empilée en
  * hauteur — « pas assemblée, juste posée dessus »), les flancs en haut à
- * gauche, tournés à 90° et bien espacés l'un de l'autre pour rester
- * lisibles. Middle-plate et top-plate n'avaient pas de place demandée : je
- * les ai mises à droite, à ajuster si besoin.
+ * gauche, côte à côte, chacun tourné à 90° et le droit à 180° de plus que le
+ * gauche pour se présenter tête-bêche. Middle-plate et top-plate n'avaient
+ * pas de place demandée : je les ai mises à droite, à ajuster si besoin.
  *
  * Les bras n'ont pas encore de fichier fourni : les colonnes 'bras-arriere'
  * (longs, cf. dead-cat — ce sont les arrières qui sont longs) et
@@ -188,12 +188,13 @@ const BENCH_ZONES = {
   'clamp-plate': { x: 0, z: -75 },
   'middle-plate': { x: 90, z: 0 },
   'top-plate': { x: 90, z: 115 },
-  // tournés à 90°, leur grand côté (63,7 mm) passe sur Z : l'écart entre les
-  // deux doit suivre, sinon ils se chevauchent malgré le X commun
-  'flanc-gauche': { x: -75, z: -55, rotY: -Math.PI / 2 }, // 90° horaire (vu de dessus)
-  'flanc-droit': { x: -75, z: 55, rotY: -Math.PI / 2 },
-  'bras-arriere': { x: -115, z: -20 }, // réservé — longs
-  'bras-avant': { x: -155, z: -20 },   // réservé — courts
+  // côte à côte (X commun décalé, même Z) plutôt que loin l'un de l'autre :
+  // le droit reprend les 90° du gauche plus 180°, pour qu'ils se présentent
+  // tête-bêche l'un à côté de l'autre plutôt que dans le même sens
+  'flanc-gauche': { x: -100, z: -30, rotY: -Math.PI / 2 },
+  'flanc-droit': { x: -70, z: -30, rotY: Math.PI / 2 },
+  'bras-arriere': { x: -140, z: -20 }, // réservé — longs
+  'bras-avant': { x: -175, z: -20 },   // réservé — courts
 };
 
 /**
