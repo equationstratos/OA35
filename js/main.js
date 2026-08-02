@@ -23,6 +23,20 @@ import { createHistory } from './history.js';
 
 const $ = (id) => document.getElementById(id);
 
+/**
+ * Étiquette de version, affichée dans l'en-tête.
+ *
+ * Elle est écrite par le JavaScript, pas par le HTML : c'est ce qui permet de
+ * distinguer une page en cache d'un script en cache. GitHub Pages sert les
+ * fichiers avec dix minutes de cache, et un simple rechargement peut donc
+ * rejouer l'ancien code alors que le dépôt est à jour — sans repère visible,
+ * impossible de trancher entre « pas déployé » et « pas rechargé ».
+ *
+ * À incrémenter à chaque livraison.
+ */
+const BUILD = '2026-08-02 · perçages STL, rotation, ✕';
+$('build-stamp').textContent = BUILD;
+
 /* ------------------------------------------------------------------ *
  * Scène
  * ------------------------------------------------------------------ */

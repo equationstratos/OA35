@@ -17,7 +17,11 @@
 <body>
 
 <header>
-  <h1>TinyHoop&nbsp;MK1 <small>— visualisation du build FPV</small></h1>
+  <h1>TinyHoop&nbsp;MK1 <small>— visualisation du build FPV</small>
+    <!-- rempli par js/main.js : si l'étiquette est absente ou périmée, c'est
+         le JAVASCRIPT qui est en cache, pas seulement la page -->
+    <span id="build-stamp" class="build-stamp" title="Version du code chargée par le navigateur">js en cache ?</span>
+  </h1>
   <nav class="tabs">
     <button class="tab" data-tab="cal">Calibration photo</button>
     <button class="tab on" data-tab="3d">Vue 3D</button>

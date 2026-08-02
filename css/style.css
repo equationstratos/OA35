@@ -560,3 +560,15 @@ ul { list-style: none; margin: 0; padding: 0; }
 .so-list li.pending.on { border-color: var(--accent); }
 .so-list .so-ref { flex: 0 0 auto; }
 .so-list .so-pos { text-align: right; opacity: 0.85; }
+
+/* étiquette de version : dit quelle version du JS le navigateur exécute */
+.build-stamp {
+  margin-left: 10px;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: 10.5px ui-monospace, monospace;
+  font-weight: 400;
+  color: var(--dim);
+  vertical-align: middle;
+}
