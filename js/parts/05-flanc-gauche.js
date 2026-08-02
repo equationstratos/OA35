@@ -11,7 +11,7 @@
  * attendant un mécanisme de calage dédié aux entretoises.
  */
 
-import { GEOMETRY, BOUNDS } from './side-panel-asset.js';
+import { GEOMETRY, BOUNDS, LOAD_ERROR } from './side-panel-asset.js';
 import { meshPartObject } from '../lib/mesh-part.js';
 import { printedMaterial } from '../lib/materials.js';
 import { mirrorGeometryX } from '../lib/stl-loader.js';
@@ -38,6 +38,8 @@ export const meta = {
   material: 'Plastique imprimé (import STEP)',
   stackHeight: 0,
   isMesh: true,      // panneau importé : pas de contour de perçages exploitable
+  // fichier absent : la pièce est écartée du build, sans empêcher le reste
+  missingAsset: LOAD_ERROR,
   source: 'fichier STEP importé (Creo Parametric)',
   dims: {
     length: BOUNDS.size[0],

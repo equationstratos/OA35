@@ -99,10 +99,22 @@ scene.add(buildRoot);
 
 let entries = [];
 
-/** Reconstruit la liste des pièces : celles du projet + celles créées ici. */
+/** Pièces du projet dont le fichier de maillage n'a pas pu être chargé. */
+let missingAssets = [];
+
+/**
+ * Reconstruit la liste des pièces : celles du projet + celles créées ici.
+ *
+ * Une pièce du projet dont le fichier d'assets manque est écartée plutôt que
+ * montée : sans ça, une géométrie nulle ferait échouer le montage et
+ * emporterait tout le reste du build, y compris les pièces créées depuis
+ * l'outil, qui n'ont pourtant aucun rapport avec ce fichier.
+ */
 function collectParts() {
+  missingAssets = PARTS.filter((mod) => mod.meta.missingAsset)
+    .map((mod) => mod.meta.name);
   return [
-    ...PARTS,
+    ...PARTS.filter((mod) => !mod.meta.missingAsset),
     ...custom.loadPartModules(PARTS.length + 1),
   ].map((mod) => ({ mod, object: null, baseY: mod.meta.stackHeight }));
 }
@@ -1162,6 +1174,18 @@ $('opt-photo').addEventListener('change', () => {
 function renderPartList() {
   const partList = $('part-list');
   partList.innerHTML = '';
+
+  // un fichier d'assets manquant doit se voir : sans ça la pièce disparaît
+  // simplement de la liste, ce qui ressemble à une perte de données
+  if (missingAssets.length) {
+    const li = document.createElement('li');
+    li.className = 'part missing';
+    li.innerHTML = `<p class="origin warn">Fichier manquant dans assets/parts-3d/ :
+      ${missingAssets.join(', ')} — pièce(s) non affichée(s). Le reste du build
+      et les pièces créées depuis l'outil sont intacts.</p>`;
+    partList.appendChild(li);
+  }
+
   for (const e of entries) {
     const m = e.mod.meta;
     const t = cal.state.traceMm;
