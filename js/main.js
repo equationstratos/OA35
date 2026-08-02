@@ -34,7 +34,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-02d · support caméra en paire';
+const BUILD = '2026-08-02e · panneau repliable, fond';
 $('build-stamp').textContent = BUILD;
 
 /* ------------------------------------------------------------------ *
@@ -101,7 +101,7 @@ ground.position.y = -14;
 ground.receiveShadow = true;
 scene.add(ground);
 
-const grid = new THREE.GridHelper(300, 30, 0x1e3550, 0x142236);
+let grid = new THREE.GridHelper(300, 30, 0x1e3550, 0x142236);
 grid.position.y = -14;
 scene.add(grid);
 
@@ -2106,6 +2106,91 @@ function resize() {
   camera.updateProjectionMatrix();
   invalidate();
 }
+/* ------------------------------------------------------------------ *
+ * Panneau rétractable
+ * ------------------------------------------------------------------ */
+
+const SIDE_KEY = 'tinyhoop-mk1:sidebar-collapsed';
+
+function applySidebar(collapsed) {
+  $('layout').classList.toggle('side-collapsed', collapsed);
+  $('side-toggle').classList.toggle('on', collapsed);
+  $('side-toggle').textContent = collapsed ? '⇥ Panneau' : '⇤ Panneau';
+  // La largeur du canvas change : sans redimensionnement le rendu resterait
+  // étiré. La transition CSS dure 180 ms, d'où le recalage à la fin — et un
+  // premier tout de suite pour que ça ne saute pas à l'arrivée.
+  resize();
+  setTimeout(() => {
+    resize();
+    if (!$('pane-bp').classList.contains('hidden')) renderBlueprint();
+    if (!$('pane-cal').classList.contains('hidden')) renderCalibration();
+  }, 200);
+}
+
+let sidebarCollapsed = localStorage.getItem(SIDE_KEY) === '1';
+applySidebar(sidebarCollapsed);
+
+function toggleSidebar() {
+  sidebarCollapsed = !sidebarCollapsed;
+  try { localStorage.setItem(SIDE_KEY, sidebarCollapsed ? '1' : '0'); } catch { /* ignore */ }
+  applySidebar(sidebarCollapsed);
+}
+
+$('side-toggle').addEventListener('click', toggleSidebar);
+window.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key.toLowerCase() === 'b') { e.preventDefault(); toggleSidebar(); }
+});
+
+/* ------------------------------------------------------------------ *
+ * Couleur du fond
+ * ------------------------------------------------------------------ */
+
+const BG_KEY = 'tinyhoop-mk1:background';
+
+/**
+ * Seul le fond change. La grille, elle, doit rester lisible : un quadrillage
+ * bleu nuit disparaît sur du blanc. Chaque fond emporte donc la teinte de
+ * grille qui garde le même contraste, sans toucher aux pièces.
+ */
+const BACKGROUNDS = {
+  studio: { bg: 0x0a0e14, grid: [0x1e3550, 0x142236] },
+  noir: { bg: 0x000000, grid: [0x2a2a2a, 0x1a1a1a] },
+  gris: { bg: 0x808080, grid: [0x9a9a9a, 0x707070] },
+  blanc: { bg: 0xffffff, grid: [0xc8c8c8, 0xe0e0e0] },
+};
+
+function applyBackground(name) {
+  const choice = BACKGROUNDS[name] || BACKGROUNDS.studio;
+  scene.background = new THREE.Color(choice.bg);
+
+  // GridHelper fige ses couleurs à la construction : on remplace le maillage
+  // plutôt que de fouiller ses attributs de couleur
+  const wasVisible = grid.visible;
+  scene.remove(grid);
+  disposeObject(grid);
+  grid = new THREE.GridHelper(300, 30, choice.grid[0], choice.grid[1]);
+  grid.position.y = -14;
+  grid.visible = wasVisible;
+  scene.add(grid);
+
+  document.querySelectorAll('.bg-swatch').forEach((b) => {
+    b.classList.toggle('on', b.dataset.bg === name);
+  });
+  invalidate();
+}
+
+document.querySelectorAll('.bg-swatch').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const name = btn.dataset.bg;
+    try { localStorage.setItem(BG_KEY, name); } catch { /* ignore */ }
+    applyBackground(name);
+  });
+});
+applyBackground(localStorage.getItem(BG_KEY) || 'studio');
+
 window.addEventListener('resize', () => {
   resize();
   if (!$('pane-bp').classList.contains('hidden')) renderBlueprint();
@@ -2207,6 +2292,8 @@ if (new URLSearchParams(location.search).has('debug')) {
       lastPick,
       selectedId,
       hidden: [...hiddenParts],
+      background: `#${scene.background.getHexString()}`,
+      sidebarCollapsed: $('layout').classList.contains('side-collapsed'),
       standoffs: standoffs.map((s) => ({
         ref: so.reference(s),
         placed: s.x !== null,

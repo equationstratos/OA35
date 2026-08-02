@@ -572,3 +572,48 @@ ul { list-style: none; margin: 0; padding: 0; }
   color: var(--dim);
   vertical-align: middle;
 }
+
+/* --------------------------------------- panneau rétractable + fond */
+
+/* La largeur du panneau est une variable : la replier revient à la mettre à
+   zéro, et la transition sur grid-template-columns anime le glissement sans
+   déplacer le canvas dans le flux (il occupe toujours la 2e colonne). */
+main {
+  grid-template-columns: var(--side-w, 288px) 1fr;
+  transition: grid-template-columns 0.18s ease;
+}
+main.side-collapsed { --side-w: 0px; }
+main.side-collapsed #sidebar {
+  /* sans ça le contenu déborderait sur la vue pendant et après l'animation */
+  overflow: hidden;
+  border-right: 0;
+}
+
+#side-toggle {
+  background: #131c28;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12.5px;
+  transition: 0.15s;
+}
+#side-toggle:hover { color: var(--txt); border-color: #2b4055; }
+/* l'en-tête précède <main> : l'état replié ne peut pas se lire en CSS depuis
+   le bouton, c'est donc le script qui pose cette classe */
+#side-toggle.on { color: var(--accent); border-color: var(--accent); }
+
+.bg-row { display: flex; align-items: center; gap: 6px; margin-top: 12px; }
+.bg-label { font-size: 13px; color: var(--dim); margin-right: 2px; }
+.bg-swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  background: var(--sw);
+  cursor: pointer;
+}
+.bg-swatch:hover { border-color: #2b4055; }
+.bg-swatch.on { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(108, 199, 255, 0.28); }

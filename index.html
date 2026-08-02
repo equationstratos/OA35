@@ -23,13 +23,14 @@
     <span id="build-stamp" class="build-stamp" title="Version du code chargée par le navigateur">js en cache ?</span>
   </h1>
   <nav class="tabs">
+    <button id="side-toggle" title="Replier / déplier le panneau (touche B)">⇤ Panneau</button>
     <button class="tab" data-tab="cal">Calibration photo</button>
     <button class="tab on" data-tab="3d">Vue 3D</button>
     <button class="tab" data-tab="bp">Plan coté</button>
   </nav>
 </header>
 
-<main>
+<main id="layout">
   <aside id="sidebar">
     <section>
       <h2>Pièces modélisées</h2>
@@ -58,6 +59,13 @@
         Vue éclatée <span id="explode-val">0 mm</span>
         <input type="range" id="explode" min="0" max="60" step="1" value="0">
       </label>
+      <div class="bg-row" role="group" aria-label="Couleur du fond">
+        <span class="bg-label">Fond</span>
+        <button class="bg-swatch on" data-bg="studio" style="--sw:#0a0e14" title="Fond d'origine"></button>
+        <button class="bg-swatch" data-bg="noir" style="--sw:#000000" title="Noir"></button>
+        <button class="bg-swatch" data-bg="gris" style="--sw:#808080" title="Gris"></button>
+        <button class="bg-swatch" data-bg="blanc" style="--sw:#ffffff" title="Blanc"></button>
+      </div>
     </section>
 
     <section>
