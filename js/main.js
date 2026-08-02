@@ -34,7 +34,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-02g · patins sous les bras';
+const BUILD = '2026-08-02h · repères masquables';
 $('build-stamp').textContent = BUILD;
 
 /* ------------------------------------------------------------------ *
@@ -450,12 +450,17 @@ function renderHistoryButtons() {
 
 /** Repères de perçage visibles et cliquables uniquement en assemblage. */
 function setMarkersVisible(visible) {
+  // les anneaux débordent des pièces et se recouvrent une fois le châssis
+  // assemblé : on doit pouvoir les éteindre pour regarder le modèle. Éteints,
+  // ils ne sont plus cliquables non plus — viser une cible invisible ne
+  // donnerait que des assemblages faits au hasard.
+  const shown = visible && $('opt-markers').checked;
   entries.forEach((e) => {
     const group = e.object && e.object.getObjectByName('hole-markers');
-    if (group) group.visible = visible;
+    if (group) group.visible = shown;
   });
-  if (!visible) clearSelection();
-  $('asm-hint').classList.toggle('hidden', !visible);
+  if (!shown) clearSelection();
+  $('asm-hint').classList.toggle('hidden', !shown);
 }
 
 function pickTargets() {
@@ -1609,6 +1614,18 @@ function applyDisplayOptions() {
 }
 
 $('opt-edges').addEventListener('change', applyDisplayOptions);
+
+/* --- repères de perçage : visibles ou non, d'une session à l'autre --- */
+const MARKERS_KEY = 'tinyhoop-mk1:markers';
+if (localStorage.getItem(MARKERS_KEY) === '0') $('opt-markers').checked = false;
+$('opt-markers').addEventListener('change', () => {
+  try {
+    localStorage.setItem(MARKERS_KEY, $('opt-markers').checked ? '1' : '0');
+  } catch { /* ignore */ }
+  setMarkersVisible(!$('opt-layout').checked);
+  invalidate();
+});
+
 $('opt-grid').addEventListener('change', () => {
   grid.visible = $('opt-grid').checked;
   invalidate();
@@ -2294,7 +2311,20 @@ if (new URLSearchParams(location.search).has('debug')) {
       // uniquement le corps : les repères d'accrochage (anneaux, disques de
       // visée) débordent de la pièce et fausseraient la mesure
       const body = e.object && e.object.getObjectByName('body');
-      const box = new THREE.Box3().setFromObject(body || e.holder);
+      // Box3.setFromObject transforme la boîte de la géométrie, pas ses
+      // sommets : pour une pièce tournée, il rend la boîte de la boîte, plus
+      // grosse de plusieurs millimètres (mesuré 3,4 mm sur un patin à 23°).
+      // On repasse donc sur les sommets.
+      const box = new THREE.Box3();
+      if (body) {
+        const p = body.geometry.attributes.position;
+        const v = new THREE.Vector3();
+        for (let i = 0; i < p.count; i++) {
+          box.expandByPoint(v.fromBufferAttribute(p, i).applyMatrix4(body.matrixWorld));
+        }
+      } else {
+        box.setFromObject(e.holder);
+      }
       return {
         id: e.mod.meta.id,
         minX: box.min.x, maxX: box.max.x,
