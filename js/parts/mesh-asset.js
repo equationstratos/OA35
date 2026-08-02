@@ -14,7 +14,7 @@
  */
 
 import { loadSTL, meshBounds, mirrorGeometryX } from '../lib/stl-loader.js';
-import { meshPartObject } from '../lib/mesh-part.js';
+import { meshPartObject, meshAnchors } from '../lib/mesh-part.js';
 import { printedMaterial } from '../lib/materials.js';
 
 /**
@@ -59,12 +59,20 @@ export async function meshPart({
     ? meshBounds(geometry)
     : { min: [0, 0, 0], max: [0, 0, 0], size: [0, 0, 0] };
 
+  // La détection des features circulaires coûte quelques centaines de ms :
+  // faite une fois ici, pas à chaque reconstruction de la pièce (le bouton
+  // Miroir en déclenche une). Le miroir se déduit des ancres d'origine.
+  const anchors = geometry ? meshAnchors(geometry) : [];
+
   return {
     build(flip = false) {
       // le miroir demandé par la pièce et celui du bouton se composent
       const wantMirror = mirrored !== flip;
       const geo = wantMirror ? mirrorGeometryX(geometry) : geometry;
-      const group = meshPartObject(geo, printedMaterial());
+      const a = wantMirror
+        ? anchors.map((c) => ({ ...c, x: -c.x }))
+        : anchors;
+      const group = meshPartObject(geo, printedMaterial(), a);
       if (zUp) group.rotation.x = -Math.PI / 2;
       return group;
     },

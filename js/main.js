@@ -19,6 +19,7 @@ import * as exporter from './lib/export.js';
 import * as hw from './hardware.js';
 import * as so from './standoffs.js';
 import { createNavCube } from './navcube.js';
+import { createHistory } from './history.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -168,6 +169,8 @@ function remountAll() {
   renderPartList();
   applySelectionLook();
   renderPartToolbar();
+  // les pièces viennent d'être reconstruites : elles sont toutes visibles
+  applyHidden();
 }
 
 /** Le tracé photo ne remplace que la pièce 01, et seulement si demandé. */
@@ -296,6 +299,113 @@ function layoutParts() {
  * ------------------------------------------------------------------ */
 
 let placements = asm.loadPlacements();
+
+/* ------------------------------------------------------------------ *
+ * Pièces masquées
+ * ------------------------------------------------------------------ */
+
+const HIDDEN_KEY = 'tinyhoop-mk1:hidden-parts';
+
+/**
+ * Pièces masquées, conservées d'une session à l'autre.
+ *
+ * L'état de la case à cocher était auparavant perdu à chaque reconstruction
+ * de la scène (miroir, changement de rôle, import d'un plan…) : la pièce
+ * revenait cochée et visible, ce qui la rendait impossible à retirer
+ * durablement. Il faut donc le mémoriser hors de la liste, qui est réécrite
+ * à chaque rendu.
+ */
+function loadHidden() {
+  try {
+    const raw = localStorage.getItem(HIDDEN_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(list) ? list : []);
+  } catch {
+    return new Set();
+  }
+}
+
+let hiddenParts = loadHidden();
+
+function saveHidden() {
+  try {
+    localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hiddenParts]));
+  } catch { /* stockage indisponible : valable pour la session */ }
+}
+
+/** Applique l'état masqué/visible à toutes les pièces montées. */
+function applyHidden() {
+  entries.forEach((e) => {
+    if (e.object) e.object.visible = !hiddenParts.has(e.mod.meta.id);
+  });
+  invalidate();
+}
+
+/* ------------------------------------------------------------------ *
+ * Historique (annuler / rétablir)
+ * ------------------------------------------------------------------ */
+
+const history = createHistory();
+
+/** État complet du plan de travail, tel qu'il est mémorisé et restauré. */
+function snapshot() {
+  return { placements, standoffs, hidden: [...hiddenParts] };
+}
+
+/** Vrai pendant une restauration : les sauvegardes ne doivent alors rien empiler. */
+let restoring = false;
+
+/** Enregistre l'état courant comme point de retour. */
+function pushHistory() {
+  if (restoring) return;
+  if (history.push(snapshot())) renderHistoryButtons();
+}
+
+/**
+ * Sauvegardes du plan de travail, passage obligé de toute modification.
+ *
+ * L'historique est alimenté ici plutôt qu'à chaque geste : les points de
+ * mutation sont nombreux (contrainte de perçage, curseurs, assemblage
+ * automatique, entretoises, masquage…) et en oublier un rendrait le retour
+ * arrière incohérent — il sauterait par-dessus une action.
+ */
+function savePlacements() {
+  asm.savePlacements(placements);
+  pushHistory();
+}
+
+function saveStandoffs() {
+  so.save(standoffs);
+  pushHistory();
+}
+
+function applySnapshot(state) {
+  restoring = true;
+  try {
+    placements = state.placements || {};
+    standoffs = state.standoffs || [];
+    hiddenParts = new Set(state.hidden || []);
+    asm.savePlacements(placements);
+    so.save(standoffs);
+    saveHidden();
+
+    clearSelection();
+    clearStandoffSelection();
+    layoutParts();
+    renderStandoffs();
+    renderStandoffList();
+    renderPartList();
+    applyHidden();
+  } finally {
+    restoring = false;
+  }
+  renderHistoryButtons();
+}
+
+function renderHistoryButtons() {
+  $('hist-undo').disabled = !history.canUndo();
+  $('hist-redo').disabled = !history.canRedo();
+}
 
 /** Repères de perçage visibles et cliquables uniquement en assemblage. */
 function setMarkersVisible(visible) {
@@ -561,7 +671,7 @@ function placeStandoffOnMarker(marker) {
   spec.x = local.x; spec.y = local.y; spec.z = local.z;
   spec.source = 'click';
   spec.holeLabel = `${entry.mod.meta.name} #${marker.userData.anchor.index}`;
-  so.save(standoffs);
+  saveStandoffs();
 
   const remaining = standoffs.filter((s) => s.x === null);
   selectedStandoff = remaining.length ? remaining[0].id : null;
@@ -605,7 +715,7 @@ $('so-create').addEventListener('click', () => {
   });
 
   standoffs = standoffs.concat(lot);
-  so.save(standoffs);
+  saveStandoffs();
   selectedStandoff = lot.find((s) => s.x === null)?.id ?? null;
   renderStandoffs();
   renderStandoffList();
@@ -636,7 +746,7 @@ $('so-create').addEventListener('click', () => {
 $('so-clear').addEventListener('click', () => {
   standoffs = [];
   selectedStandoff = null;
-  so.save(standoffs);
+  saveStandoffs();
   renderStandoffs();
   renderStandoffList();
   updateAsmHint('Entretoises retirées.');
@@ -721,7 +831,7 @@ $('asm-assemble-chassis').addEventListener('click', () => {
     s.holeLabel = labelFor(marker.userData.anchor.index);
   });
 
-  so.save(standoffs);
+  saveStandoffs();
   selectedStandoff = null;
   renderStandoffs();
   renderStandoffList();
@@ -856,7 +966,7 @@ function partAction(action) {
 
   if (action === 'reset-pos') {
     delete placements[id];
-    asm.savePlacements(placements);
+    savePlacements();
     layoutParts();
     renderPartToolbar();
     updateAsmHint(`« ${entry.mod.meta.name} » remise à sa position automatique.`, 'ok');
@@ -868,7 +978,7 @@ function partAction(action) {
   if (action === 'mirror') {
     placement.mirrored = !placement.mirrored;
     placements[id] = placement;
-    asm.savePlacements(placements);
+    savePlacements();
     // le miroir change la géométrie : la pièce est reconstruite
     mountPart(entry, entry.mod.isCustom ? null : appliedTrace());
     layoutParts();
@@ -892,7 +1002,7 @@ function partAction(action) {
     const gap = (reference.mod.meta.dims.thickness + entry.mod.meta.dims.thickness) / 2;
     placement.y = reference.holder.position.y + (action === 'below' ? -gap : gap);
     placements[id] = placement;
-    asm.savePlacements(placements);
+    savePlacements();
     layoutParts();
     renderPartToolbar();
     updateAsmHint(
@@ -937,7 +1047,7 @@ function storePlacement(entry, extra = {}) {
     rotY: entry.holder.rotation.y,
     ...extra,
   };
-  asm.savePlacements(placements);
+  savePlacements();
 }
 
 let lastPick = null;
@@ -1221,7 +1331,7 @@ function renderPartList() {
     li.dataset.id = m.id;
     li.innerHTML = `
       <label class="part-head">
-        <input type="checkbox" checked>
+        <input type="checkbox" ${hiddenParts.has(m.id) ? '' : 'checked'}>
         <span class="idx">${String(m.index).padStart(2, '0')}</span>
         <span class="nm">${m.name}</span>
       </label>
@@ -1253,7 +1363,11 @@ function renderPartList() {
         <button class="mirror-dup" title="Crée une nouvelle pièce, symétrique de celle-ci — les deux restent visibles en même temps (utile pour un bras dont un seul côté a été tracé)">⇋ Dupliquer en miroir</button>
       </div>` : ''}`;
     li.querySelector('input').addEventListener('change', (ev) => {
-      if (e.object) e.object.visible = ev.target.checked;
+      if (ev.target.checked) hiddenParts.delete(m.id);
+      else hiddenParts.add(m.id);
+      saveHidden();
+      applyHidden();
+      pushHistory();
     });
 
     li.addEventListener('click', (ev) => {
@@ -1434,7 +1548,7 @@ function rescalePart(id, name) {
 
   // le placement d'assemblage avait été calculé à l'ancienne échelle
   delete placements[id];
-  asm.savePlacements(placements);
+  savePlacements();
   remountAll();
   updateAsmHint(
     `« ${name} » recalée : ${result.current.toFixed(1)} -> `
@@ -1463,7 +1577,7 @@ $('asm-rescale-all').addEventListener('click', () => {
       inconclusive.push(e.mod.meta.name);
     }
   }
-  asm.savePlacements(placements);
+  savePlacements();
   remountAll();
 
   const parts = [];
@@ -1495,6 +1609,7 @@ $('wp-export').addEventListener('click', () => {
     savedAt: new Date().toISOString(),
     placements,
     standoffs,
+    hidden: [...hiddenParts],
     customParts: custom.loadSpecs(),
   };
   exporter.download(
@@ -1525,15 +1640,19 @@ $('wp-file').addEventListener('change', async (e) => {
 
   custom.importSpecs(data.customParts || []);
   placements = data.placements && typeof data.placements === 'object' ? data.placements : {};
-  asm.savePlacements(placements);
   standoffs = Array.isArray(data.standoffs) ? data.standoffs : [];
+  hiddenParts = new Set(Array.isArray(data.hidden) ? data.hidden : []);
+  asm.savePlacements(placements);
   so.save(standoffs);
+  saveHidden();
 
   clearSelection();
   clearStandoffSelection();
   remountAll();
   renderStandoffs();
   renderStandoffList();
+  // le plan chargé devient un point de retour à part entière
+  pushHistory();
   updateAsmHint(
     `Plan de travail « ${file.name} » chargé : ${entries.length} pièce(s), `
     + `${standoffs.length} entretoise(s).`,
@@ -1857,6 +1976,40 @@ renderStandoffs();
 renderStandoffList();
 frameAll(ISO_DIR);
 updatePhotoOpacity();
+applyHidden();
+
+/* ------------------------------------------------------------------ *
+ * Annuler / rétablir
+ * ------------------------------------------------------------------ */
+
+history.reset(snapshot());
+renderHistoryButtons();
+
+function undo() {
+  const state = history.undo();
+  if (!state) return;
+  applySnapshot(state);
+  updateAsmHint('Action annulée.', 'ok');
+}
+
+function redo() {
+  const state = history.redo();
+  if (!state) return;
+  applySnapshot(state);
+  updateAsmHint('Action rétablie.', 'ok');
+}
+
+$('hist-undo').addEventListener('click', undo);
+$('hist-redo').addEventListener('click', redo);
+
+window.addEventListener('keydown', (e) => {
+  // pas pendant une saisie : Ctrl+Z doit y garder son sens habituel
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'z') return;
+  e.preventDefault();
+  if (e.shiftKey) redo(); else undo();
+});
 
 /* ------------------------------------------------------------------ *
  * Cube de navigation
@@ -1908,6 +2061,7 @@ if (new URLSearchParams(location.search).has('debug')) {
       hint: $('asm-hint').textContent,
       lastPick,
       selectedId,
+      hidden: [...hiddenParts],
       standoffs: standoffs.map((s) => ({
         ref: so.reference(s),
         placed: s.x !== null,
