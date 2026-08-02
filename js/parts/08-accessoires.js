@@ -63,9 +63,15 @@ export const ACCESSORIES = await Promise.all([
   // zUp: false — ce fichier est déjà à plat, épaisseur 8,7 mm sur Y (mesuré :
   // les grandes faces sont perpendiculaires à Y). Lui appliquer la bascule
   // des exports Z haut le dresserait sur la tranche, 17,7 mm de haut.
+  //
+  // upsideDown: true — le fichier pose sur le plateau sa SEMELLE, la face
+  // plate percée des quatre trous M2 (Ø2, entraxe 12 mm en diagonale). Or
+  // c'est justement elle qui vient contre le dessous du bras : la béquille
+  // creuse (6,1 mm) et la pointe doivent descendre vers le sol. Sans le
+  // retournement, le patin monte dans le bras.
   ...FOOTPAD_SLOTS.map(({ id, index, name }) => meshPart({
     url: 'assets/parts-3d/35_footpad_final.STL',
     id, index, name, material: PRINTED, source: 'fichier STL fourni',
-    zUp: false,
+    zUp: false, upsideDown: true,
   })),
 ]);

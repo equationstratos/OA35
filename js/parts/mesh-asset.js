@@ -28,9 +28,14 @@ import { printedMaterial } from '../lib/materials.js';
  * @param {boolean} [o.mirrored] afficher le miroir en X du maillage
  * @param {boolean} [o.zUp] le fichier est en repère Z « haut » (export CAO) :
  *        on le bascule pour rejoindre le repère de la scène, Y « haut »
+ * @param {boolean} [o.upsideDown] la pièce se monte retournée par rapport à
+ *        son fichier : sa face de fixation est celle que le fichier pose sur
+ *        le plateau d'impression. On retourne le maillage une bonne fois,
+ *        pour que « bas » veuille dire la même chose ici que sur le drone.
  */
 export async function meshPart({
-  url, id, index, name, material, source, mirrored = false, zUp = true,
+  url, id, index, name, material, source,
+  mirrored = false, zUp = true, upsideDown = false,
 }) {
   let geometry = null;
   let error = null;
@@ -42,6 +47,13 @@ export async function meshPart({
   }
 
   if (geometry) {
+    // Retournement éventuel AVANT le recentrage : c'est lui qui décide quelle
+    // face se retrouve en bas, donc quel plan vient à zéro. Un patin de bras
+    // s'imprime semelle sur le plateau mais se visse semelle EN HAUT, contre
+    // le dessous du bras — sans ce retournement, sa béquille pointe vers le
+    // bras au lieu du sol.
+    if (upsideDown) geometry.rotateX(Math.PI);
+
     // Recentre la pièce sur son propre encombrement, base posée sur le plan.
     // Les fichiers exportés d'une CAO gardent l'origine du repère de
     // modélisation, qui peut être n'importe où : sans ça, la position
@@ -91,10 +103,14 @@ export async function meshPart({
       missingAsset: error ? `${url} : ${error.message}` : null,
       source,
       dims: {
-        // après bascule Z->Y, la 3e dimension du fichier devient la hauteur
+        // « thickness » sert de demi-épaisseur pour poser une pièce au-dessus
+        // ou en dessous d'une autre : c'est la HAUTEUR dans la scène qu'il
+        // faut, pas la 3e dimension du fichier. Après bascule Z->Y c'est bien
+        // la 3e ; sans bascule (fichier déjà en Y haut) c'est la 2e — s'y
+        // tromper posait le patin 9 mm à côté de sa surface d'appui.
         length: bounds.size[0],
-        width: bounds.size[1],
-        thickness: bounds.size[2],
+        width: zUp ? bounds.size[1] : bounds.size[2],
+        thickness: zUp ? bounds.size[2] : bounds.size[1],
       },
     },
   };

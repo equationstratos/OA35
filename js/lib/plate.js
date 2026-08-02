@@ -61,29 +61,47 @@ function holeMarkers(anchors, thickness) {
     transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide,
   });
 
-  for (const a of anchors) {
-    const ringRadius = Math.max(a.r, 0.9) + 0.35;
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(ringRadius, 0.16, 8, 28),
-      ringMaterial,
-    );
-    ring.renderOrder = 2;
-    ring.name = 'ring';
+  // Un perçage traverse la plaque : il offre donc DEUX points d'accrochage,
+  // un par face. N'en poser qu'un, sur le dessus, rend impossible de visser
+  // quoi que ce soit par en dessous — un patin sous un bras, par exemple :
+  // le cercle du dessous n'existe pas, il n'y a rien à viser.
+  //
+  // Le repère du dessus est créé en premier : le code qui retrouve un perçage
+  // par son index (pose des entretoises) continue de tomber sur celui-là.
+  const FACES = [
+    { face: 'top', z: thickness / 2 + 0.05, color: 0x6cc7ff },
+    { face: 'bottom', z: -thickness / 2 - 0.05, color: 0xffb066 },
+  ];
 
-    const pick = new THREE.Mesh(
-      new THREE.CircleGeometry(Math.max(a.r * 1.7, PICK_MIN_RADIUS_MM), 20),
-      pickMaterial,
-    );
-    pick.name = 'pick';
+  for (const f of FACES) {
+    const material = f.face === 'top' ? ringMaterial : new THREE.MeshBasicMaterial({
+      color: f.color, transparent: true, opacity: 0.75, depthTest: false,
+    });
+    for (const a of anchors) {
+      const ringRadius = Math.max(a.r, 0.9) + 0.35;
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(ringRadius, 0.16, 8, 28),
+        material,
+      );
+      ring.renderOrder = 2;
+      ring.name = 'ring';
 
-    // c'est le repère lui-même qui porte la position du perçage : sa position
-    // monde est le point d'accrochage de l'assemblage
-    const marker = new THREE.Group();
-    marker.name = 'hole';
-    marker.position.set(a.x, a.y, thickness / 2 + 0.05);
-    marker.userData.anchor = a;
-    marker.add(ring, pick);
-    group.add(marker);
+      const pick = new THREE.Mesh(
+        new THREE.CircleGeometry(Math.max(a.r * 1.7, PICK_MIN_RADIUS_MM), 20),
+        pickMaterial,
+      );
+      pick.name = 'pick';
+
+      // c'est le repère lui-même qui porte la position du perçage : sa position
+      // monde est le point d'accrochage de l'assemblage
+      const marker = new THREE.Group();
+      marker.name = 'hole';
+      marker.position.set(a.x, a.y, f.z);
+      marker.userData.anchor = a;
+      marker.userData.face = f.face;
+      marker.add(ring, pick);
+      group.add(marker);
+    }
   }
   return group;
 }

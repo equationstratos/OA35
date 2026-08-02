@@ -137,8 +137,14 @@ export function highlight(marker, kind) {
   if (!ring.userData.ownMaterial) {
     ring.material = ring.material.clone();
     ring.userData.ownMaterial = true;
+    // couleur d'origine : tous les repères ne sont pas de la même teinte (le
+    // dessous d'une plaque se distingue du dessus), la remise à l'état neutre
+    // doit rendre la sienne à chacun
+    ring.userData.idleColor = ring.material.color.getHex();
   }
-  ring.material.color.setHex(markerColor(kind));
+  ring.material.color.setHex(kind === 'idle'
+    ? (ring.userData.idleColor ?? markerColor('idle'))
+    : markerColor(kind));
   ring.material.opacity = kind === 'idle' ? 0.75 : 1;
   ring.scale.setScalar(kind === 'idle' ? 1 : 1.45);
 }

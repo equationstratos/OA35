@@ -34,7 +34,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-02f · patins de bras';
+const BUILD = '2026-08-02g · patins sous les bras';
 $('build-stamp').textContent = BUILD;
 
 /* ------------------------------------------------------------------ *
@@ -487,10 +487,14 @@ scene.add(hardwareGroup);
 /** Perçages d'une pièce, en coordonnées monde. */
 function partHolesInWorld(entry) {
   const v = new THREE.Vector3();
-  return (entry.markers || []).map((marker) => {
-    marker.getWorldPosition(v);
-    return { x: v.x, z: v.z, diameter: marker.userData.anchor.r * 2 };
-  });
+  // un perçage porte un repère sur chaque face : ne compter que celui du
+  // dessus, sinon chaque trou est vu deux fois et la visserie est doublée
+  return (entry.markers || [])
+    .filter((marker) => marker.userData.face !== 'bottom')
+    .map((marker) => {
+      marker.getWorldPosition(v);
+      return { x: v.x, z: v.z, diameter: marker.userData.anchor.r * 2 };
+    });
 }
 
 /** Pièces assemblées, sous la forme attendue par la détection. */
@@ -1252,23 +1256,33 @@ function onPick(event) {
   if (asm.state.movingId !== movEntry.mod.meta.id) {
     // --- 1re paire : superposition des deux trous
     const refThickness = refEntry.mod.meta.dims.thickness;
+    // le repère cliqué dit de quel côté monter : viser le cercle du DESSOUS
+    // d'un bras, c'est vouloir y visser quelque chose par en dessous (un
+    // patin), pas le poser sur le dessus
+    const under = refMarker.userData.face === 'bottom';
     // la hauteur saisie à la création prime ; sinon la pièce se pose au contact
     if (movEntry.baseY !== 0) {
       movEntry.holder.position.y = movEntry.baseY;
     } else {
-      restOnSurface(movEntry, refEntry.holder.position.y + refThickness / 2);
+      restOnSurface(
+        movEntry,
+        refEntry.holder.position.y + (under ? -refThickness / 2 : refThickness / 2),
+        under,
+      );
     }
 
     asm.translateInPlane(movEntry.holder, movPos, refPos);
     asm.state.movingId = movEntry.mod.meta.id;
     asm.state.anchor = refPos.clone();
-    storePlacement(movEntry, { refId: refEntry.mod.meta.id, side: 'above' });
+    storePlacement(movEntry, { refId: refEntry.mod.meta.id, side: under ? 'below' : 'above' });
 
     asm.highlight(refMarker, 'anchored');
     asm.highlight(movMarker, 'anchored');
     asm.state.pending = null;
     updateAsmHint(
-      `Trous superposés. Clique un 2e trou de référence puis son équivalent sur « ${movEntry.mod.meta.name} » pour l'orienter.`,
+      `Trous superposés, « ${movEntry.mod.meta.name} » ${under ? 'SOUS' : 'sur'} `
+      + `« ${refEntry.mod.meta.name} ». Clique un 2e trou de référence puis son `
+      + "équivalent pour l'orienter.",
       'ok',
     );
   } else {
@@ -2268,6 +2282,11 @@ const navCube = createNavCube({
  * mesure plutôt qu'à l'œil.
  */
 if (new URLSearchParams(location.search).has('debug')) {
+  // la scène elle-même : les boîtes englobantes ne disent pas dans quel sens
+  // pointe une pièce, il faut pouvoir remonter à ses sommets
+  window.__buildRoot = buildRoot;
+  window.__THREE = THREE;
+
   /** Encombrement au sol de chaque pièce, pour vérifier la disposition. */
   window.__benchBoxes = () => {
     buildRoot.updateMatrixWorld(true);
@@ -2317,7 +2336,8 @@ if (new URLSearchParams(location.search).has('debug')) {
       })),
       ringColors: entries.flatMap((e) => (e.markers || [])
         .map((m) => m.getObjectByName('ring').material.color.getHexString())
-        .filter((c) => c !== '6cc7ff')),
+        // 6cc7ff = repère de dessus au repos, ffb066 = repère de dessous
+        .filter((c) => c !== '6cc7ff' && c !== 'ffb066')),
       parts: entries.map((e) => ({
         id: e.mod.meta.id,
         name: e.mod.meta.name,
@@ -2337,6 +2357,7 @@ if (new URLSearchParams(location.search).has('debug')) {
           v.project(camera);
           return {
             index, kind, r,
+            face: m.userData.face || null,
             ...world,
             sx: ((v.x + 1) / 2) * rect.width,
             sy: ((-v.y + 1) / 2) * rect.height,
