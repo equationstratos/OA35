@@ -190,11 +190,10 @@ const LAYOUT_GAP_MM = 12;
  * gauche pour se présenter tête-bêche. Middle-plate et top-plate n'avaient
  * pas de place demandée : je les ai mises à droite, à ajuster si besoin.
  *
- * Les bras n'ont pas encore de fichier fourni : les colonnes 'bras-arriere'
- * (longs, cf. dead-cat — ce sont les arrières qui sont longs) et
- * 'bras-avant' (courts) sont réservées dès maintenant, plus loin sur la même
- * rangée de gauche, pour qu'ils tombent au bon endroit dès leur arrivée sans
- * retoucher cette disposition.
+ * Les bras occupent la colonne de gauche, la paire arrière (longue) devant la
+ * paire avant (courte), gauche et droite côte à côte dans chaque paire.
+ * Les accessoires imprimés forment une rangée à l'arrière (+Z), à l'écart des
+ * pièces de structure.
  */
 const BENCH_ZONES = {
   'bottom-plate': { x: 0, z: 0 },
@@ -206,8 +205,21 @@ const BENCH_ZONES = {
   // tête-bêche l'un à côté de l'autre plutôt que dans le même sens
   'flanc-gauche': { x: -100, z: -30, rotY: -Math.PI / 2 },
   'flanc-droit': { x: -70, z: -30, rotY: Math.PI / 2 },
-  'bras-arriere': { x: -140, z: -20 }, // réservé — longs
-  'bras-avant': { x: -175, z: -20 },   // réservé — courts
+
+  // bras : paire arrière (longue) puis paire avant (courte)
+  'arm-long-l': { x: -175, z: -55 },
+  'arm-long-r': { x: -145, z: -55 },
+  'arm-short-l': { x: -175, z: 60 },
+  'arm-short-r': { x: -145, z: 60 },
+
+  // accessoires imprimés : rangée à l'arrière, au-delà de la top-plate qui
+  // court jusqu'à Z ~168 — sinon le support VTX et le support caméra mordent
+  // dessus
+  'cover-01': { x: -105, z: 210 },
+  'cover-02': { x: -50, z: 210 },
+  'gps-mount': { x: -5, z: 210 },
+  'vtx-mount': { x: 40, z: 210 },
+  'camera-mount': { x: 95, z: 210 },
 };
 
 /**
@@ -1361,7 +1373,11 @@ function exportSTL(entry) {
     + 'en millimètres, pièce à plat. '
     + (check.watertight
       ? 'Maillage vérifié : fermé et orienté, prêt à trancher.'
-      : `MAILLAGE DÉFECTUEUX : ${check.openEdges} arêtes libres, `
+        + (check.nonManifoldEdges
+          ? ` (${check.nonManifoldEdges} arêtes portées par plus de 2 faces : `
+            + 'deux volumes qui se rejoignent, sans conséquence au tranchage.)'
+          : '')
+      : `MAILLAGE DÉFECTUEUX : ${check.boundaryEdges} arêtes libres, `
         + `${check.flippedEdges} arêtes mal orientées. Un trancheur risque de `
         + 'boucher les perçages — signale-le moi plutôt que d\'imprimer.'),
     check.watertight ? 'ok' : 'warn',
@@ -1867,6 +1883,19 @@ const navCube = createNavCube({
  * mesure plutôt qu'à l'œil.
  */
 if (new URLSearchParams(location.search).has('debug')) {
+  /** Encombrement au sol de chaque pièce, pour vérifier la disposition. */
+  window.__benchBoxes = () => {
+    buildRoot.updateMatrixWorld(true);
+    return entries.filter((e) => e.holder).map((e) => {
+      const box = new THREE.Box3().setFromObject(e.holder);
+      return {
+        id: e.mod.meta.id,
+        minX: box.min.x, maxX: box.max.x,
+        minZ: box.min.z, maxZ: box.max.z,
+      };
+    });
+  };
+
   window.__asmDebug = () => {
     const rect = renderer.domElement.getBoundingClientRect();
     // le rendu étant à la demande, les matrices de la caméra peuvent dater

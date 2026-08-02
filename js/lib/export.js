@@ -80,8 +80,14 @@ export function geometryToSTL(geometry) {
  * inverse l'un de l'autre. Sinon le trancheur ne distingue plus le plein du
  * vide — et sa « réparation » bouche typiquement les perçages.
  *
- * @returns {{triangles:number, openEdges:number, flippedEdges:number,
- *            volume:number, watertight:boolean}}
+ * Une arête portée par PLUS de deux triangles est un cas distinct : ce n'est
+ * pas un trou, mais deux volumes qui se rejoignent le long de cette arête
+ * (modèle assemblé par union sans fusion booléenne). Le maillage reste fermé
+ * et les trancheurs s'en accommodent — les confondre avec des arêtes libres
+ * ferait rejeter à tort des pièces parfaitement imprimables.
+ *
+ * @returns {{triangles:number, boundaryEdges:number, nonManifoldEdges:number,
+ *            flippedEdges:number, volume:number, watertight:boolean}}
  */
 export function meshDiagnostics(geometry) {
   const position = geometry.attributes.position;
@@ -119,19 +125,23 @@ export function meshDiagnostics(geometry) {
       + p[0][2] * (p[1][0] * p[2][1] - p[2][0] * p[1][1])) / 6;
   }
 
-  let openEdges = 0;
+  let boundaryEdges = 0;
+  let nonManifoldEdges = 0;
   let flippedEdges = 0;
   for (const entry of edges.values()) {
-    if (entry.count !== 2) openEdges++;
+    if (entry.count === 1) boundaryEdges++;
+    else if (entry.count > 2) nonManifoldEdges++;
     else if (entry.sum !== 0) flippedEdges++;
   }
 
   return {
     triangles: count / 3,
-    openEdges,
+    boundaryEdges,
+    nonManifoldEdges,
     flippedEdges,
     volume,
-    watertight: openEdges === 0 && flippedEdges === 0,
+    // seules les arêtes libres et les faces retournées empêchent de trancher
+    watertight: boundaryEdges === 0 && flippedEdges === 0,
   };
 }
 

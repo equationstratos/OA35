@@ -1,10 +1,10 @@
 /**
- * Fabrique commune aux quatre plaques dont le contour vient directement d'un
+ * Fabrique commune aux pièces plates dont le contour vient directement d'un
  * fichier STL fourni (déjà en millimètres réels), et non d'une photo tracée :
- * bottom-plate, middle-plate, clamp-plate, top-plate.
+ * les quatre plaques du châssis et les quatre bras.
  *
- * Évite de réécrire quatre fois la même interface (build/blueprint/meta) —
- * seuls le tracé, l'épaisseur et le nom changent d'une plaque à l'autre.
+ * Évite de réécrire la même interface (build/blueprint/meta) pour chacune —
+ * seuls le tracé, l'épaisseur et le nom changent d'une pièce à l'autre.
  */
 
 import { plateFromTrace, blueprintFromTrace } from '../lib/plate.js';
@@ -17,12 +17,15 @@ import { plateFromTrace, blueprintFromTrace } from '../lib/plate.js';
  * @param {string} o.name
  * @param {number} o.thickness en mm
  * @param {string} o.source une phrase décrivant l'origine du contour
+ * @param {boolean} [o.mirrored] pièce symétrique du contour fourni (bras droit
+ *        d'une paire dont seul le gauche a été extrait)
  */
-export function plateFromSTL({ trace, id, index, name, thickness, source }) {
+export function plateFromSTL({ trace, id, index, name, thickness, source, mirrored = false }) {
   return {
     trace,
-    build: (mirrored = false) => plateFromTrace(trace, thickness, mirrored),
-    buildFromTrace: (traceMm) => plateFromTrace(traceMm, thickness),
+    // le miroir propre à la pièce et celui du bouton se composent
+    build: (flip = false) => plateFromTrace(trace, thickness, mirrored !== flip),
+    buildFromTrace: (traceMm) => plateFromTrace(traceMm, thickness, mirrored),
     blueprint: () => blueprintFromTrace(trace),
     meta: {
       id,
