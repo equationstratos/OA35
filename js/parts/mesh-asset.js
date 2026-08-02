@@ -47,12 +47,17 @@ export async function meshPart({
     // modélisation, qui peut être n'importe où : sans ça, la position
     // demandée dans la disposition d'établi ne désigne pas le centre de la
     // pièce et deux pièces « côte à côte » se chevauchent quand même.
+    //
+    // L'axe « vertical » du fichier dépend de l'export : Z pour les pièces
+    // sorties d'une CAO en repère Z haut, Y pour celles déjà orientées comme
+    // la scène. C'est celui-là qu'on pose à zéro, les deux autres sont
+    // centrés — se tromper d'axe enterre la pièce ou la fait flotter.
     const b = meshBounds(geometry);
-    geometry.translate(
-      -(b.min[0] + b.max[0]) / 2,
-      -(b.min[1] + b.max[1]) / 2,
-      -b.min[2],
-    );
+    const up = zUp ? 2 : 1;
+    const shift = [0, 1, 2].map((k) => (k === up
+      ? -b.min[k]
+      : -(b.min[k] + b.max[k]) / 2));
+    geometry.translate(shift[0], shift[1], shift[2]);
   }
 
   const bounds = geometry

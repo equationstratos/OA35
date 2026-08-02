@@ -34,7 +34,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-02e · panneau repliable, fond';
+const BUILD = '2026-08-02f · patins de bras';
 $('build-stamp').textContent = BUILD;
 
 /* ------------------------------------------------------------------ *
@@ -250,6 +250,12 @@ const BENCH_ZONES = {
   'camera-mount-mirror': {
     x: 140, y: 30.2, z: 210, rotX: deg(-180), rotY: deg(-88), rotZ: 0,
   },
+
+  // patins : petite rangée derrière les accessoires
+  'footpad-ar-l': { x: -60, z: 265 },
+  'footpad-ar-r': { x: -30, z: 265 },
+  'footpad-av-l': { x: 0, z: 265 },
+  'footpad-av-r': { x: 30, z: 265 },
 };
 
 /**

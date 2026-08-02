@@ -13,6 +13,14 @@ import { meshPart } from './mesh-asset.js';
 
 const PRINTED = 'Plastique imprimé';
 
+/** Un patin par bras : nommés d'après le bras qu'ils chaussent. */
+const FOOTPAD_SLOTS = [
+  { id: 'footpad-ar-l', index: 16, name: 'Patin bras arrière gauche' },
+  { id: 'footpad-ar-r', index: 17, name: 'Patin bras arrière droit' },
+  { id: 'footpad-av-l', index: 18, name: 'Patin bras avant gauche' },
+  { id: 'footpad-av-r', index: 19, name: 'Patin bras avant droit' },
+];
+
 export const ACCESSORIES = await Promise.all([
   meshPart({
     url: 'assets/parts-3d/oasisfly35DC-Cover-01.stl',
@@ -47,4 +55,17 @@ export const ACCESSORIES = await Promise.all([
     material: PRINTED, source: 'miroir du support caméra (même fichier STL)',
     mirrored: true,
   }),
+
+  // Patins de bras : un par bras, donc quatre exemplaires du même fichier.
+  // Pas de miroir — l'empreinte est carrée (17,7 x 17,7 mm) et la pièce est
+  // symétrique, la même s'utilise aux quatre coins.
+  //
+  // zUp: false — ce fichier est déjà à plat, épaisseur 8,7 mm sur Y (mesuré :
+  // les grandes faces sont perpendiculaires à Y). Lui appliquer la bascule
+  // des exports Z haut le dresserait sur la tranche, 17,7 mm de haut.
+  ...FOOTPAD_SLOTS.map(({ id, index, name }) => meshPart({
+    url: 'assets/parts-3d/35_footpad_final.STL',
+    id, index, name, material: PRINTED, source: 'fichier STL fourni',
+    zUp: false,
+  })),
 ]);
