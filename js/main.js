@@ -34,7 +34,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-02c · support caméra orienté';
+const BUILD = '2026-08-02d · support caméra en paire';
 $('build-stamp').textContent = BUILD;
 
 /* ------------------------------------------------------------------ *
@@ -243,6 +243,12 @@ const BENCH_ZONES = {
   // basculée — son origine est à sa base, qui passe en haut une fois retournée
   'camera-mount': {
     x: 95, y: 30.2, z: 210, rotX: deg(-180), rotY: deg(88), rotZ: 0,
+  },
+  // la joue opposée : maillage déjà mis en miroir sur X, donc l'angle autour
+  // de la verticale change de signe — sinon les deux joues regarderaient du
+  // même côté au lieu de se faire face
+  'camera-mount-mirror': {
+    x: 140, y: 30.2, z: 210, rotX: deg(-180), rotY: deg(-88), rotZ: 0,
   },
 };
 

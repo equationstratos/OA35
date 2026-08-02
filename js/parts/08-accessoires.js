@@ -39,4 +39,12 @@ export const ACCESSORIES = await Promise.all([
     id: 'camera-mount', index: 14, name: 'Support caméra',
     material: PRINTED, source: 'fichier STL fourni',
   }),
+  // le support caméra va par paire, une joue de chaque côté : même fichier,
+  // miroir en X, comme les deux flancs
+  meshPart({
+    url: 'assets/FRAME/OA35-camera-mount.STL',
+    id: 'camera-mount-mirror', index: 15, name: 'Support caméra (miroir)',
+    material: PRINTED, source: 'miroir du support caméra (même fichier STL)',
+    mirrored: true,
+  }),
 ]);

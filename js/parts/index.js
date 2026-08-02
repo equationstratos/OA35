@@ -22,10 +22,10 @@ export const PARTS = [
 
 /** Emplacements réservés — remplis au fur et à mesure des pièces envoyées. */
 export const PLANNED = [
-  { index: 15, name: 'Moteurs' },
-  { index: 16, name: 'Hélices' },
-  { index: 17, name: 'Contrôleur de vol (FC)' },
-  { index: 18, name: 'Caméra FPV' },
-  { index: 19, name: 'VTX + antenne' },
-  { index: 20, name: 'Batterie' },
+  { index: 16, name: 'Moteurs' },
+  { index: 17, name: 'Hélices' },
+  { index: 18, name: 'Contrôleur de vol (FC)' },
+  { index: 19, name: 'Caméra FPV' },
+  { index: 20, name: 'VTX + antenne' },
+  { index: 21, name: 'Batterie' },
 ];
