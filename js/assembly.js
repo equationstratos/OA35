@@ -108,24 +108,13 @@ export function planarDistance(a, b) {
   return Math.hypot(a.x - b.x, a.z - b.z);
 }
 
-/**
- * Altitude de contact d'une pièce posée sur une autre.
- *
- * Les deux familles de pièces n'ont pas la même origine locale, et les
- * confondre décolle la pièce posée : une plaque extrudée est centrée sur son
- * épaisseur, alors qu'un maillage importé est recalé base au niveau zéro
- * (js/parts/mesh-asset.js). Poser un support de 30 mm de haut en ajoutant la
- * moitié de sa hauteur le faisait flotter 15 mm au-dessus de la plaque.
- *
- * @param {number} referenceY altitude du centre de la pièce de référence
- * @param {number} referenceThickness épaisseur de la référence, en mm
- * @param {number} thickness épaisseur (ou hauteur) de la pièce posée, en mm
- * @param {boolean} [originAtBase] la pièce posée a son origine à sa base
+/*
+ * L'altitude de contact était calculée ici à partir des épaisseurs déclarées.
+ * Elle l'est désormais dans js/main.js (restOnSurface), en mesurant la boîte
+ * englobante de la pièce TELLE QU'ORIENTÉE : les origines locales diffèrent
+ * d'une famille de pièces à l'autre, et une rotation les déplace de toute
+ * façon — une pièce retournée par les curseurs a son origine en haut.
  */
-export function contactHeight(referenceY, referenceThickness, thickness, originAtBase = false) {
-  const surface = referenceY + referenceThickness / 2;
-  return originAtBase ? surface : surface + thickness / 2;
-}
 
 /* ------------------------------------------------------------------ *
  * Surbrillance

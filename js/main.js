@@ -34,7 +34,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-02b · pose à plat des supports';
+const BUILD = '2026-08-02c · support caméra orienté';
 $('build-stamp').textContent = BUILD;
 
 /* ------------------------------------------------------------------ *
@@ -212,6 +212,8 @@ const LAYOUT_GAP_MM = 12;
  * Les accessoires imprimés forment une rangée à l'arrière (+Z), à l'écart des
  * pièces de structure.
  */
+const deg = (d) => (d * Math.PI) / 180;
+
 const BENCH_ZONES = {
   'bottom-plate': { x: 0, z: 0 },
   'clamp-plate': { x: 0, z: -75 },
@@ -220,8 +222,8 @@ const BENCH_ZONES = {
   // côte à côte (X commun décalé, même Z) plutôt que loin l'un de l'autre :
   // le droit reprend les 90° du gauche plus 180°, pour qu'ils se présentent
   // tête-bêche l'un à côté de l'autre plutôt que dans le même sens
-  'flanc-gauche': { x: -100, z: -30, rotY: -Math.PI / 2 },
-  'flanc-droit': { x: -70, z: -30, rotY: Math.PI / 2 },
+  'flanc-gauche': { x: -100, z: -30, rotY: deg(-90) },
+  'flanc-droit': { x: -70, z: -30, rotY: deg(90) },
 
   // bras : paire arrière (longue) puis paire avant (courte)
   'arm-long-l': { x: -175, z: -55 },
@@ -236,7 +238,12 @@ const BENCH_ZONES = {
   'cover-02': { x: -50, z: 210 },
   'gps-mount': { x: -5, z: 210 },
   'vtx-mount': { x: 40, z: 210 },
-  'camera-mount': { x: 95, z: 210 },
+  // orientation relevée à la main dans le viewer : retourné (X -180°) puis
+  // pivoté de 88°, d'où le Y de 30,2 mm qui rattrape la hauteur de la pièce
+  // basculée — son origine est à sa base, qui passe en haut une fois retournée
+  'camera-mount': {
+    x: 95, y: 30.2, z: 210, rotX: deg(-180), rotY: deg(88), rotZ: 0,
+  },
 };
 
 /**
@@ -294,8 +301,16 @@ function layoutParts() {
       if (!zone) rowRank++;
       // une pièce non assemblée reste sur l'établi : la poser à l'origine la
       // rendrait indiscernable, donc impossible à viser
-      e.holder.position.set(bx, sideBySide ? 0 : e.baseY + i * spread, bz);
-      e.holder.rotation.set(0, zone ? (zone.rotY || 0) : 0, 0);
+      const defaultY = sideBySide ? 0 : e.baseY + i * spread;
+      // une zone peut imposer son altitude : une pièce retournée a son origine
+      // en haut, il faut la relever d'autant pour qu'elle repose sur le plan
+      const by = zone && Number.isFinite(zone.y) ? zone.y + (sideBySide ? 0 : i * spread) : defaultY;
+      e.holder.position.set(bx, by, bz);
+      e.holder.rotation.set(
+        zone ? (zone.rotX || 0) : 0,
+        zone ? (zone.rotY || 0) : 0,
+        zone ? (zone.rotZ || 0) : 0,
+      );
     }
   });
 
@@ -896,6 +911,36 @@ function clearPartSelection() {
   renderPartToolbar();
 }
 
+/**
+ * Boîte englobante du CORPS d'une pièce, en coordonnées monde.
+ * Le corps seul : les repères d'accrochage débordent de la matière.
+ */
+function bodyBox(entry) {
+  const body = entry.object && entry.object.getObjectByName('body');
+  if (!body) return null;
+  entry.holder.updateMatrixWorld(true);
+  return new THREE.Box3().setFromObject(body);
+}
+
+/**
+ * Fait reposer une pièce sur une altitude donnée, ou l'y suspend par le haut.
+ *
+ * On mesure la pièce telle qu'elle est orientée plutôt que de supposer où se
+ * trouve son origine locale. Une pièce retournée par les curseurs de rotation
+ * a son origine en haut : la règle « origine à la base » la faisait alors
+ * s'enfoncer de toute sa hauteur sous la plaque.
+ *
+ * @param {object} entry
+ * @param {number} surfaceY altitude de la face d'appui
+ * @param {boolean} [under] suspendre sous la surface au lieu de poser dessus
+ */
+function restOnSurface(entry, surfaceY, under = false) {
+  const box = bodyBox(entry);
+  if (!box) return;
+  entry.holder.position.y += under ? surfaceY - box.max.y : surfaceY - box.min.y;
+  entry.holder.updateMatrixWorld(true);
+}
+
 /** Corps des pièces, cibles du clic de sélection. */
 function bodyTargets() {
   const targets = [];
@@ -1051,14 +1096,11 @@ function partAction(action) {
       return;
     }
     placement.side = action;
-    // même distinction d'origine que pour la pose par perçages : un maillage
-    // importé se pose par sa base, une plaque par son milieu
-    const base = !!entry.mod.meta.originAtBase;
+    // mesuré sur la pièce telle qu'orientée, comme pour la pose par perçages
     const refHalf = reference.mod.meta.dims.thickness / 2;
-    const own = entry.mod.meta.dims.thickness;
-    placement.y = action === 'below'
-      ? reference.holder.position.y - refHalf - (base ? own : own / 2)
-      : reference.holder.position.y + refHalf + (base ? 0 : own / 2);
+    const surface = reference.holder.position.y + (action === 'below' ? -refHalf : refHalf);
+    restOnSurface(entry, surface, action === 'below');
+    placement.y = entry.holder.position.y;
     placements[id] = placement;
     savePlacements();
     layoutParts();
@@ -1198,14 +1240,12 @@ function onPick(event) {
   if (asm.state.movingId !== movEntry.mod.meta.id) {
     // --- 1re paire : superposition des deux trous
     const refThickness = refEntry.mod.meta.dims.thickness;
-    const thickness = movEntry.mod.meta.dims.thickness;
     // la hauteur saisie à la création prime ; sinon la pièce se pose au contact
-    movEntry.holder.position.y = movEntry.baseY !== 0
-      ? movEntry.baseY
-      : asm.contactHeight(
-        refEntry.holder.position.y, refThickness, thickness,
-        !!movEntry.mod.meta.originAtBase,
-      );
+    if (movEntry.baseY !== 0) {
+      movEntry.holder.position.y = movEntry.baseY;
+    } else {
+      restOnSurface(movEntry, refEntry.holder.position.y + refThickness / 2);
+    }
 
     asm.translateInPlane(movEntry.holder, movPos, refPos);
     asm.state.movingId = movEntry.mod.meta.id;
