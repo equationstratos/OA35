@@ -34,7 +34,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-02 · perçages STL, rotation, ✕';
+const BUILD = '2026-08-02b · pose à plat des supports';
 $('build-stamp').textContent = BUILD;
 
 /* ------------------------------------------------------------------ *
@@ -1051,8 +1051,14 @@ function partAction(action) {
       return;
     }
     placement.side = action;
-    const gap = (reference.mod.meta.dims.thickness + entry.mod.meta.dims.thickness) / 2;
-    placement.y = reference.holder.position.y + (action === 'below' ? -gap : gap);
+    // même distinction d'origine que pour la pose par perçages : un maillage
+    // importé se pose par sa base, une plaque par son milieu
+    const base = !!entry.mod.meta.originAtBase;
+    const refHalf = reference.mod.meta.dims.thickness / 2;
+    const own = entry.mod.meta.dims.thickness;
+    placement.y = action === 'below'
+      ? reference.holder.position.y - refHalf - (base ? own : own / 2)
+      : reference.holder.position.y + refHalf + (base ? 0 : own / 2);
     placements[id] = placement;
     savePlacements();
     layoutParts();
@@ -1196,7 +1202,10 @@ function onPick(event) {
     // la hauteur saisie à la création prime ; sinon la pièce se pose au contact
     movEntry.holder.position.y = movEntry.baseY !== 0
       ? movEntry.baseY
-      : asm.contactHeight(refEntry.holder.position.y, refThickness, thickness);
+      : asm.contactHeight(
+        refEntry.holder.position.y, refThickness, thickness,
+        !!movEntry.mod.meta.originAtBase,
+      );
 
     asm.translateInPlane(movEntry.holder, movPos, refPos);
     asm.state.movingId = movEntry.mod.meta.id;
@@ -1251,7 +1260,15 @@ const ISO_DIR = new THREE.Vector3(0.85, 0.7, 1).normalize();
 
 /** Sphère englobant le build : le cadrage suit le nombre de pièces. */
 function buildSphere() {
-  const box = new THREE.Box3().setFromObject(buildRoot);
+  // Sur le corps des pièces, pas sur buildRoot : les repères d'accrochage
+  // (anneaux et disques de visée) débordent largement d'un petit perçage et
+  // gonflaient le cadrage — jusqu'à 9 mm autour de chaque trou, de quoi faire
+  // paraître une pièce bien plus grosse qu'elle n'est.
+  const box = new THREE.Box3();
+  entries.forEach((e) => {
+    const body = e.object && e.object.getObjectByName('body');
+    if (body && e.object.visible !== false) box.expandByObject(body);
+  });
   const sphere = new THREE.Sphere();
   if (box.isEmpty()) { sphere.set(new THREE.Vector3(), 60); return sphere; }
   box.getBoundingSphere(sphere);
@@ -2118,10 +2135,14 @@ if (new URLSearchParams(location.search).has('debug')) {
   window.__benchBoxes = () => {
     buildRoot.updateMatrixWorld(true);
     return entries.filter((e) => e.holder).map((e) => {
-      const box = new THREE.Box3().setFromObject(e.holder);
+      // uniquement le corps : les repères d'accrochage (anneaux, disques de
+      // visée) débordent de la pièce et fausseraient la mesure
+      const body = e.object && e.object.getObjectByName('body');
+      const box = new THREE.Box3().setFromObject(body || e.holder);
       return {
         id: e.mod.meta.id,
         minX: box.min.x, maxX: box.max.x,
+        minY: box.min.y, maxY: box.max.y,
         minZ: box.min.z, maxZ: box.max.z,
       };
     });

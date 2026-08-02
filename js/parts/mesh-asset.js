@@ -83,6 +83,9 @@ export async function meshPart({
       material,
       stackHeight: 0,
       isMesh: true,
+      // recentrée base au niveau zéro (voir plus haut) : l'assemblage doit le
+      // savoir pour poser la pièce SUR la plaque et non à mi-hauteur au-dessus
+      originAtBase: true,
       missingAsset: error ? `${url} : ${error.message}` : null,
       source,
       dims: {
