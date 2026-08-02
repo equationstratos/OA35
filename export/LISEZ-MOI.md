@@ -16,10 +16,22 @@ cylindriques mesurables. Chaque corps porte son nom.
 est exactement le biseau d'affichage ajouté par le visualisateur pour adoucir
 les arêtes. Le STEP, lui, a des arêtes vives — c'est ce qu'on veut en CAO.
 
-## TinyHoop-MK1-pieces-imprimees.3mf
+## Les 10 pièces imprimées — trois formats du même contenu
 
-Les 10 pièces imprimées (covers, supports GPS / VTX / caméra ×2, patins ×4),
-maillages d'origine à pleine résolution, chacune nommée, déjà placées.
+Covers, supports GPS / VTX / caméra ×2, patins ×4 : maillages d'origine à
+pleine résolution, chacun nommé, déjà placés. Position vérifiée à 0,000 mm
+dans les trois fichiers.
+
+- `TinyHoop-MK1-pieces-imprimees-STL.zip` — **le plus sûr dans Fusion**. Dix
+  STL binaires, un par pièce, chacun déjà à sa place. *Insérer un maillage*,
+  tout sélectionner d'un coup, ne rien déplacer.
+- `TinyHoop-MK1-pieces-imprimees.3mf` — un seul fichier, corps nommés.
+  Réécrit par lib3mf (la bibliothèque de référence 3MF) après qu'une première
+  version, pourtant valide, n'ait rien affiché dans Fusion.
+- OBJ sur demande : même contenu, groupes nommés, 28 Mo.
+
+Les noms de corps sont sans accent : un fichier STEP est de l'ISO-8859-1 et un
+importateur sur deux abîme les caractères accentués.
 
 Pourquoi pas dans le STEP : ces pièces n'existent que sous forme de maillages.
 Un triangle coûte environ 2,4 ko en STEP, soit plus de 700 Mo pour les 305 468
