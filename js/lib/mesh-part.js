@@ -42,8 +42,13 @@ function anchorMarkers(anchors) {
   group.name = 'hole-markers';
   group.visible = false; // n'apparaît qu'en mode assemblage
 
-  const ringMaterial = new THREE.MeshBasicMaterial({
-    color: 0x6cc7ff, transparent: true, opacity: 0.75, depthTest: false,
+  // deux matériaux : un perçage (là où passera une vis) doit se distinguer
+  // d'un arc d'accrochage, sinon on ne sait pas lequel viser
+  const holeMaterial = new THREE.MeshBasicMaterial({
+    color: 0x6cc7ff, transparent: true, opacity: 0.85, depthTest: false,
+  });
+  const arcMaterial = new THREE.MeshBasicMaterial({
+    color: 0xc98a3a, transparent: true, opacity: 0.5, depthTest: false,
   });
   const pickMaterial = new THREE.MeshBasicMaterial({
     transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide,
@@ -54,7 +59,7 @@ function anchorMarkers(anchors) {
     const arc = Math.PI * 2 * Math.min(1, a.coverage);
     const ring = new THREE.Mesh(
       new THREE.TorusGeometry(ringRadius, 0.16, 8, 36, arc),
-      ringMaterial,
+      a.kind === 'arc' ? arcMaterial : holeMaterial,
     );
     ring.renderOrder = 2;
     ring.name = 'ring';
@@ -87,17 +92,15 @@ export function meshAnchors(geometry) {
   const position = geometry.attributes.position;
   const found = findCylinders(position.array, { maxRadius: 18 });
 
-  // On garde les plus « accrochables » : d'abord les mieux fermées (un trou
-  // vaut mieux qu'un congé), puis les plus petites (un perçage de vis plutôt
-  // qu'une courbure de coque).
-  found.sort((a, b) => (b.coverage - a.coverage) || (a.radius - b.radius));
-
+  // findCylinders classe déjà perçages d'abord, du plus petit au plus grand :
+  // ce sont les perçages de fixation qui comptent, et l'affichage est plafonné.
   return found.slice(0, MAX_ANCHORS).map((c, index) => ({
     index,
     x: c.center[0], y: c.center[1], z: c.center[2],
     r: c.radius,
     axis: c.axis,
     coverage: c.coverage,
+    kind: c.kind,
   }));
 }
 

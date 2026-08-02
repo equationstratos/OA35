@@ -508,6 +508,7 @@ ul { list-style: none; margin: 0; padding: 0; }
   font: 11px ui-monospace, monospace;
   color: var(--warm);
 }
+.part-toolbar .row-label { font-size: 12px; color: var(--dim); width: 10px; }
 
 .part.selected {
   border-color: var(--warm);

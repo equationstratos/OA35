@@ -272,7 +272,7 @@ function layoutParts() {
     const placement = hasPosition && (stored.manual || !sideBySide) ? stored : null;
     if (placement) {
       e.holder.position.set(placement.x, placement.y + i * spread, placement.z);
-      e.holder.rotation.y = placement.rotY;
+      e.holder.rotation.set(placement.rotX || 0, placement.rotY || 0, placement.rotZ || 0);
     } else {
       const zone = BENCH_ZONES[e.mod.meta.id];
       const bx = zone ? zone.x : rowX[rowRank];
@@ -281,7 +281,7 @@ function layoutParts() {
       // une pièce non assemblée reste sur l'établi : la poser à l'origine la
       // rendrait indiscernable, donc impossible à viser
       e.holder.position.set(bx, sideBySide ? 0 : e.baseY + i * spread, bz);
-      e.holder.rotation.y = zone ? (zone.rotY || 0) : 0;
+      e.holder.rotation.set(0, zone ? (zone.rotY || 0) : 0, 0);
     }
   });
 
@@ -911,10 +911,19 @@ function renderPartToolbar() {
   const noRef = "Assemble d'abord la pièce sur une autre, par leurs perçages";
   const pos = entry.holder.position;
 
+  const rot = entry.holder.rotation;
+  const deg = (rad) => (rad * 180) / Math.PI;
+
   const axisSlider = (axis, value, min, max) => `
     <label class="move-axis">${axis.toUpperCase()}
       <input type="range" class="mv" data-axis="${axis}" min="${min}" max="${max}" step="0.2" value="${value.toFixed(1)}">
       <output>${value.toFixed(1)}</output>
+    </label>`;
+
+  const turnSlider = (axis, value) => `
+    <label class="move-axis">${axis.toUpperCase()}
+      <input type="range" class="rot" data-axis="${axis}" min="-180" max="180" step="1" value="${Math.round(value)}">
+      <output>${Math.round(value)}°</output>
     </label>`;
 
   bar.innerHTML = `
@@ -935,12 +944,32 @@ function renderPartToolbar() {
       ${axisSlider('y', pos.y, MOVE_RANGE_Y[0], MOVE_RANGE_Y[1])}
       ${axisSlider('z', pos.z, -MOVE_RANGE_XZ, MOVE_RANGE_XZ)}
       <button data-act="reset-pos" title="Revenir à la position automatique">↺</button>
+    </div>
+    <div class="row move" title="Rotation de la pièce autour de son propre centre, en degrés.">
+      <span class="row-label">↻</span>
+      ${turnSlider('x', deg(rot.x))}
+      ${turnSlider('y', deg(rot.y))}
+      ${turnSlider('z', deg(rot.z))}
+      <button data-act="reset-rot" title="Remettre la pièce d'aplomb">↺</button>
     </div>`;
 
   bar.querySelectorAll('.row:first-child button').forEach((btn) => {
     btn.addEventListener('click', () => partAction(btn.dataset.act));
   });
   bar.querySelector('[data-act="reset-pos"]').addEventListener('click', () => partAction('reset-pos'));
+  bar.querySelector('[data-act="reset-rot"]').addEventListener('click', () => partAction('reset-rot'));
+
+  bar.querySelectorAll('.rot').forEach((input) => {
+    input.addEventListener('input', () => {
+      const axis = input.dataset.axis;
+      const value = Number(input.value);
+      input.nextElementSibling.textContent = `${value}°`;
+      entry.holder.rotation[axis] = (value * Math.PI) / 180;
+      entry.holder.updateMatrixWorld(true);
+      storePlacement(entry, { manual: true });
+      invalidate();
+    });
+  });
 
   bar.querySelectorAll('.mv').forEach((input) => {
     input.addEventListener('input', () => {
@@ -963,6 +992,15 @@ function partAction(action) {
   const id = entry.mod.meta.id;
 
   if (action === 'clear') { clearPartSelection(); return; }
+
+  if (action === 'reset-rot') {
+    entry.holder.rotation.set(0, 0, 0);
+    entry.holder.updateMatrixWorld(true);
+    storePlacement(entry, { manual: true });
+    renderPartToolbar();
+    invalidate();
+    return;
+  }
 
   if (action === 'reset-pos') {
     delete placements[id];
@@ -1044,7 +1082,11 @@ function storePlacement(entry, extra = {}) {
     x: entry.holder.position.x,
     y: entry.holder.position.y - i * spread,
     z: entry.holder.position.z,
+    // rotY reste le nom historique (l'assemblage par perçages ne fait tourner
+    // que la verticale) ; rotX/rotZ viennent des curseurs de rotation
     rotY: entry.holder.rotation.y,
+    rotX: entry.holder.rotation.x,
+    rotZ: entry.holder.rotation.z,
     ...extra,
   };
   savePlacements();
@@ -1335,7 +1377,9 @@ function renderPartList() {
         <span class="idx">${String(m.index).padStart(2, '0')}</span>
         <span class="nm">${m.name}</span>
       </label>
-        ${e.mod.isCustom ? '<button class="del" title="Supprimer la pièce">✕</button>' : ''}
+        <button class="del" title="${e.mod.isCustom
+    ? 'Supprimer définitivement cette pièce créée'
+    : 'Retirer cette pièce du build (réversible : recoche la case)'}">✕</button>
       <p class="origin ${m.isMesh || fromPhoto ? 'ok' : ''}">${origin}</p>
       ${unconfirmed ? '<p class="origin warn">échelle non confirmée — vérifie la longueur</p>' : ''}
       <dl class="specs">
@@ -1399,9 +1443,29 @@ function renderPartList() {
 
     const del = li.querySelector('.del');
     if (del) del.addEventListener('click', () => {
-      if (!confirm(`Supprimer « ${m.name} » ?`)) return;
-      custom.removeSpec(m.id);
-      remountAll();
+      // Une pièce créée depuis l'outil n'existe que dans le navigateur : la
+      // supprimer est définitif. Une pièce du dépôt, elle, revient au
+      // rechargement — on la retire du build plutôt que de faire semblant de
+      // la supprimer, et la case à cocher la ramène.
+      if (e.mod.isCustom) {
+        if (!confirm(`Supprimer définitivement « ${m.name} » ?`)) return;
+        custom.removeSpec(m.id);
+        hiddenParts.delete(m.id);
+        saveHidden();
+        remountAll();
+        pushHistory();
+        updateAsmHint(`« ${m.name} » supprimée.`, 'ok');
+        return;
+      }
+      hiddenParts.add(m.id);
+      saveHidden();
+      applyHidden();
+      renderPartList();
+      if (selectedId === m.id) clearPartSelection();
+      pushHistory();
+      updateAsmHint(
+        `« ${m.name} » retirée du build. Recoche sa case pour la remettre.`, 'ok',
+      );
     });
     partList.appendChild(li);
   }
@@ -2086,15 +2150,19 @@ if (new URLSearchParams(location.search).has('debug')) {
         x: e.holder.position.x,
         y: e.holder.position.y,
         z: e.holder.position.z,
+        rotX: e.holder.rotation.x,
         rotY: e.holder.rotation.y,
+        rotZ: e.holder.rotation.z,
         mirrored: !!(placements[e.mod.meta.id] || {}).mirrored,
         holes: (e.markers || []).map((m) => {
           const index = m.userData.anchor.index;
+          const kind = m.userData.anchor.kind || 'hole';
+          const r = m.userData.anchor.r;
           m.getWorldPosition(v);
           const world = { wx: v.x, wy: v.y, wz: v.z };
           v.project(camera);
           return {
-            index,
+            index, kind, r,
             ...world,
             sx: ((v.x + 1) / 2) * rect.width,
             sy: ((-v.y + 1) / 2) * rect.height,
