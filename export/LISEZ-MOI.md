@@ -80,6 +80,7 @@ mêmes couleurs, mêmes positions, maillages plus grossiers — écart jusqu'à
 0,55 mm au lieu de 0,29. Elle existe parce que 44 Mo ne passent pas par la
 messagerie.)*
 
+Un assemblage de 18 corps nommés :
 
 - les 8 pièces carbone en **formes exactes** (contour extrudé, perçages en
   vrais cercles) — identiques au fichier châssis ;
@@ -88,9 +89,9 @@ messagerie.)*
 Écart mesuré des pièces simplifiées, distance point-surface dans les deux
 sens : **0,006 à 0,030 mm en moyenne, 0,11 à 0,29 mm au pire** — soit moins
 qu'une couche d'impression. Version allégée : 0,017 à 0,076 mm en moyenne,
-0,55 mm au pire. Positions vérifiées par relecture du fichier :
-0,082 mm au plus, qui est le biseau d'affichage du visualisateur (le STEP a
-des arêtes vives).
+0,55 mm au pire. Positions vérifiées par relecture du fichier : **0,000 mm**
+sur les huit pièces carbone, 0,067 mm au plus sur les pièces imprimées (l'effet
+de leur simplification sur leur encombrement).
 
 Pourquoi simplifier : en STEP, une facette coûte environ 3 ko. Les 305 468
 triangles d'origine pèseraient plus de 700 Mo. Le regroupement de sommets sur
@@ -98,7 +99,7 @@ grille fait tomber le support caméra de 92 352 à 916 triangles sans dépasser
 0,21 mm d'écart — ces fichiers CAO sont pavés de triangles bien plus fins que
 nécessaire.
 
-## TinyHoop-MK1-chassis.step — 8,6 Mo
+## TinyHoop-MK1-chassis.step — 7,8 Mo
 
 Les 8 pièces carbone seules, formes exactes, corps nommés, teintées carbone.
 Faces planes sur lesquelles esquisser, trous cylindriques mesurables. Rien n'y
