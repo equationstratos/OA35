@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-03g · tout est vissé
+const BUILD = '2026-08-03g · tout est vissé';
 $('build-stamp').textContent = BUILD;
 
 /* ------------------------------------------------------------------ *
