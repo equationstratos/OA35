@@ -37,7 +37,13 @@ rédacteur STEP perd une des deux couleurs (vérifié sur un cas réduit). Le
 fichier pèse plus lourd — les quatre patins y sont écrits quatre fois — mais
 il arrive teinté.
 
-## TinyHoop-MK1-build-complet.step — 40 Mo, 18 corps nommés
+## TinyHoop-MK1-build-complet.step — 44 Mo, 18 corps nommés
+
+*(et sa version allégée `TinyHoop-MK1-build-leger.step`, 23 Mo : même contenu,
+mêmes couleurs, mêmes positions, maillages plus grossiers — écart jusqu'à
+0,55 mm au lieu de 0,29. Elle existe parce que 44 Mo ne passent pas par la
+messagerie.)*
+
 
 - les 8 pièces carbone en **formes exactes** (contour extrudé, perçages en
   vrais cercles) — identiques au fichier châssis ;
@@ -45,7 +51,8 @@ il arrive teinté.
 
 Écart mesuré des pièces simplifiées, distance point-surface dans les deux
 sens : **0,006 à 0,030 mm en moyenne, 0,11 à 0,29 mm au pire** — soit moins
-qu'une couche d'impression. Positions vérifiées par relecture du fichier :
+qu'une couche d'impression. Version allégée : 0,017 à 0,076 mm en moyenne,
+0,55 mm au pire. Positions vérifiées par relecture du fichier :
 0,082 mm au plus, qui est le biseau d'affichage du visualisateur (le STEP a
 des arêtes vives).
 
