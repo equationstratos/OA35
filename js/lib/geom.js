@@ -187,8 +187,16 @@ function signedArea(points) {
  * @param {THREE.Vector2[][]} holes perçages, en listes de points
  * @param {number} thickness épaisseur en mm
  * @param {number} bevel chanfrein d'arête en mm (réalisme)
+ *
+ * Chanfrein à ZÉRO par défaut. Le biseau d'ExtrudeGeometry ne mange pas
+ * l'arête : il pousse le corps de la pièce vers l'extérieur de la valeur
+ * demandée. Mesuré sur la plaque supérieure : 93 mm³ de matière en trop,
+ * soit 2 % — contour 0,08 mm trop large et perçages 0,08 mm trop étroits,
+ * tout autour. Tant que les contours venaient de la face chanfreinée du STL,
+ * les deux erreurs se compensaient ; depuis qu'ils sont relevés à
+ * mi-épaisseur, le biseau se voit.
  */
-export function extrudePlate(outline, holes, thickness, bevel = 0.08) {
+export function extrudePlate(outline, holes, thickness, bevel = 0) {
   // contour extérieur dans le sens trigonométrique, perçages en sens inverse
   const outer = signedArea(outline) < 0 ? outline.slice().reverse() : outline;
   const shape = new THREE.Shape(outer);

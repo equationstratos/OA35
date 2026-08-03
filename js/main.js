@@ -34,7 +34,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-02h · repères masquables';
+const BUILD = '2026-08-03a · contours exacts, trous moteur';
 $('build-stamp').textContent = BUILD;
 
 /* ------------------------------------------------------------------ *

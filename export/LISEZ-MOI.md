@@ -17,6 +17,42 @@ fichier-là contient tout, en STEP, et c'est le seul format que l'appli ouvre.
 exactes, plus les pièces imprimées en maillage à pleine résolution (`.3mf` ou
 le ZIP de STL), insérées par *Insérer un maillage*.
 
+## Deux corrections sur la géométrie
+
+**Perçages moteur des bras arrière.** Le fichier `arm-long1.stl` fourni ne
+dessine pas les quatre trous de vis moteur : à leur place une ouverture en
+croix de 10 × 10 mm qui les relie tous. Le bras avant, lui, porte le motif
+complet — quatre M2 sur un carré de 7,48 mm plus un passage d'arbre Ø4,25. Ce
+motif a été rétabli sur les bras arrière, centré sur la croix, aux mêmes
+positions de vis. C'est une modification volontaire du fichier d'origine : les
+quatre bras portent maintenant le même montage moteur.
+
+**Chanfrein.** Les contours étaient relevés sur la face supérieure des STL, qui
+porte un chanfrein de 0,08 mm : le contour y était 0,16 mm trop petit et chaque
+perçage 0,2 mm trop grand, soit 2,3 % de matière en moins sur chaque plaque.
+Ils sont maintenant relevés à mi-épaisseur. Le biseau d'affichage du
+visualisateur, qui compensait par hasard cette erreur en poussant la matière
+vers l'extérieur, a été retiré : l'aire de chaque plaque est exacte au
+dixième de mm².
+
+## Contacts verticaux
+
+Le plan `tinyhoop-mk1-plan-corrige.json` pose l'empilement prêt à visser :
+
+| interface | jeu |
+| --- | --- |
+| joues de caméra sur la plaque inférieure | 0,000 mm |
+| plaque supérieure sur les deux joues de caméra | 0,000 mm |
+| support GPS sur la plaque supérieure | 0,000 mm |
+
+Reste un conflit qui vient des pièces elles-mêmes : le support d'antenne VTX
+fait 24,50 mm et son pied repose sur la plaque intermédiaire (dessus à 6,75),
+donc il monte à 31,25 — alors que les joues de caméra plafonnent à 30,44. Il
+dépasse de **0,81 mm** sous la plaque supérieure. Le poser sous la plaque
+enterrerait tout son pied dans la plaque intermédiaire (mesuré : 837 sommets
+dans la matière), on l'a donc laissé sur son pied. À arbitrer : raccourcir le
+support de 0,81 mm, ou surélever les joues d'autant.
+
 ## Couleurs
 
 | corps | teinte |
