@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-03c · quadrants + assemblage animé';
+const BUILD = '2026-08-03d · plan chargé = plan rangé';
 $('build-stamp').textContent = BUILD;
 
 /* ------------------------------------------------------------------ *
@@ -1830,6 +1830,8 @@ function frameAll(direction) {
 entries = collectParts();
 entries.forEach((e) => mountPart(e, null));
 applyColors();
+// la session s'ouvre sur l'établi rangé : le build se monte par le bouton
+forceBench = true;
 
 /* ------------------------------------------------------------------ *
  * Calque photo en 3D
@@ -2276,6 +2278,13 @@ $('wp-file').addEventListener('change', async (e) => {
     return;
   }
 
+  // Un plan chargé se présente RANGÉ, pas à moitié monté. Les placements
+  // marqués « à la main » s'appliquent d'ordinaire aussi en vue côte à côte :
+  // sans ça, on voyait la moitié du build en l'air et l'autre sur le plan.
+  // Le plan est en mémoire ; « Assembler le build » le monte d'un geste.
+  $('opt-layout').checked = true;
+  forceBench = true;
+
   custom.importSpecs(data.customParts || []);
   placements = data.placements && typeof data.placements === 'object' ? data.placements : {};
   standoffs = Array.isArray(data.standoffs) ? data.standoffs : [];
@@ -2295,7 +2304,8 @@ $('wp-file').addEventListener('change', async (e) => {
   pushHistory();
   updateAsmHint(
     `Plan de travail « ${file.name} » chargé : ${entries.length} pièce(s), `
-    + `${standoffs.length} entretoise(s).`,
+    + `${standoffs.length} entretoise(s). Les pièces sont rangées sur le plan — `
+    + '« ▶ Assembler le build » les monte.',
     'ok',
   );
 });
