@@ -17,9 +17,27 @@ fichier-là contient tout, en STEP, et c'est le seul format que l'appli ouvre.
 exactes, plus les pièces imprimées en maillage à pleine résolution (`.3mf` ou
 le ZIP de STL), insérées par *Insérer un maillage*.
 
-## TinyHoop-MK1-build-complet.step — 28 Mo, 18 composants nommés
+## Couleurs
 
-Un assemblage, 18 composants :
+| corps | teinte |
+| --- | --- |
+| les 8 pièces carbone | `#1E2126`, gris graphite très sombre |
+| covers, support GPS, support VTX, les 4 patins | `#0A33A0`, bleu roi (TPU) |
+| les 2 supports de cage caméra | **aucune** — à choisir plus tard |
+
+Un STEP ne transporte **pas de texture**, seulement des couleurs unies
+(`COLOUR_RGB`). Le tissage carbone 3K sergé 2×2 du visualisateur ne peut donc
+pas suivre dans le fichier : le carbone y est une teinte plate. Dans Fusion,
+appliquer l'apparence « Fibre de carbone » de la bibliothèque par-dessus prend
+deux clics.
+
+Les pièces sont écrites en corps libres et non en assemblage instancié : sur
+cette version d'OpenCASCADE, dès qu'on passe par des composants instanciés, le
+rédacteur STEP perd une des deux couleurs (vérifié sur un cas réduit). Le
+fichier pèse plus lourd — les quatre patins y sont écrits quatre fois — mais
+il arrive teinté.
+
+## TinyHoop-MK1-build-complet.step — 40 Mo, 18 corps nommés
 
 - les 8 pièces carbone en **formes exactes** (contour extrudé, perçages en
   vrais cercles) — identiques au fichier châssis ;
@@ -40,8 +58,9 @@ fois.
 
 ## TinyHoop-MK1-chassis.step — 8,6 Mo
 
-Les 8 pièces carbone seules, formes exactes, corps nommés. Faces planes sur
-lesquelles esquisser, trous cylindriques mesurables. Rien n'y est approché.
+Les 8 pièces carbone seules, formes exactes, corps nommés, teintées carbone.
+Faces planes sur lesquelles esquisser, trous cylindriques mesurables. Rien n'y
+est approché.
 
 ## Les 10 pièces imprimées, maillages à pleine résolution
 
