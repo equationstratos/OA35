@@ -29,7 +29,11 @@ export const THREADS = {
   M2: {
     id: 'M2',
     diameter: 2,
-    holeRange: [1.7, 2.6],
+    // 1,5 mm en bas : un perçage M2 imprimé sort toujours plus étroit que le
+    // nominal (retrait de la matière). Les supports caméra et le support VTX
+    // ont des trous de 1,60 à 1,65 mm — sous l'ancien seuil de 1,7 ils
+    // n'étaient reconnus comme rien du tout, et leurs pièces restaient libres.
+    holeRange: [1.5, 2.6],
     headDiameter: 3.8,   // vis à tête cylindrique six pans creux
     headHeight: 1.6,
     acrossFlats: 4,      // entretoise hexagonale
@@ -160,25 +164,43 @@ export function findFastenerSites(parts, tolerance = 0.8) {
     for (let j = i + 1; j < ordered.length; j++) {
       const lower = ordered[i];
       const upper = ordered[j];
-      if (upper.y - lower.y < 0.01) continue; // même niveau : rien à visser
 
       for (const a of lower.holes) {
         const thread = threadForHole(a.diameter);
         if (!thread) continue;
+        if (a.vertical === false) continue;   // perçage de flanc : pas pour une vis verticale
 
         for (const b of upper.holes) {
+          if (b.vertical === false) continue;
           if (Math.hypot(a.x - b.x, a.z - b.z) > tolerance) continue;
-          if (threadForHole(b.diameter) !== thread) continue;
+          // le trou du dessus peut être un simple passage, plus large que le
+          // filetage : la vis le traverse et mord dans la pièce du dessous.
+          // C'est le cas des covers, percées à 3,5 mm pour des vis M2.
+          const upperThread = threadForHole(b.diameter);
+          const clearance = b.diameter > thread.diameter
+            && b.diameter <= thread.diameter * 2;
+          if (upperThread !== thread && !clearance) continue;
 
-          // faces en regard : dessus de la pièce basse, dessous de la haute
-          const gap = (upper.y - upper.thickness / 2) - (lower.y + lower.thickness / 2);
+          // faces en regard, RELEVÉES AU DROIT DU PERÇAGE : c'est là que la
+          // vis traverse, et une pièce n'a pas la même épaisseur partout
+          const lowerTop = Number.isFinite(a.top) ? a.top : lower.top;
+          const upperBottom = Number.isFinite(b.bottom) ? b.bottom : upper.bottom;
+          const gap = upperBottom - lowerTop;
+          if (gap < -0.4) continue;          // la haute mord dans la basse : ce n'est pas un appui
+
           sites.push({
             x: (a.x + b.x) / 2,
             z: (a.z + b.z) / 2,
             thread,
-            gap,
+            gap: Math.max(0, gap),
             lower,
             upper,
+            lowerTop,
+            // la tête de vis appuie sur la semelle de la pièce haute
+            upperTop: Number.isFinite(b.seat) ? b.seat : (Number.isFinite(b.top) ? b.top : upper.top),
+            // matière réellement traversée de chaque côté
+            upperMaterial: Number.isFinite(b.material) ? b.material : upper.thickness,
+            lowerMaterial: Number.isFinite(a.material) ? a.material : lower.thickness,
             offset: Math.hypot(a.x - b.x, a.z - b.z),
           });
           break; // un perçage de la pièce basse ne sert qu'une fois par pièce haute
@@ -322,9 +344,15 @@ export function allocateFromKit(sites) {
   // elles sont indispensables
   const ordered = [...sites].map((site) => {
     const needsStandoff = site.gap > 0.5;
-    const needed = site.upper.thickness
-      + (needsStandoff ? site.gap + site.thread.engagement : site.lower.thickness);
-    return { site, needed, needsStandoff };
+    // L'ENTRETOISE FAIT EXACTEMENT L'ÉCART. Arrondir à une longueur du
+    // commerce laissait jusqu'à 2 mm de jeu : la plaque du dessus ne portait
+    // plus sur rien, et le serrage la déformait.
+    const standoffLength = needsStandoff ? Math.round(site.gap * 100) / 100 : 0;
+    const grip = needsStandoff
+      ? site.thread.engagement                      // la vis mord dans l'entretoise
+      : Math.min(site.lowerMaterial, site.thread.engagement);
+    const needed = site.upperMaterial + grip;
+    return { site, needed, needsStandoff, standoffLength };
   }).sort((a, b) => b.needed - a.needed);
 
   for (const item of ordered) {
@@ -339,9 +367,63 @@ export function allocateFromKit(sites) {
       line,
       thread: item.site.thread,
       screwLength: line.length,
-      standoffLength: item.needsStandoff ? standardLength(item.site.gap) : 0,
-      standoffPlay: item.needsStandoff ? standardLength(item.site.gap) - item.site.gap : 0,
+      // dépassement sous la pièce basse : une vis trop longue ressort et
+      // touche ce qu'il y a dessous
+      protrusion: Math.max(0, line.length - item.needed),
+      standoffPlay: 0,
     });
   }
   return { assigned, stock, missing };
+}
+
+/**
+ * Pièces qu'aucune vis ne tient.
+ *
+ * Une fixation ne compte que si elle prend la pièce : celles écartées par
+ * l'espacement ne comptent pas. Une pièce oubliée ici est une pièce qui
+ * tomberait en vol.
+ *
+ * @param {object[]} parts pièces du build
+ * @param {object[]} assigned fixations posées
+ * @returns {object[]} pièces sans aucune vis
+ */
+export function unfastened(parts, assigned) {
+  const held = new Set();
+  for (const item of assigned) {
+    held.add(item.site.lower.id);
+    held.add(item.site.upper.id);
+  }
+  return parts.filter((p) => !held.has(p.id));
+}
+
+/**
+ * Nombre de vis qui prennent chaque pièce.
+ *
+ * Une seule vis ne tient pas une pièce : elle la laisse pivoter autour. Ce
+ * décompte sert à le vérifier pièce par pièce plutôt qu'à l'oeil.
+ */
+export function screwsPerPart(assigned) {
+  const n = new Map();
+  for (const item of assigned) {
+    for (const id of [item.site.lower.id, item.site.upper.id]) {
+      n.set(id, (n.get(id) || 0) + 1);
+    }
+  }
+  return n;
+}
+
+/**
+ * Perçages verticaux au diamètre d'une vis : ce qui rend une pièce vissable.
+ * Une pièce qui n'en a aucun ne se visse pas — elle se clipse ou se coince,
+ * et l'annoncer vaut mieux que de lui inventer une fixation.
+ */
+export function hasScrewSeat(part) {
+  // et au filetage que le sachet fournit : un perçage Ø3,5 relève du M3, dont
+  // il n'y a pas une seule vis ici — le compter comme vissable aurait promis
+  // une fixation impossible à tenir
+  const kitThreads = new Set(SCREW_KIT.filter((l) => l.kind === 'screw').map((l) => l.thread));
+  return part.holes.some((h) => {
+    const t = h.vertical !== false && threadForHole(h.diameter);
+    return t && kitThreads.has(t.id);
+  });
 }

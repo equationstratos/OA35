@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-03f · recadrage en douceur';
+const BUILD = '2026-08-03g · tout est vissé
 $('build-stamp').textContent = BUILD;
 
 /* ------------------------------------------------------------------ *
@@ -196,6 +196,8 @@ function mountPart(entry, traceMm) {
       entry.markers.push(marker);
     }
   }
+  // ce que traverse chaque perçage : relevé une fois, ici, pièce neuve
+  measureHoles(entry);
   applyDisplayOptions();
 }
 
@@ -918,29 +920,137 @@ hardwareGroup.name = 'hardware';
 scene.add(hardwareGroup);
 
 /** Perçages d'une pièce, en coordonnées monde. */
-function partHolesInWorld(entry) {
+const holeRay = new THREE.Raycaster();
+
+/**
+ * Relève, UNE FOIS À LA POSE de la pièce, ce que traverse chaque perçage.
+ *
+ * Une vis ne traverse pas « l'épaisseur de la pièce » mais l'épaisseur qu'il y
+ * a À CET ENDROIT-LÀ. Sur une plaque les deux se confondent ; sur un support
+ * caméra haut de 30 mm dont on ne visse que la patte, s'en tenir à la cote
+ * hors-tout demandait une vis de 34 mm qui n'existe pas.
+ *
+ * Le relevé se fait dans le repère du porteur, pièce ramenée à l'origine :
+ * il ne dépend donc pas de l'endroit où la pièce se trouve, et n'est fait
+ * qu'une fois. Le refaire à chaque détection de visserie gelait la page —
+ * 24 lancers de rayon par perçage contre un maillage de 92 000 triangles.
+ */
+function measureHoles(entry) {
+  const body = entry.object && entry.object.getObjectByName('body');
+  const markers = (entry.markers || []).filter((m) => m.userData.face !== 'bottom');
+  if (!body || !markers.length) { entry.holeProbes = []; return; }
+
+  const keep = {
+    p: entry.holder.position.clone(),
+    q: entry.holder.quaternion.clone(),
+  };
+  entry.holder.position.set(0, 0, 0);
+  entry.holder.quaternion.identity();
+  entry.holder.updateMatrixWorld(true);
+
+  const box = new THREE.Box3().setFromObject(body);
   const v = new THREE.Vector3();
-  // un perçage porte un repère sur chaque face : ne compter que celui du
-  // dessus, sinon chaque trou est vu deux fois et la visserie est doublée
-  return (entry.markers || [])
-    .filter((marker) => marker.userData.face !== 'bottom')
-    .map((marker) => {
-      marker.getWorldPosition(v);
-      return { x: v.x, z: v.z, diameter: marker.userData.anchor.r * 2 };
+  const mq = new THREE.Quaternion();
+  const dir = new THREE.Vector3();
+  entry.holeProbes = markers.map((marker) => {
+    marker.getWorldPosition(v);
+    const a = marker.userData.anchor;
+    // Axe du perçage, ramené au repère du porteur. Il faut passer par
+    // l'orientation du repère lui-même : une plaque est extrudée sur son Z,
+    // mais couchée d'un quart de tour pour être posée à plat — son axe de
+    // perçage est donc vertical, pas horizontal.
+    marker.getWorldQuaternion(mq);
+    dir.set(a.axis === 'X' ? 1 : 0, a.axis === 'Y' ? 1 : 0, a.axis === 'Z' ? 1 : 0);
+    if (!a.axis) dir.set(0, 0, 1);
+    dir.applyQuaternion(mq);
+    const probe = { lx: v.x, lz: v.z, r: a.r, ax: dir.x, ay: dir.y, az: dir.z };
+    const r0 = Math.max(a.r, 0.8);
+    let best = null;
+    for (const ring of [r0 + 0.35, r0 + 0.8, r0 + 1.6]) {
+      for (let k = 0; k < 8 && !best; k++) {
+        const ang = (k * Math.PI) / 4;
+        holeRay.set(
+          new THREE.Vector3(v.x + ring * Math.cos(ang), box.max.y + 50, v.z + ring * Math.sin(ang)),
+          new THREE.Vector3(0, -1, 0),
+        );
+        const hits = holeRay.intersectObject(body, false);
+        if (hits.length < 2) continue;
+        // La vis serre la matière qui touche la pièce d'en dessous, pas tout
+        // ce que le rayon rencontre. Un support VTX creux mesure 16 mm du
+        // haut au bas alors que son pied ne fait que 2 mm : demander une vis
+        // de 20 mm rendait la fixation impossible.
+        const last = hits.length - 1;
+        best = {
+          top: hits[0].point.y,
+          bottom: hits[last].point.y,
+          footTop: hits[last - 1].point.y,
+          material: hits[last - 1].point.y - hits[last].point.y,
+        };
+      }
+      if (best) break;
+    }
+    // sonde infructueuse (perçage au bord d'une paroi mince) : on retombe sur
+    // l'encombrement mesuré de la pièce, jamais sur son origine
+    return Object.assign(probe, best || {
+      top: box.max.y, bottom: box.min.y, footTop: box.max.y,
+      material: box.max.y - box.min.y,
     });
+  });
+
+  entry.holder.position.copy(keep.p);
+  entry.holder.quaternion.copy(keep.q);
+  entry.holder.updateMatrixWorld(true);
+}
+
+/** Perçages d'une pièce en coordonnées monde, d'après le relevé de pose. */
+function partHolesInWorld(entry) {
+  const m = entry.holder.matrixWorld;
+  const q = entry.holder.quaternion;
+  const top = new THREE.Vector3();
+  const bottom = new THREE.Vector3();
+  const foot = new THREE.Vector3();
+  const axis = new THREE.Vector3();
+  return (entry.holeProbes || []).map((p) => {
+    top.set(p.lx, p.top, p.lz).applyMatrix4(m);
+    bottom.set(p.lx, p.bottom, p.lz).applyMatrix4(m);
+    foot.set(p.lx, p.footTop, p.lz).applyMatrix4(m);
+    axis.set(p.ax, p.ay, p.az).applyQuaternion(q);
+    return {
+      x: (top.x + bottom.x) / 2,
+      z: (top.z + bottom.z) / 2,
+      diameter: p.r * 2,
+      // une pièce retournée met son « haut » local en bas : on reclasse
+      top: Math.max(top.y, bottom.y),
+      bottom: Math.min(top.y, bottom.y),
+      // face sur laquelle la tête de vis vient appuyer : le dessus de la
+      // semelle, pas le sommet de la pièce
+      seat: Math.max(Math.min(top.y, bottom.y), Math.min(foot.y, Math.max(top.y, bottom.y))),
+      material: p.material,
+      vertical: Math.abs(axis.y) > 0.85,
+    };
+  });
 }
 
 /** Pièces assemblées, sous la forme attendue par la détection. */
 function assembledParts() {
   return entries
     .filter((e) => e.holder && e.object.visible !== false)
-    .map((e) => ({
-      id: e.mod.meta.id,
-      name: e.mod.meta.name,
-      y: e.holder.position.y,
-      thickness: e.mod.meta.dims.thickness,
-      holes: partHolesInWorld(e),
-    }));
+    .map((e) => {
+      const body = e.object && e.object.getObjectByName('body');
+      const box = new THREE.Box3();
+      if (body) box.setFromObject(body);
+      return {
+        id: e.mod.meta.id,
+        name: e.mod.meta.name,
+        y: e.holder.position.y,
+        thickness: e.mod.meta.dims.thickness,
+        // faces réelles, mesurées : l'origine d'un maillage importé est à sa
+        // base, pas en son milieu — y ± épaisseur/2 le plaçait n'importe où
+        top: box.isEmpty() ? e.holder.position.y : box.max.y,
+        bottom: box.isEmpty() ? e.holder.position.y : box.min.y,
+        holes: partHolesInWorld(e),
+      };
+    });
 }
 
 function clearHardware() {
@@ -967,16 +1077,47 @@ function clearHardware() {
 function placeHardware() {
   clearHardware();
 
-  const candidates = hw.findFastenerSites(assembledParts());
+  const parts = assembledParts();
+  const candidates = hw.findFastenerSites(parts);
   const spacing = Number($('hw-spacing').value);
-  const sites = hw.spaceOut(candidates, spacing);
-  if (!sites.length) {
+  let sites = hw.spaceOut(candidates, spacing);
+  if (!candidates.length) {
     updateAsmHint(
       "Aucun perçage ne s'aligne entre deux pièces d'altitudes différentes. "
-      + 'Assemble d\'abord les plaques par leurs perçages.',
+      + 'Assemble d\'abord le build.',
       'warn',
     );
     return;
+  }
+
+  // AUCUNE PIÈCE NE DOIT RESTER LIBRE. L'espacement écarte les fixations
+  // redondantes, mais il ne doit jamais laisser une pièce tenir toute seule :
+  // on rattrape ici celles qu'il a désarmées, en leur rendant leurs points.
+  const heldBy = (list) => {
+    const n = new Map();
+    for (const s of list) {
+      n.set(s.lower.id, (n.get(s.lower.id) || 0) + 1);
+      n.set(s.upper.id, (n.get(s.upper.id) || 0) + 1);
+    }
+    return n;
+  };
+  const MIN_PER_PART = 2;      // une seule vis laisse la pièce pivoter
+  let held = heldBy(sites);
+  for (const part of parts) {
+    const own = candidates.filter((s) => s.lower.id === part.id || s.upper.id === part.id);
+    if (!own.length) continue;                       // rien à visser sur cette pièce
+    while ((held.get(part.id) || 0) < Math.min(MIN_PER_PART, own.length)) {
+      // on reprend le point le plus éloigné de ceux déjà retenus : deux vis
+      // côte à côte ne bloquent pas mieux qu'une
+      const kept = sites.filter((s) => s.lower.id === part.id || s.upper.id === part.id);
+      const next = own
+        .filter((s) => !sites.includes(s))
+        .sort((a, b) => Math.min(...kept.map((k) => Math.hypot(k.x - b.x, k.z - b.z)), 1e9)
+          - Math.min(...kept.map((k) => Math.hypot(k.x - a.x, k.z - a.z)), 1e9))[0];
+      if (!next) break;
+      sites.push(next);
+      held = heldBy(sites);
+    }
   }
 
   // les vis sortent du sachet livré avec le châssis, pas d'un catalogue
@@ -988,26 +1129,24 @@ function placeHardware() {
     const { site } = item;
     if (item.standoffLength > 0) {
       const standoff = hw.standoffMesh(site.thread, item.standoffLength);
-      standoff.position.set(site.x, site.lower.y + site.lower.thickness / 2, site.z);
+      standoff.position.set(site.x, site.lowerTop, site.z);
       hardwareGroup.add(standoff);
     }
-    // la vis appuie sur la face supérieure de la pièce haute
+    // la vis appuie sur la face supérieure de la pièce haute, au droit du trou
     const screw = hw.screwMesh(site.thread, item.screwLength);
-    screw.position.set(site.x, site.upper.y + site.upper.thickness / 2, site.z);
+    screw.position.set(site.x, site.upperTop, site.z);
     hardwareGroup.add(screw);
   }
 
-  renderBom(assigned, sites, candidates.length, missing);
+  renderBom(assigned, sites, candidates.length, missing, hw.unfastened(parts, assigned), parts);
   renderKit();
   hardwareGroup.visible = $('opt-hardware').checked;
   invalidate();
 }
 
-function renderBom(items, sites, candidateCount, missing = []) {
+function renderBom(items, sites, candidateCount, missing = [], free = [], parts = []) {
   const used = new Map();
   for (const item of items) used.set(item.line.id, (used.get(item.line.id) || 0) + 1);
-  const play = Math.max(...items.map((i) => i.standoffPlay), 0);
-  const filtered = candidateCount - sites.length;
 
   // la nomenclature suit le sachet, ligne par ligne : ce qui sert, ce qui reste
   const rows = hw.SCREW_KIT.map((line) => {
@@ -1016,13 +1155,33 @@ function renderBom(items, sites, candidateCount, missing = []) {
       + `<dd>${u} / ${line.count}</dd></div>`;
   }).join('');
 
-  const standoffs = items.filter((i) => i.standoffLength > 0).length;
-  $('bom').innerHTML = rows
-    + (standoffs ? `<div><dt>Entretoises à prévoir</dt><dd>× ${standoffs}</dd></div>` : '')
-    + `<div><dt>Fixations</dt><dd>${items.length} / ${candidateCount} candidates</dd></div>`;
+  // entretoises : regroupées par longueur exacte, c'est une liste de courses
+  const spacers = new Map();
+  for (const i of items.filter((x) => x.standoffLength > 0)) {
+    const key = i.standoffLength.toFixed(2);
+    spacers.set(key, (spacers.get(key) || 0) + 1);
+  }
+  const spacerRows = [...spacers.entries()]
+    .sort((a, b) => Number(a[0]) - Number(b[0]))
+    .map(([len, n]) => `<div><dt>Entretoise M2×${len.replace(/\.?0+$/, '')} mm</dt><dd>× ${n}</dd></div>`)
+    .join('');
 
-  // « pas de vis assez longue » recouvre deux cas très différents : la
-  // longueur n'existe pas dans le sachet, ou elle existe mais est épuisée
+  const longest = Math.max(0, ...items.map((i) => i.protrusion));
+  // une pièce vissable doit l'être par au moins deux vis ; une pièce sans
+  // perçage de vis (cover clipsée) n'entre pas dans ce compte
+  const per = hw.screwsPerPart(items);
+  const screwable = parts.filter((p) => hw.hasScrewSeat(p));
+  const weak = screwable.filter((p) => (per.get(p.id) || 0) < 2);
+  const clipped = free.filter((p) => !hw.hasScrewSeat(p));
+
+  $('bom').innerHTML = rows + spacerRows
+    + `<div><dt>Fixations</dt><dd>${items.length} / ${candidateCount} candidates</dd></div>`
+    + `<div${weak.length ? ' class="warn"' : ''}><dt>Pièces vissables tenues</dt>`
+    + `<dd>${screwable.length - weak.length} / ${screwable.length}</dd></div>`
+    + (clipped.length
+      ? `<div class="dim"><dt>Sans perçage de vis</dt><dd>${clipped.map((p) => p.name).join(', ')}</dd></div>`
+      : '');
+
   let short = '';
   if (missing.length) {
     const needed = Math.max(...missing.map((m) => m.needed));
@@ -1034,10 +1193,16 @@ function renderBom(items, sites, candidateCount, missing = []) {
   }
   updateAsmHint(
     `${items.length} fixation${items.length > 1 ? 's' : ''} posée${items.length > 1 ? 's' : ''} `
-    + `avec les vis du sachet${filtered > 0 ? `, ${filtered} candidate${filtered > 1 ? 's' : ''} écartée${filtered > 1 ? 's' : ''} par l'espacement` : ''}`
-    + (play > 0.01 ? ` — jeu d'entretoise jusqu'à ${play.toFixed(2)} mm` : '')
-    + '.' + short,
-    short ? 'warn' : 'ok',
+    + `avec les vis du sachet${spacers.size ? `, ${[...spacers.values()].reduce((a, b) => a + b, 0)} entretoises à la cote exacte (aucun jeu)` : ''}`
+    + (longest > 0.01 ? `, dépassement maximal sous la pièce ${longest.toFixed(1)} mm` : '')
+    + '.'
+    + (weak.length ? ` ${weak.length} pièce(s) tenue(s) par moins de 2 vis : ${weak.map((p) => p.name).join(', ')}.` : '')
+    + (clipped.length
+      ? ` ${clipped.map((p) => p.name).join(', ')} n'a/n'ont aucun perçage de vis : `
+        + 'ces pièces se clipsent, rien à visser dessus.'
+      : '')
+    + short,
+    (short || weak.length) ? 'warn' : 'ok',
   );
 }
 
@@ -1324,6 +1489,77 @@ function captureLayout(sideBySide, bench = false) {
   return { targets, sphere };
 }
 
+/**
+ * Recale chaque pièce sur les perçages de celle qui la porte.
+ *
+ * Une pièce posée à la main tombe rarement au dixième : sur ce build, la
+ * plaque supérieure était à 1,3 mm des perçages de la plaque intermédiaire.
+ * Une vis ne passe pas dans un décalage pareil — la fixation n'était même pas
+ * reconnue. On aligne donc les perçages avant de visser, par une translation
+ * dans le plan, sans toucher aux hauteurs ni aux angles.
+ *
+ * @returns {{id:string, name:string, dx:number, dz:number}[]} corrections faites
+ */
+function snapToReferenceHoles() {
+  const MAX_SNAP = 2;          // au-delà, ce n'est plus un décalage mais un autre trou
+  const parts = assembledParts();
+  const byId = new Map(parts.map((p) => [p.id, p]));
+  const moved = [];
+
+  // du bas vers le haut : une pièce se recale sur son support, déjà en place
+  const order = entries
+    .filter((e) => byId.has(e.mod.meta.id))
+    .sort((a, b) => a.holder.position.y - b.holder.position.y);
+
+  for (const entry of order) {
+    const id = entry.mod.meta.id;
+    const placement = placements[id];
+    if (!placement || !placement.refId) continue;
+    const self = byId.get(id);
+    const ref = byId.get(placement.refId);
+    if (!self || !ref) continue;
+
+    // seulement les vrais perçages de vis, verticaux et au filetage du
+    // sachet : recaler une pièce sur un passage de câble ou sur un perçage
+    // Ø3,5 qui ne verra jamais de vis, c'est la déplacer pour rien — le
+    // cover en avait pris 2,5 mm
+    const seats = (p) => p.holes.filter((h) => h.vertical !== false
+      && (hw.threadForHole(h.diameter) || {}).id === 'M2');
+    const mine = seats(self);
+    const theirs = seats(ref);
+    if (mine.length < 2 || theirs.length < 2) continue;
+
+    let sx = 0, sz = 0, n = 0;
+    for (const h of mine) {
+      let best = null;
+      for (const k of theirs) {
+        const d = Math.hypot(h.x - k.x, h.z - k.z);
+        if (d <= MAX_SNAP && (!best || d < best.d)) best = { d, k };
+      }
+      if (!best) continue;
+      sx += best.k.x - h.x;
+      sz += best.k.z - h.z;
+      n++;
+    }
+    if (n < 2) continue;
+    const dx = sx / n;
+    const dz = sz / n;
+    if (Math.hypot(dx, dz) < 0.05) continue;         // déjà en face
+
+    entry.holder.position.x += dx;
+    entry.holder.position.z += dz;
+    entry.holder.updateMatrixWorld(true);
+    placement.x = entry.holder.position.x;
+    placement.z = entry.holder.position.z;
+    placements[id] = placement;
+    moved.push({ id, name: entry.mod.meta.name, dx, dz });
+    // les pièces suivantes doivent voir la nouvelle position
+    byId.set(id, assembledParts().find((p) => p.id === id));
+  }
+  if (moved.length) savePlacements();
+  return moved;
+}
+
 /** Pose les 4 entretoises du châssis sur la plaque intermédiaire. */
 function placeChassisStandoffs() {
   const plate = entryById('middle-plate');
@@ -1405,9 +1641,16 @@ $('asm-assemble-chassis').addEventListener('click', () => {
     box.checked = false;
     forceBench = false;
     layoutParts();
+    // les perçages doivent tomber en face avant qu'on parle de visser
+    const snapped = snapToReferenceHoles();
     const posed = placeChassisStandoffs();
     updateAsmHint(
-      `Build assemblé${posed ? ` — ${posed} entretoises M2×4×22 posées sur la middle-plate` : ''}.`,
+      `Build assemblé${posed ? ` — ${posed} entretoises M2×4×22 posées sur la middle-plate` : ''}`
+      + (snapped.length
+        ? `, ${snapped.length} pièce(s) recalée(s) sur les perçages `
+          + `(jusqu'à ${Math.max(...snapped.map((m) => Math.hypot(m.dx, m.dz))).toFixed(2)} mm)`
+        : '')
+      + '.',
       'ok',
     );
   });
@@ -2941,6 +3184,8 @@ if (new URLSearchParams(location.search).has('debug')) {
   window.__THREE = THREE;
   window.__camera = camera;
   window.__controls = controls;
+  window.__assembledParts = assembledParts;
+  window.__hw = hw;
 
   /** Encombrement au sol de chaque pièce, pour vérifier la disposition. */
   window.__benchBoxes = () => {
