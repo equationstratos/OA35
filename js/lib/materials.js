@@ -102,6 +102,41 @@ export function printedMaterial(color = 0x393f47) {
   });
 }
 
+/** Teinte d'origine de chaque matière, quand on veut revenir en arrière. */
+export const DEFAULT_TINT = { carbone: 0xffffff, imprime: 0x393f47 };
+
+/**
+ * Applique une couleur à une pièce SANS lui faire perdre sa matière.
+ *
+ * Le carbone garde son tissage : la couleur multiplie la texture, comme un
+ * carbone teinté dans la masse — un bleu roi sur du sergé reste du sergé. Une
+ * teinte claire y perdrait tout contraste, on la retient donc à mi-chemin du
+ * blanc. Le plastique imprimé, lui, prend la couleur pleine : une bobine de
+ * TPU bleu est bleue de bout en bout.
+ *
+ * @param {THREE.Material} material matériau de la pièce
+ * @param {string} kind 'carbone' | 'imprime'
+ * @param {number|null} hex couleur demandée, ou null pour la teinte d'origine
+ */
+export function tintMaterial(material, kind, hex) {
+  const carbon = kind === 'carbone';
+  if (hex === null || hex === undefined) {
+    material.color.setHex(DEFAULT_TINT[carbon ? 'carbone' : 'imprime']);
+  } else if (carbon) {
+    // le tissage est sombre : une couleur trop claire l'écraserait, on
+    // l'assombrit un peu pour que la trame reste lisible
+    const c = new THREE.Color(hex);
+    const l = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+    if (l > 0.55) c.multiplyScalar(0.55 / l);
+    material.color.copy(c);
+  } else {
+    material.color.setHex(hex);
+  }
+  // une matière peinte reste ce qu'elle est : le carbone garde son vernis
+  // brillant, l'imprimé son aspect mat
+  material.needsUpdate = true;
+}
+
 /** Fil de contour blanc pour la lisibilité des arêtes. */
 export function outlineMaterial() {
   return new THREE.LineBasicMaterial({ color: 0x6cc7ff, transparent: true, opacity: 0.55 });

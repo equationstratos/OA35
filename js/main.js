@@ -15,6 +15,7 @@ import {
   describe as describeScale, rememberPattern, usesPreferred as usesPreferredPattern,
 } from './lib/patterns.js';
 import { FRAME, thicknessForRole } from './frame-spec.js';
+import { tintMaterial, DEFAULT_TINT } from './lib/materials.js';
 import * as exporter from './lib/export.js';
 import * as hw from './hardware.js';
 import * as so from './standoffs.js';
@@ -34,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-03a · contours exacts, trous moteur';
+const BUILD = '2026-08-03b · couleurs + établi rangé';
 $('build-stamp').textContent = BUILD;
 
 /* ------------------------------------------------------------------ *
@@ -101,9 +102,36 @@ ground.position.y = -14;
 ground.receiveShadow = true;
 scene.add(ground);
 
-let grid = new THREE.GridHelper(300, 30, 0x1e3550, 0x142236);
+/** Côté de la grille, en mm : suit l'étalement des pièces sur l'établi. */
+let gridSize = 300;
+const GRID_CELL_MM = 10;
+
+let grid = new THREE.GridHelper(gridSize, gridSize / GRID_CELL_MM, 0x1e3550, 0x142236);
 grid.position.y = -14;
 scene.add(grid);
+
+/**
+ * Redimensionne la grille pour qu'aucune pièce ne déborde.
+ *
+ * GridHelper fige sa taille à la construction : il faut le refaire. On garde
+ * ses couleurs (le choix de fond les change) et la maille de 10 mm, qui sert
+ * de repère de mesure autant que de décor.
+ */
+function resizeGrid(needed) {
+  const size = Math.max(300, Math.ceil(needed / 100) * 100);
+  if (size === gridSize) return;
+  gridSize = size;
+  const colors = grid.userData.colors || [0x1e3550, 0x142236];
+  const visible = grid.visible;
+  scene.remove(grid);
+  disposeObject(grid);
+  grid = new THREE.GridHelper(size, size / GRID_CELL_MM, colors[0], colors[1]);
+  grid.userData.colors = colors;
+  grid.position.y = -14;
+  grid.visible = visible;
+  scene.add(grid);
+  invalidate();
+}
 
 /* ------------------------------------------------------------------ *
  * Montage des pièces
@@ -183,8 +211,10 @@ function remountAll() {
   renderPartList();
   applySelectionLook();
   renderPartToolbar();
-  // les pièces viennent d'être reconstruites : elles sont toutes visibles
+  // les pièces viennent d'être reconstruites : elles sont toutes visibles,
+  // et repeintes de la teinte d'origine de leur matière
   applyHidden();
+  applyColors();
 }
 
 /** Le tracé photo ne remplace que la pièce 01, et seulement si demandé. */
@@ -196,81 +226,124 @@ function appliedTrace() {
  * Disposition des pièces
  * ------------------------------------------------------------------ */
 
-/** Espace laissé entre deux pièces posées côte à côte, en mm. */
-const LAYOUT_GAP_MM = 12;
-
-/**
- * Position d'établi par pièce, en plan (X, Z) : la bottom-plate au centre, la
- * clamp-plate au-dessus sur le plan (vers l'avant, -Z, sans être empilée en
- * hauteur — « pas assemblée, juste posée dessus »), les flancs en haut à
- * gauche, côte à côte, chacun tourné à 90° et le droit à 180° de plus que le
- * gauche pour se présenter tête-bêche. Middle-plate et top-plate n'avaient
- * pas de place demandée : je les ai mises à droite, à ajuster si besoin.
- *
- * Les bras occupent la colonne de gauche, la paire arrière (longue) devant la
- * paire avant (courte), gauche et droite côte à côte dans chaque paire.
- * Les accessoires imprimés forment une rangée à l'arrière (+Z), à l'écart des
- * pièces de structure.
- */
 const deg = (d) => (d * Math.PI) / 180;
 
-const BENCH_ZONES = {
-  'bottom-plate': { x: 0, z: 0 },
-  'clamp-plate': { x: 0, z: -75 },
-  'middle-plate': { x: 90, z: 0 },
-  'top-plate': { x: 90, z: 115 },
-  // côte à côte (X commun décalé, même Z) plutôt que loin l'un de l'autre :
-  // le droit reprend les 90° du gauche plus 180°, pour qu'ils se présentent
-  // tête-bêche l'un à côté de l'autre plutôt que dans le même sens
-  'flanc-gauche': { x: -100, z: -30, rotY: deg(-90) },
-  'flanc-droit': { x: -70, z: -30, rotY: deg(90) },
-
-  // bras : paire arrière (longue) puis paire avant (courte)
-  'arm-long-l': { x: -175, z: -55 },
-  'arm-long-r': { x: -145, z: -55 },
-  'arm-short-l': { x: -175, z: 60 },
-  'arm-short-r': { x: -145, z: 60 },
-
-  // accessoires imprimés : rangée à l'arrière, au-delà de la top-plate qui
-  // court jusqu'à Z ~168 — sinon le support VTX et le support caméra mordent
-  // dessus
-  'cover-01': { x: -105, z: 210 },
-  'cover-02': { x: -50, z: 210 },
-  'gps-mount': { x: -5, z: 210 },
-  'vtx-mount': { x: 40, z: 210 },
-  // orientation relevée à la main dans le viewer : retourné (X -180°) puis
-  // pivoté de 88°, d'où le Y de 30,2 mm qui rattrape la hauteur de la pièce
-  // basculée — son origine est à sa base, qui passe en haut une fois retournée
-  'camera-mount': {
-    x: 95, y: 30.2, z: 210, rotX: deg(-180), rotY: deg(88), rotZ: 0,
+/**
+ * L'établi, par familles de pièces.
+ *
+ * Les places étaient auparavant écrites une à une, en dur : chaque pièce
+ * ajoutée demandait de retrouver un coin libre à la main, et l'ensemble
+ * débordait largement de la grille. Elles sont maintenant rangées par
+ * famille, une rangée par famille, et les positions sont CALCULÉES à partir
+ * de l'encombrement réel de chaque pièce — donc sans chevauchement possible,
+ * et la grille s'élargit d'elle-même pour tout contenir.
+ *
+ * L'ordre des rangées suit celui du montage : les plaques d'abord, les bras
+ * ensuite, puis ce qui se visse dessus.
+ */
+const BENCH_ROWS = [
+  { label: 'Plaques', ids: ['bottom-plate', 'middle-plate', 'top-plate', 'clamp-plate'] },
+  { label: 'Bras arrière (longs)', ids: ['arm-long-l', 'arm-long-r'] },
+  { label: 'Bras avant (courts)', ids: ['arm-short-l', 'arm-short-r'] },
+  {
+    label: 'Flancs',
+    ids: ['flanc-gauche', 'flanc-droit'],
+    // couchés en travers, et tête-bêche : c'est ainsi qu'ils se lisent le
+    // mieux, l'un étant le miroir de l'autre
+    rot: { 'flanc-gauche': { rotY: deg(-90) }, 'flanc-droit': { rotY: deg(90) } },
   },
-  // la joue opposée : maillage déjà mis en miroir sur X, donc l'angle autour
-  // de la verticale change de signe — sinon les deux joues regarderaient du
-  // même côté au lieu de se faire face
-  'camera-mount-mirror': {
-    x: 140, y: 30.2, z: 210, rotX: deg(-180), rotY: deg(-88), rotZ: 0,
-  },
+  { label: 'Covers', ids: ['cover-01', 'cover-02'] },
+  { label: 'Supports', ids: ['gps-mount', 'vtx-mount', 'camera-mount', 'camera-mount-mirror'] },
+  { label: 'Patins de bras', ids: ['footpad-ar-l', 'footpad-ar-r', 'footpad-av-l', 'footpad-av-r'] },
+];
 
-  // patins : petite rangée derrière les accessoires
-  'footpad-ar-l': { x: -60, z: 265 },
-  'footpad-ar-r': { x: -30, z: 265 },
-  'footpad-av-l': { x: 0, z: 265 },
-  'footpad-av-r': { x: 30, z: 265 },
-};
+/** Pièce qui sert d'origine au build : le reste se monte autour d'elle. */
+const ANCHOR_ID = 'bottom-plate';
+
+/** Espace entre deux pièces d'une même rangée, et entre deux rangées. */
+const BENCH_GAP_MM = 20;
+const BENCH_ROW_GAP_MM = 30;
+
+/** Places calculées à la dernière disposition : { id: {x, z, rotY…} }. */
+let benchZones = {};
 
 /**
- * Rangée pour toute pièce sans zone dédiée (typiquement un bras créé depuis
- * l'outil de calibration). Placée loin devant (+Z) plutôt qu'à une distance
- * fixe : un bras est long, une distance fixe l'aurait fait mordre sur la
- * pièce centrale. L'écart tient compte de la plus longue des pièces à ranger.
+ * Encombrement au sol d'une pièce, dans son orientation d'établi.
+ *
+ * Mesuré sur la géométrie montée (boîte de la géométrie transformée par
+ * l'objet), pas déduit des cotes nominales : une plaque est couchée, un
+ * maillage peut être basculé, et une pièce tournée d'un quart de tour
+ * échange sa longueur et sa largeur.
  */
-const UNZONED_ROW_CLEARANCE_MM = 46; // au-delà du bord de la bottom-plate (Z ±37,6 mm)
+function benchFootprint(entry, rotY = 0) {
+  const box = new THREE.Box3().setFromObject(entry.object);
+  const sx = box.max.x - box.min.x;
+  const sz = box.max.z - box.min.z;
+  const c = Math.abs(Math.cos(rotY));
+  const s = Math.abs(Math.sin(rotY));
+  return { x: sx * c + sz * s, z: sx * s + sz * c };
+}
+
+/**
+ * Recalcule les places de l'établi : une rangée par famille, centrée en X,
+ * les rangées empilées vers l'arrière. Renvoie l'étalement total, qui sert à
+ * dimensionner la grille.
+ */
+function computeBenchZones() {
+  const zones = {};
+  const byId = new Map(entries.map((e) => [e.mod.meta.id, e]));
+  const placed = new Set();
+  const rows = [];
+
+  for (const row of BENCH_ROWS) {
+    const items = row.ids.filter((id) => byId.has(id));
+    if (!items.length) continue;
+    items.forEach((id) => placed.add(id));
+    rows.push({ ...row, items });
+  }
+  // tout ce qui n'appartient à aucune famille connue (pièce créée dans
+  // l'outil, pièce ajoutée plus tard) forme sa propre rangée
+  const others = entries.map((e) => e.mod.meta.id).filter((id) => !placed.has(id));
+  if (others.length) rows.push({ label: 'Autres pièces', ids: others, items: others });
+
+  let z = 0;
+  let maxHalfX = 0;
+  for (const row of rows) {
+    const sizes = row.items.map((id) => {
+      const rot = (row.rot && row.rot[id]) || {};
+      return { id, rot, size: benchFootprint(byId.get(id), rot.rotY || 0) };
+    });
+    const width = sizes.reduce((sum, s) => sum + s.size.x, 0)
+      + BENCH_GAP_MM * (sizes.length - 1);
+    const depth = Math.max(...sizes.map((s) => s.size.z));
+    let x = -width / 2;
+    for (const s of sizes) {
+      zones[s.id] = {
+        // arrondi au demi-carreau : des pièces alignées sur la grille se
+        // lisent et se comparent bien mieux que posées au millimètre près
+        x: Math.round((x + s.size.x / 2) / 5) * 5,
+        z: Math.round((z + depth / 2) / 5) * 5,
+        ...s.rot,
+      };
+      x += s.size.x + BENCH_GAP_MM;
+    }
+    maxHalfX = Math.max(maxHalfX, width / 2);
+    z += depth + BENCH_ROW_GAP_MM;
+  }
+
+  // l'établi entier est recentré en Z, pour rester au milieu de la grille
+  const depthTotal = z - BENCH_ROW_GAP_MM;
+  const shift = depthTotal / 2;
+  for (const zone of Object.values(zones)) zone.z = Math.round((zone.z - shift) / 5) * 5;
+
+  benchZones = zones;
+  return Math.max(maxHalfX * 2, depthTotal) + BENCH_GAP_MM * 2;
+}
 
 /**
  * Deux dispositions :
- * - côte à côte : les pièces sont alignées à plat, chacune à la place fixe
- *   de BENCH_ZONES quand elle en a une ; c'est la vue de travail qui reflète
- *   le plan du châssis
+ * - côte à côte : les pièces sont rangées à plat par famille, à la place que
+ *   leur calcule computeBenchZones() ; c'est la vue de travail
  * - assemblée : chaque pièce reprend son altitude dans le build, et la vue
  *   éclatée les écarte verticalement. Une pièce jamais assemblée y reste
  *   quand même à sa place d'établi, sinon elle serait invisible sous les
@@ -280,18 +353,10 @@ function layoutParts() {
   const sideBySide = $('opt-layout').checked;
   const spread = Number($('explode').value);
 
-  // pièces sans zone dédiée : rangée dégagée, assez loin pour qu'un bras
-  // entier (long) ne morde pas sur la pièce centrale
-  const unzoned = entries.filter((e) => !BENCH_ZONES[e.mod.meta.id]);
-  const widths = unzoned.map((e) => e.mod.meta.dims.width);
-  const total = widths.reduce((a, b) => a + b, 0)
-    + LAYOUT_GAP_MM * Math.max(0, unzoned.length - 1);
-  const rowX = [];
-  let x = -total / 2;
-  widths.forEach((w) => { rowX.push(x + w / 2); x += w + LAYOUT_GAP_MM; });
-  const unzonedRowZ = UNZONED_ROW_CLEARANCE_MM
-    + Math.max(0, ...unzoned.map((e) => e.mod.meta.dims.length)) / 2;
-  let rowRank = 0;
+  // les places dépendent de l'encombrement des pièces montées : recalculées
+  // ici, après tout ajout, retrait ou mise en miroir
+  const extent = computeBenchZones();
+  resizeGrid(extent);
 
   entries.forEach((e, i) => {
     if (!e.holder) return;
@@ -307,10 +372,15 @@ function layoutParts() {
       e.holder.position.set(placement.x, placement.y + i * spread, placement.z);
       e.holder.rotation.set(placement.rotX || 0, placement.rotY || 0, placement.rotZ || 0);
     } else {
-      const zone = BENCH_ZONES[e.mod.meta.id];
-      const bx = zone ? zone.x : rowX[rowRank];
-      const bz = zone ? zone.z : unzonedRowZ;
-      if (!zone) rowRank++;
+      // La plaque inférieure est l'origine du build : tant qu'elle n'a pas de
+      // placement à elle, elle reste au centre en vue assemblée. Sans ça, un
+      // plan qui ne la mentionne pas — c'est le cas dès qu'on n'y a jamais
+      // touché — la verrait partir à sa place d'établi, et le châssis se
+      // monterait autour d'une plaque absente.
+      const anchored = !sideBySide && e.mod.meta.id === ANCHOR_ID;
+      const zone = anchored ? { x: 0, z: 0 } : benchZones[e.mod.meta.id];
+      const bx = zone ? zone.x : 0;
+      const bz = zone ? zone.z : 0;
       // une pièce non assemblée reste sur l'établi : la poser à l'origine la
       // rendrait indiscernable, donc impossible à viser
       const defaultY = sideBySide ? 0 : e.baseY + i * spread;
@@ -383,6 +453,66 @@ function applyHidden() {
 }
 
 /* ------------------------------------------------------------------ *
+ * Couleur des pièces
+ * ------------------------------------------------------------------ */
+
+const COLORS_KEY = 'tinyhoop-mk1:colors';
+
+/** Couleur choisie par pièce, { id: '#rrggbb' }, conservée entre sessions. */
+function loadColors() {
+  try {
+    const raw = localStorage.getItem(COLORS_KEY);
+    const obj = raw ? JSON.parse(raw) : {};
+    return obj && typeof obj === 'object' ? obj : {};
+  } catch {
+    return {};
+  }
+}
+
+let partColors = loadColors();
+
+function saveColors() {
+  try {
+    localStorage.setItem(COLORS_KEY, JSON.stringify(partColors));
+  } catch { /* stockage indisponible : valable pour la session */ }
+}
+
+/** La matière d'une pièce décide de la façon dont la couleur se pose. */
+function materialKind(entry) {
+  return entry.mod.meta.isMesh ? 'imprime' : 'carbone';
+}
+
+/** Teinte affichée pour une pièce : la sienne, ou celle de sa matière. */
+function colorOf(entry) {
+  const chosen = partColors[entry.mod.meta.id];
+  if (chosen) return chosen;
+  const hex = DEFAULT_TINT[materialKind(entry) === 'carbone' ? 'carbone' : 'imprime'];
+  // le blanc du carbone n'est pas une couleur, c'est l'absence de teinte :
+  // dans le sélecteur on montre plutôt la couleur qu'a la pièce à l'écran
+  return materialKind(entry) === 'carbone' ? '#3a3d42' : `#${hex.toString(16).padStart(6, '0')}`;
+}
+
+/** Applique les couleurs mémorisées à toutes les pièces montées. */
+function applyColors() {
+  entries.forEach((e) => {
+    const body = e.object && e.object.getObjectByName('body');
+    if (!body || !body.material) return;
+    const chosen = partColors[e.mod.meta.id];
+    tintMaterial(body.material, materialKind(e), chosen ? Number(`0x${chosen.slice(1)}`) : null);
+  });
+  invalidate();
+}
+
+function setPartColor(id, hex) {
+  if (hex) partColors[id] = hex;
+  else delete partColors[id];
+  saveColors();
+  applyColors();
+  // une teinte se défait comme le reste : par le bouton retour
+  pushHistory();
+}
+
+/* ------------------------------------------------------------------ *
  * Historique (annuler / rétablir)
  * ------------------------------------------------------------------ */
 
@@ -390,7 +520,7 @@ const history = createHistory();
 
 /** État complet du plan de travail, tel qu'il est mémorisé et restauré. */
 function snapshot() {
-  return { placements, standoffs, hidden: [...hiddenParts] };
+  return { placements, standoffs, hidden: [...hiddenParts], colors: partColors };
 }
 
 /** Vrai pendant une restauration : les sauvegardes ne doivent alors rien empiler. */
@@ -426,9 +556,11 @@ function applySnapshot(state) {
     placements = state.placements || {};
     standoffs = state.standoffs || [];
     hiddenParts = new Set(state.hidden || []);
+    partColors = state.colors || {};
     asm.savePlacements(placements);
     so.save(standoffs);
     saveHidden();
+    saveColors();
 
     clearSelection();
     clearStandoffSelection();
@@ -437,6 +569,8 @@ function applySnapshot(state) {
     renderStandoffList();
     renderPartList();
     applyHidden();
+    applyColors();
+    renderPartToolbar();
   } finally {
     restoring = false;
   }
@@ -1017,6 +1151,10 @@ function renderPartToolbar() {
       <button data-act="below" class="${placement.side === 'below' ? 'on' : ''}"
         ${reference ? '' : 'disabled'}
         title="${reference ? `Poser en dessous de « ${reference.mod.meta.name} »` : noRef}">⬇ Dessous</button>
+      <label class="tint" title="Couleur de la pièce — le carbone garde son tissage, l'imprimé prend la teinte pleine">
+        <input type="color" id="part-tint" value="${colorOf(entry)}">
+      </label>
+      <button data-act="tint-reset" title="Revenir à la teinte d'origine de la matière">↺</button>
       <button data-act="clear" title="Désélectionner">✕</button>
     </div>
     <div class="row move" title="Comme dans Cura : déplace la pièce à la souris, sa position reste ensuite fixée telle quelle, dans toutes les vues.">
@@ -1035,6 +1173,9 @@ function renderPartToolbar() {
 
   bar.querySelectorAll('.row:first-child button').forEach((btn) => {
     btn.addEventListener('click', () => partAction(btn.dataset.act));
+  });
+  bar.querySelector('#part-tint').addEventListener('input', (e) => {
+    setPartColor(selectedId, e.target.value);
   });
   bar.querySelector('[data-act="reset-pos"]').addEventListener('click', () => partAction('reset-pos'));
   bar.querySelector('[data-act="reset-rot"]').addEventListener('click', () => partAction('reset-rot'));
@@ -1073,6 +1214,13 @@ function partAction(action) {
 
   if (action === 'clear') { clearPartSelection(); return; }
 
+  if (action === 'tint-reset') {
+    setPartColor(id, null);
+    renderPartToolbar();
+    updateAsmHint(`« ${entry.mod.meta.name} » : teinte d'origine rétablie.`, 'ok');
+    return;
+  }
+
   if (action === 'reset-rot') {
     entry.holder.rotation.set(0, 0, 0);
     entry.holder.updateMatrixWorld(true);
@@ -1099,6 +1247,7 @@ function partAction(action) {
     savePlacements();
     // le miroir change la géométrie : la pièce est reconstruite
     mountPart(entry, entry.mod.isCustom ? null : appliedTrace());
+    applyColors();          // la pièce vient d'être refaite : elle a repris sa teinte d'usine
     layoutParts();
     applySelectionLook();
     renderPartToolbar();
@@ -1373,6 +1522,7 @@ function frameAll(direction) {
 
 entries = collectParts();
 entries.forEach((e) => mountPart(e, null));
+applyColors();
 
 /* ------------------------------------------------------------------ *
  * Calque photo en 3D
@@ -1788,6 +1938,9 @@ $('wp-export').addEventListener('click', () => {
     placements,
     standoffs,
     hidden: [...hiddenParts],
+    // les couleurs voyagent avec le plan : c'est ce qui permet à l'export
+    // CAO de teinter les corps comme ils le sont à l'écran
+    colors: partColors,
     customParts: custom.loadSpecs(),
   };
   exporter.download(
@@ -1820,9 +1973,11 @@ $('wp-file').addEventListener('change', async (e) => {
   placements = data.placements && typeof data.placements === 'object' ? data.placements : {};
   standoffs = Array.isArray(data.standoffs) ? data.standoffs : [];
   hiddenParts = new Set(Array.isArray(data.hidden) ? data.hidden : []);
+  partColors = data.colors && typeof data.colors === 'object' ? data.colors : {};
   asm.savePlacements(placements);
   so.save(standoffs);
   saveHidden();
+  saveColors();
 
   clearSelection();
   clearStandoffSelection();
@@ -2053,6 +2208,7 @@ $('c-apply').addEventListener('click', () => {
   try {
     cal.state.applied = true;
     entries.forEach((e) => mountPart(e, e.mod.isCustom ? null : cal.state.traceMm));
+    applyColors();
     rebuildPhotoPlane();
     renderPartList();
     if (!$('pane-bp').classList.contains('hidden')) renderBlueprint();
@@ -2204,11 +2360,13 @@ function applyBackground(name) {
   scene.background = new THREE.Color(choice.bg);
 
   // GridHelper fige ses couleurs à la construction : on remplace le maillage
-  // plutôt que de fouiller ses attributs de couleur
+  // plutôt que de fouiller ses attributs de couleur. La taille courante est
+  // conservée — elle dépend de l'étalement des pièces, pas du fond.
   const wasVisible = grid.visible;
   scene.remove(grid);
   disposeObject(grid);
-  grid = new THREE.GridHelper(300, 30, choice.grid[0], choice.grid[1]);
+  grid = new THREE.GridHelper(gridSize, gridSize / GRID_CELL_MM, choice.grid[0], choice.grid[1]);
+  grid.userData.colors = choice.grid;
   grid.position.y = -14;
   grid.visible = wasVisible;
   scene.add(grid);

@@ -494,6 +494,27 @@ ul { list-style: none; margin: 0; padding: 0; }
 .part-toolbar button.on { border-color: var(--accent); color: var(--accent); }
 .part-toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* Sélecteur de couleur : le natif est laid et de taille imposée, on ne garde
+   que la pastille de couleur, à la même hauteur que les boutons voisins. */
+.part-toolbar .tint {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px;
+  cursor: pointer;
+}
+.part-toolbar .tint:hover { border-color: var(--accent); }
+.part-toolbar .tint input[type="color"] {
+  width: 26px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+.part-toolbar .tint input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.part-toolbar .tint input[type="color"]::-webkit-color-swatch { border: none; border-radius: 3px; }
+
 .move-axis {
   display: flex;
   align-items: center;
