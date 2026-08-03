@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-03e · sachet de visserie sur le plan';
+const BUILD = '2026-08-03f · recadrage en douceur';
 $('build-stamp').textContent = BUILD;
 
 /* ------------------------------------------------------------------ *
@@ -1311,6 +1311,9 @@ function captureLayout(sideBySide, bench = false) {
   const targets = new Map(entries.map((e) => [e.mod.meta.id, {
     position: e.holder.position.clone(), quaternion: e.holder.quaternion.clone(),
   }]));
+  // le cadrage se relève ici, pièces en place : à l'arrivée il n'y aura plus
+  // rien à recalculer, donc plus de saut
+  const sphere = buildSphere();
   box.checked = was;
   forceBench = wasForced;
   before.forEach((b) => {
@@ -1318,7 +1321,7 @@ function captureLayout(sideBySide, bench = false) {
     b.e.holder.quaternion.copy(b.q);
     b.e.holder.updateMatrixWorld(true);
   });
-  return targets;
+  return { targets, sphere };
 }
 
 /** Pose les 4 entretoises du châssis sur la plaque intermédiaire. */
@@ -1391,7 +1394,7 @@ $('asm-assemble-chassis').addEventListener('click', () => {
     updateAsmHint('Le build est déjà assemblé.', 'warn');
     return;
   }
-  const targets = captureLayout(false);
+  const { targets, sphere } = captureLayout(false);
   setMarkersVisible(false);
   reservedGroup.visible = false;
   kitGroup.visible = false;
@@ -1407,8 +1410,9 @@ $('asm-assemble-chassis').addEventListener('click', () => {
       `Build assemblé${posed ? ` — ${posed} entretoises M2×4×22 posées sur la middle-plate` : ''}.`,
       'ok',
     );
-    frameAll();
   });
+  // la caméra part en même temps que les pièces et arrive avec elles
+  flyToFrame(sphere, motion ? motion.total : 900);
 });
 
 $('asm-disassemble').addEventListener('click', () => {
@@ -1420,7 +1424,7 @@ $('asm-disassemble').addEventListener('click', () => {
     updateAsmHint('Les pièces sont déjà rangées sur le plan.', 'warn');
     return;
   }
-  const targets = captureLayout(true, true);
+  const { targets, sphere } = captureLayout(true, true);
   setMarkersVisible(false);
   updateAsmHint('Désassemblage en cours…');
   animateTo(targets, () => {
@@ -1428,8 +1432,8 @@ $('asm-disassemble').addEventListener('click', () => {
     forceBench = true;
     layoutParts();
     updateAsmHint('Pièces revenues à leur place sur le plan.', 'ok');
-    frameAll();
   });
+  flyToFrame(sphere, motion ? motion.total : 900);
 });
 
 /* ------------------------------------------------------------------ *
@@ -1912,6 +1916,57 @@ function fitDistance(radius) {
   return (radius / Math.sin(Math.min(vFov, hFov) / 2)) * 1.08;
 }
 
+/* ------------------------------------------------------------------ *
+ * Recadrage en douceur
+ * ------------------------------------------------------------------ */
+
+/** Déplacement de caméra en cours, ou null. */
+let camMotion = null;
+
+/**
+ * Amène la caméra sur un cadrage, en glissant.
+ *
+ * Le recadrage sec convient à un changement de vue demandé ; il est brutal à
+ * la fin d'un assemblage, où la caméra saute d'un coup alors que les pièces
+ * viennent de se poser tranquillement. Le vol dure ici le temps du mouvement
+ * des pièces, avec la même courbe : les deux se terminent ensemble.
+ *
+ * @param {THREE.Sphere} sphere ce qu'il faut cadrer, à l'arrivée
+ * @param {number} duration en ms
+ */
+function flyToFrame(sphere, duration) {
+  const dir = camera.position.clone().sub(controls.target).normalize();
+  if (!Number.isFinite(dir.x) || dir.lengthSq() < 1e-6) dir.copy(ISO_DIR);
+  const to = {
+    target: sphere.center.clone(),
+    position: sphere.center.clone().addScaledVector(dir, fitDistance(sphere.radius)),
+  };
+  // les plans de coupe sont pris sur le cadrage d'arrivée : les interpoler
+  // n'apporte rien et ferait clignoter les pièces les plus proches
+  camera.near = Math.max(0.1, sphere.radius / 100);
+  camera.far = sphere.radius * 20;
+  camera.updateProjectionMatrix();
+  camMotion = {
+    from: { target: controls.target.clone(), position: camera.position.clone() },
+    to,
+    start: performance.now(),
+    duration,
+  };
+  invalidate();
+}
+
+/** Avance le vol de caméra d'une image. Renvoie vrai s'il reste du chemin. */
+function stepCamera(now) {
+  if (!camMotion) return false;
+  const t = Math.min(1, (now - camMotion.start) / camMotion.duration);
+  const k = easeInOut(t);
+  controls.target.lerpVectors(camMotion.from.target, camMotion.to.target, k);
+  camera.position.lerpVectors(camMotion.from.position, camMotion.to.position, k);
+  controls.update();
+  if (t >= 1) camMotion = null;
+  return camMotion !== null;
+}
+
 /** Recadre, en conservant la direction de vue courante si aucune n'est donnée. */
 function frameAll(direction) {
   const sphere = buildSphere();
@@ -2173,6 +2228,10 @@ function applyDisplayOptions() {
   });
   invalidate();
 }
+
+// une main sur la souris reprend la caméra : un vol qui continue par-dessus
+// le geste de l'utilisateur donne l'impression que la vue se bat contre lui
+controls.addEventListener('start', () => { camMotion = null; });
 
 $('opt-edges').addEventListener('change', applyDisplayOptions);
 
@@ -2880,6 +2939,8 @@ if (new URLSearchParams(location.search).has('debug')) {
   // pointe une pièce, il faut pouvoir remonter à ses sommets
   window.__buildRoot = buildRoot;
   window.__THREE = THREE;
+  window.__camera = camera;
+  window.__controls = controls;
 
   /** Encombrement au sol de chaque pièce, pour vérifier la disposition. */
   window.__benchBoxes = () => {
@@ -2977,7 +3038,9 @@ if (new URLSearchParams(location.search).has('debug')) {
 
 renderer.setAnimationLoop((now) => {
   // un assemblage en cours redemande une image à chaque tour
-  if (stepMotion(now || performance.now())) needsRender = true;
+  const t = now || performance.now();
+  if (stepMotion(t)) needsRender = true;
+  if (stepCamera(t)) needsRender = true;
   if ($('opt-rotate').checked) {
     buildRoot.rotation.y += 0.0035;
     needsRender = true;
