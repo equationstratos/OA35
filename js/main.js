@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-03b · couleurs + établi rangé';
+const BUILD = '2026-08-03c · quadrants + assemblage animé';
 $('build-stamp').textContent = BUILD;
 
 /* ------------------------------------------------------------------ *
@@ -229,43 +229,65 @@ function appliedTrace() {
 const deg = (d) => (d * Math.PI) / 180;
 
 /**
- * L'établi, par familles de pièces.
+ * L'établi, réparti dans les quatre quadrants de la grille.
  *
- * Les places étaient auparavant écrites une à une, en dur : chaque pièce
- * ajoutée demandait de retrouver un coin libre à la main, et l'ensemble
- * débordait largement de la grille. Elles sont maintenant rangées par
- * famille, une rangée par famille, et les positions sont CALCULÉES à partir
- * de l'encombrement réel de chaque pièce — donc sans chevauchement possible,
- * et la grille s'élargit d'elle-même pour tout contenir.
+ * La plaque inférieure occupe le centre — c'est l'origine du build, elle ne
+ * bouge pas. Les autres familles se rangent chacune dans son quadrant, à une
+ * marge fixe des axes, alignées sur le bord extérieur : les pièces se lisent
+ * en colonnes propres au lieu de s'étaler en une longue bande, et le plan
+ * tient sur bien moins de surface.
  *
- * L'ordre des rangées suit celui du montage : les plaques d'abord, les bras
- * ensuite, puis ce qui se visse dessus.
+ * Deux quadrants portent des emplacements RÉSERVÉS, sans pièce : la visserie
+ * et les entretoises d'un côté, l'électronique à venir de l'autre (moteurs,
+ * hélices, batterie). Ils sont dessinés sur le plan pour que la place reste
+ * libre.
  */
-const BENCH_ROWS = [
-  { label: 'Plaques', ids: ['bottom-plate', 'middle-plate', 'top-plate', 'clamp-plate'] },
-  { label: 'Bras arrière (longs)', ids: ['arm-long-l', 'arm-long-r'] },
-  { label: 'Bras avant (courts)', ids: ['arm-short-l', 'arm-short-r'] },
+const BENCH_BLOCKS = [
   {
-    label: 'Flancs',
-    ids: ['flanc-gauche', 'flanc-droit'],
-    // couchés en travers, et tête-bêche : c'est ainsi qu'ils se lisent le
-    // mieux, l'un étant le miroir de l'autre
-    rot: { 'flanc-gauche': { rotY: deg(-90) }, 'flanc-droit': { rotY: deg(90) } },
+    label: 'Covers et pièces imprimées',
+    quadrant: [-1, -1],                 // en haut à gauche
+    // les covers d'abord, donc à gauche du bloc ; le reste des pièces
+    // imprimées suit et passe à la ligne tout seul
+    ids: [
+      'cover-01', 'cover-02',
+      'gps-mount', 'vtx-mount', 'camera-mount', 'camera-mount-mirror',
+      'footpad-ar-l', 'footpad-ar-r', 'footpad-av-l', 'footpad-av-r',
+    ],
+    maxWidth: 190,
   },
-  { label: 'Covers', ids: ['cover-01', 'cover-02'] },
-  { label: 'Supports', ids: ['gps-mount', 'vtx-mount', 'camera-mount', 'camera-mount-mirror'] },
-  { label: 'Patins de bras', ids: ['footpad-ar-l', 'footpad-ar-r', 'footpad-av-l', 'footpad-av-r'] },
+  {
+    label: 'Bras',
+    quadrant: [1, -1],                  // en haut à droite
+    ids: ['arm-long-l', 'arm-long-r', 'arm-short-l', 'arm-short-r'],
+    maxWidth: 190,
+  },
+  {
+    label: 'Plaques',
+    quadrant: [-1, 1],                  // en bas à gauche
+    ids: ['middle-plate', 'top-plate', 'clamp-plate'],
+    maxWidth: 190,
+  },
+];
+
+/** Emplacements laissés libres, dans le quadrant bas-droite. */
+const BENCH_RESERVED = [
+  { label: 'Visserie et entretoises', size: [90, 90] },
+  { label: 'Électronique · moteurs, hélices, batterie', size: [150, 110] },
 ];
 
 /** Pièce qui sert d'origine au build : le reste se monte autour d'elle. */
 const ANCHOR_ID = 'bottom-plate';
 
-/** Espace entre deux pièces d'une même rangée, et entre deux rangées. */
-const BENCH_GAP_MM = 20;
-const BENCH_ROW_GAP_MM = 30;
+/** Espaces, en mm : entre pièces, entre lignes d'un bloc, et autour des axes. */
+const BENCH_GAP_MM = 14;
+const BENCH_LINE_GAP_MM = 18;
+const BENCH_MARGIN_MM = 55;      // dégage la plaque inférieure, qui tient le centre
 
 /** Places calculées à la dernière disposition : { id: {x, z, rotY…} }. */
 let benchZones = {};
+
+/** Emplacements réservés calculés : { label, x, z, w, d }. */
+let reservedZones = [];
 
 /**
  * Encombrement au sol d'une pièce, dans son orientation d'établi.
@@ -284,60 +306,248 @@ function benchFootprint(entry, rotY = 0) {
   return { x: sx * c + sz * s, z: sx * s + sz * c };
 }
 
+/** Arrondi au demi-carreau : des pièces alignées sur la grille se lisent mieux. */
+const snap = (v) => Math.round(v / 5) * 5;
+
 /**
- * Recalcule les places de l'établi : une rangée par famille, centrée en X,
- * les rangées empilées vers l'arrière. Renvoie l'étalement total, qui sert à
+ * Range une liste de pièces en lignes, dans un rectangle dont on donne le coin
+ * le plus proche du centre. Renvoie les places et l'encombrement du bloc.
+ */
+function packBlock(items, sizes, maxWidth) {
+  const lines = [];
+  let line = [];
+  let width = 0;
+  for (const id of items) {
+    const w = sizes[id].x;
+    if (line.length && width + BENCH_GAP_MM + w > maxWidth) {
+      lines.push({ items: line, width });
+      line = [];
+      width = 0;
+    }
+    width += (line.length ? BENCH_GAP_MM : 0) + w;
+    line.push(id);
+  }
+  if (line.length) lines.push({ items: line, width });
+
+  const blockWidth = Math.max(...lines.map((l) => l.width));
+  let depth = 0;
+  const placed = [];
+  for (const l of lines) {
+    const lineDepth = Math.max(...l.items.map((id) => sizes[id].z));
+    let x = 0;                       // aligné sur le bord GAUCHE du bloc
+    for (const id of l.items) {
+      placed.push({ id, x: x + sizes[id].x / 2, z: depth + lineDepth / 2 });
+      x += sizes[id].x + BENCH_GAP_MM;
+    }
+    depth += lineDepth + BENCH_LINE_GAP_MM;
+  }
+  return { placed, width: blockWidth, depth: depth - BENCH_LINE_GAP_MM };
+}
+
+/**
+ * Recalcule les places de l'établi. Renvoie l'étalement total, qui sert à
  * dimensionner la grille.
  */
 function computeBenchZones() {
   const zones = {};
   const byId = new Map(entries.map((e) => [e.mod.meta.id, e]));
-  const placed = new Set();
-  const rows = [];
+  const used = new Set([ANCHOR_ID]);
+  let reach = 0;
 
-  for (const row of BENCH_ROWS) {
-    const items = row.ids.filter((id) => byId.has(id));
-    if (!items.length) continue;
-    items.forEach((id) => placed.add(id));
-    rows.push({ ...row, items });
-  }
-  // tout ce qui n'appartient à aucune famille connue (pièce créée dans
-  // l'outil, pièce ajoutée plus tard) forme sa propre rangée
-  const others = entries.map((e) => e.mod.meta.id).filter((id) => !placed.has(id));
-  if (others.length) rows.push({ label: 'Autres pièces', ids: others, items: others });
+  const blocks = BENCH_BLOCKS
+    .map((b) => ({ ...b, items: b.ids.filter((id) => byId.has(id)) }))
+    .filter((b) => b.items.length);
 
-  let z = 0;
-  let maxHalfX = 0;
-  for (const row of rows) {
-    const sizes = row.items.map((id) => {
-      const rot = (row.rot && row.rot[id]) || {};
-      return { id, rot, size: benchFootprint(byId.get(id), rot.rotY || 0) };
+  // ce qui n'entre dans aucune famille connue (pièce créée dans l'outil,
+  // pièce ajoutée plus tard) va sous les plaques, dans le même quadrant
+  blocks.forEach((b) => b.items.forEach((id) => used.add(id)));
+  const others = entries.map((e) => e.mod.meta.id).filter((id) => !used.has(id));
+  if (others.length) {
+    blocks.push({
+      label: 'Autres pièces', quadrant: [-1, 1], items: others, maxWidth: 190, extraLine: true,
     });
-    const width = sizes.reduce((sum, s) => sum + s.size.x, 0)
-      + BENCH_GAP_MM * (sizes.length - 1);
-    const depth = Math.max(...sizes.map((s) => s.size.z));
-    let x = -width / 2;
-    for (const s of sizes) {
-      zones[s.id] = {
-        // arrondi au demi-carreau : des pièces alignées sur la grille se
-        // lisent et se comparent bien mieux que posées au millimètre près
-        x: Math.round((x + s.size.x / 2) / 5) * 5,
-        z: Math.round((z + depth / 2) / 5) * 5,
-        ...s.rot,
-      };
-      x += s.size.x + BENCH_GAP_MM;
-    }
-    maxHalfX = Math.max(maxHalfX, width / 2);
-    z += depth + BENCH_ROW_GAP_MM;
   }
 
-  // l'établi entier est recentré en Z, pour rester au milieu de la grille
-  const depthTotal = z - BENCH_ROW_GAP_MM;
-  const shift = depthTotal / 2;
-  for (const zone of Object.values(zones)) zone.z = Math.round((zone.z - shift) / 5) * 5;
+  // les blocs d'un même quadrant s'empilent vers l'extérieur
+  const nextZ = new Map();
+  for (const block of blocks) {
+    const [sx, sz] = block.quadrant;
+    const sizes = {};
+    for (const id of block.items) sizes[id] = benchFootprint(byId.get(id));
+    const { placed, width, depth } = packBlock(block.items, sizes, block.maxWidth);
+
+    const key = `${sx},${sz}`;
+    const z0 = nextZ.get(key) || BENCH_MARGIN_MM;
+    for (const p of placed) {
+      // à gauche, le bloc s'étend vers -X et ses lignes sont calées à gauche ;
+      // à droite, il s'étend vers +X, calées à droite
+      const x = sx < 0 ? -(BENCH_MARGIN_MM + width) + p.x : BENCH_MARGIN_MM + p.x;
+      const z = sz < 0 ? -(z0 + depth) + p.z : z0 + p.z;
+      zones[p.id] = { x: snap(x), z: snap(z) };
+      reach = Math.max(reach, Math.abs(x) + sizes[p.id].x / 2, Math.abs(z) + sizes[p.id].z / 2);
+    }
+    nextZ.set(key, z0 + depth + BENCH_LINE_GAP_MM);
+  }
+
+  // emplacements réservés : quadrant bas-droite, l'un sous l'autre
+  reservedZones = [];
+  let rz = BENCH_MARGIN_MM;
+  for (const spot of BENCH_RESERVED) {
+    const [w, d] = spot.size;
+    reservedZones.push({
+      label: spot.label, w, d, x: snap(BENCH_MARGIN_MM + w / 2), z: snap(rz + d / 2),
+    });
+    reach = Math.max(reach, BENCH_MARGIN_MM + w, rz + d);
+    rz += d + BENCH_LINE_GAP_MM;
+  }
 
   benchZones = zones;
-  return Math.max(maxHalfX * 2, depthTotal) + BENCH_GAP_MM * 2;
+  return reach * 2 + BENCH_GAP_MM * 2;
+}
+
+/* ------------------------------------------------------------------ *
+ * Emplacements réservés, dessinés sur le plan
+ * ------------------------------------------------------------------ */
+
+const reservedGroup = new THREE.Group();
+reservedGroup.name = 'reserved-zones';
+scene.add(reservedGroup);
+
+/** Étiquette de texte posée à plat sur le plan, dessinée sur un canvas. */
+function zoneLabel(text, widthMm) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#7fb2e5';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  // la police se règle sur la longueur du texte : « Électronique · moteurs,
+  // hélices, batterie » sortait du canvas et arrivait tronqué sur le plan
+  let size = 34;
+  do {
+    ctx.font = `600 ${size}px ui-monospace, monospace`;
+    size -= 1;
+  } while (size > 10 && ctx.measureText(text).width > canvas.width - 24);
+  ctx.fillText(text, 256, 34);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(widthMm, widthMm / 8),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }),
+  );
+  mesh.rotation.x = -Math.PI / 2;
+  return mesh;
+}
+
+/**
+ * Redessine les carrés réservés : la place de la visserie et celle de
+ * l'électronique à venir. Rien n'y est posé — c'est justement le propos, ils
+ * réservent la surface pour que le rangement ne s'y étale pas.
+ */
+function renderReservedZones() {
+  while (reservedGroup.children.length) {
+    const c = reservedGroup.children[0];
+    reservedGroup.remove(c);
+    disposeObject(c);
+  }
+  const y = -13.8;   // juste au-dessus de la grille, sinon les traits clignotent
+  for (const zone of reservedZones) {
+    const hw = zone.w / 2;
+    const hd = zone.d / 2;
+    const pts = [
+      new THREE.Vector3(-hw, 0, -hd), new THREE.Vector3(hw, 0, -hd),
+      new THREE.Vector3(hw, 0, hd), new THREE.Vector3(-hw, 0, hd),
+      new THREE.Vector3(-hw, 0, -hd),
+    ];
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(pts),
+      new THREE.LineDashedMaterial({
+        color: 0x3f6ea8, dashSize: 6, gapSize: 4, transparent: true, opacity: 0.9,
+      }),
+    );
+    line.computeLineDistances();
+    line.position.set(zone.x, y, zone.z);
+    reservedGroup.add(line);
+
+    const label = zoneLabel(zone.label, zone.w * 0.92);
+    label.position.set(zone.x, y + 0.1, zone.z - hd + zone.w / 16 + 4);
+    reservedGroup.add(label);
+  }
+  invalidate();
+}
+
+/* ------------------------------------------------------------------ *
+ * Assemblage animé
+ * ------------------------------------------------------------------ */
+
+/** Mouvement en cours : null quand la scène est au repos. */
+let motion = null;
+
+/**
+ * État « désassemblé » : toutes les pièces reprennent leur place de rangement,
+ * y compris celles qui portent un placement à elles.
+ *
+ * Sans ça, un plan chargé laisse la moitié du build monté même en vue côte à
+ * côte — les placements marqués « à la main » s'y appliquent — et le bouton
+ * Désassembler n'aurait presque rien à faire. Le drapeau tombe dès que
+ * l'utilisateur déplace une pièce lui-même : sa main l'emporte sur le
+ * rangement automatique.
+ */
+let forceBench = false;
+
+/** Adoucit départ et arrivée — un déplacement linéaire fait mécanique. */
+const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2);
+
+/**
+ * Déplace les pièces d'un état à l'autre, en mouvement.
+ *
+ * Les pièces partent décalées dans le temps, de la plus basse à la plus haute :
+ * on voit la plaque inférieure se poser, puis les bras, puis les plaques du
+ * dessus — l'ordre dans lequel le châssis se monte réellement.
+ *
+ * @param {Map} targets id -> { position, quaternion } visés
+ * @param {function} done appelée à la fin
+ */
+function animateTo(targets, done) {
+  const DURATION = 900;     // par pièce, en ms
+  const STAGGER = 120;      // décalage d'une pièce à la suivante
+  const moves = [];
+  entries.forEach((e) => {
+    const target = targets.get(e.mod.meta.id);
+    if (!e.holder || !target) return;
+    moves.push({
+      holder: e.holder,
+      from: { p: e.holder.position.clone(), q: e.holder.quaternion.clone() },
+      to: target,
+    });
+  });
+  // du plus bas au plus haut : c'est l'ordre de montage
+  moves.sort((a, b) => a.to.position.y - b.to.position.y);
+  moves.forEach((m, i) => { m.delay = i * STAGGER; });
+
+  const total = DURATION + (moves.length - 1) * STAGGER;
+  const start = performance.now();
+  motion = { moves, start, total, done, DURATION };
+  invalidate();
+}
+
+/** Avance le mouvement d'une image. Renvoie vrai s'il reste du travail. */
+function stepMotion(now) {
+  if (!motion) return false;
+  const elapsed = now - motion.start;
+  for (const m of motion.moves) {
+    const t = Math.min(1, Math.max(0, (elapsed - m.delay) / motion.DURATION));
+    const k = easeInOut(t);
+    m.holder.position.lerpVectors(m.from.p, m.to.position, k);
+    m.holder.quaternion.slerpQuaternions(m.from.q, m.to.quaternion, k);
+    m.holder.updateMatrixWorld(true);
+  }
+  if (elapsed < motion.total) return true;
+  const { done } = motion;
+  motion = null;
+  if (done) done();
+  return false;
 }
 
 /**
@@ -357,6 +567,9 @@ function layoutParts() {
   // ici, après tout ajout, retrait ou mise en miroir
   const extent = computeBenchZones();
   resizeGrid(extent);
+  renderReservedZones();
+  // les carrés réservés n'ont de sens que sur l'établi
+  reservedGroup.visible = sideBySide;
 
   entries.forEach((e, i) => {
     if (!e.holder) return;
@@ -367,7 +580,8 @@ function layoutParts() {
     // « côte à côte » — sinon les curseurs n'auraient aucun effet visible là
     // où on s'en sert le plus, en train d'organiser l'établi.
     const hasPosition = stored && Number.isFinite(stored.x);
-    const placement = hasPosition && (stored.manual || !sideBySide) ? stored : null;
+    const placement = !forceBench && hasPosition && (stored.manual || !sideBySide)
+      ? stored : null;
     if (placement) {
       e.holder.position.set(placement.x, placement.y + i * spread, placement.z);
       e.holder.rotation.set(placement.rotX || 0, placement.rotY || 0, placement.rotZ || 0);
@@ -755,11 +969,8 @@ buildRoot.add(standoffGroup);
 let standoffs = so.load();
 let selectedStandoff = null;
 
-/** Écart laissé entre deux entretoises en attente, sur leur colonne. */
+/** Écart laissé entre deux entretoises en attente, sur leur rangée. */
 const PARK_PITCH_MM = 9;
-
-/** Colonne des entretoises : à gauche, comme les autres pièces de cette zone. */
-const PARK_COLUMN_X = -45;
 
 /**
  * Emplacement d'attente : une colonne à gauche du build, groupée avec les
@@ -770,7 +981,20 @@ const PARK_COLUMN_X = -45;
  * incliquable — donc impossible à placer.
  */
 function parkingSpot(rank, total) {
-  return { x: PARK_COLUMN_X, y: 0, z: (rank - (total - 1) / 2) * PARK_PITCH_MM };
+  // dans le carré réservé à la visserie, en rangées : c'est la place prévue
+  // pour elle sur le plan, autant qu'elle s'y trouve vraiment
+  const spot = reservedZones[0];
+  if (!spot) return { x: 0, y: 0, z: (rank - (total - 1) / 2) * PARK_PITCH_MM };
+  const perRow = Math.max(1, Math.floor((spot.w - 12) / PARK_PITCH_MM));
+  const rows = Math.ceil(total / perRow);
+  const col = rank % perRow;
+  const row = Math.floor(rank / perRow);
+  const cols = Math.min(total - row * perRow, perRow);
+  return {
+    x: spot.x + (col - (cols - 1) / 2) * PARK_PITCH_MM,
+    y: 0,
+    z: spot.z + (row - (rows - 1) / 2) * PARK_PITCH_MM * 2,
+  };
 }
 
 /** (Re)construit les entretoises de la scène d'après leur description. */
@@ -967,7 +1191,37 @@ $('so-copy').addEventListener('click', async () => {
 const CHASSIS_STANDOFF_HOLES = [26, 10, 22, 16];
 const CHASSIS_STANDOFF_SPEC = { threadId: 'M2', diameter: 2, acrossFlats: 4, length: 22 };
 
-$('asm-assemble-chassis').addEventListener('click', () => {
+/**
+ * Relève l'état des pièces pour une disposition donnée, SANS la laisser en
+ * place : on bascule la vue, on note où chacune atterrit, puis on remet tout
+ * comme c'était. C'est ce qui permet d'y aller en mouvement plutôt que d'un
+ * coup.
+ */
+function captureLayout(sideBySide, bench = false) {
+  const before = entries.map((e) => ({
+    e, p: e.holder.position.clone(), q: e.holder.quaternion.clone(),
+  }));
+  const box = $('opt-layout');
+  const was = box.checked;
+  const wasForced = forceBench;
+  box.checked = sideBySide;
+  forceBench = bench;
+  layoutParts();
+  const targets = new Map(entries.map((e) => [e.mod.meta.id, {
+    position: e.holder.position.clone(), quaternion: e.holder.quaternion.clone(),
+  }]));
+  box.checked = was;
+  forceBench = wasForced;
+  before.forEach((b) => {
+    b.e.holder.position.copy(b.p);
+    b.e.holder.quaternion.copy(b.q);
+    b.e.holder.updateMatrixWorld(true);
+  });
+  return targets;
+}
+
+/** Pose les 4 entretoises du châssis sur la plaque intermédiaire. */
+function placeChassisStandoffs() {
   const plate = entryById('middle-plate');
   if (!plate || !plate.holder) {
     updateAsmHint('Middle-plate introuvable.', 'warn');
@@ -1019,11 +1273,61 @@ $('asm-assemble-chassis').addEventListener('click', () => {
   selectedStandoff = null;
   renderStandoffs();
   renderStandoffList();
-  updateAsmHint(
-    `Châssis assemblé : ${batch.length} entretoises M2×4×22 posées sur la `
-    + `middle-plate, perçages #${CHASSIS_STANDOFF_HOLES.join(', #')}.`,
-    'ok',
-  );
+  return batch.length;
+}
+
+/**
+ * Assemble le build en mouvement.
+ *
+ * La disposition d'établi est mémorisée telle quelle avant de partir : c'est
+ * elle que « Désassembler » restitue, pièce par pièce, et pas un rangement
+ * recalculé qui aurait pu changer entre-temps.
+ */
+$('asm-assemble-chassis').addEventListener('click', () => {
+  if (motion) return;                       // un mouvement est déjà en cours
+  const box = $('opt-layout');
+  if (!box.checked && !forceBench) {
+    updateAsmHint('Le build est déjà assemblé.', 'warn');
+    return;
+  }
+  const targets = captureLayout(false);
+  setMarkersVisible(false);
+  reservedGroup.visible = false;
+  updateAsmHint('Assemblage en cours…');
+  animateTo(targets, () => {
+    // la case ne bascule qu'à l'arrivée : sinon la disposition se ré-appliquerait
+    // d'un coup au premier rendu et écraserait le mouvement
+    box.checked = false;
+    forceBench = false;
+    layoutParts();
+    const posed = placeChassisStandoffs();
+    updateAsmHint(
+      `Build assemblé${posed ? ` — ${posed} entretoises M2×4×22 posées sur la middle-plate` : ''}.`,
+      'ok',
+    );
+    frameAll();
+  });
+});
+
+$('asm-disassemble').addEventListener('click', () => {
+  if (motion) return;
+  const box = $('opt-layout');
+  // « rangé » ne se lit pas à la case : un plan chargé garde ses pièces
+  // placées même en vue côte à côte, tant qu'on n'a pas désassemblé
+  if (forceBench) {
+    updateAsmHint('Les pièces sont déjà rangées sur le plan.', 'warn');
+    return;
+  }
+  const targets = captureLayout(true, true);
+  setMarkersVisible(false);
+  updateAsmHint('Désassemblage en cours…');
+  animateTo(targets, () => {
+    box.checked = true;
+    forceBench = true;
+    layoutParts();
+    updateAsmHint('Pièces revenues à leur place sur le plan.', 'ok');
+    frameAll();
+  });
 });
 
 /* ------------------------------------------------------------------ *
@@ -1307,6 +1611,9 @@ function updateAsmHint(message, kind = '') {
 
 /** Mémorise le placement courant d'une pièce. */
 function storePlacement(entry, extra = {}) {
+  // dès que l'utilisateur place une pièce lui-même, le rangement automatique
+  // cesse de s'imposer : sinon son geste serait effacé au premier réaffichage
+  forceBench = false;
   const spread = Number($('explode').value);
   const i = entries.indexOf(entry);
   placements[entry.mod.meta.id] = {
@@ -2556,7 +2863,9 @@ if (new URLSearchParams(location.search).has('debug')) {
   };
 }
 
-renderer.setAnimationLoop(() => {
+renderer.setAnimationLoop((now) => {
+  // un assemblage en cours redemande une image à chaque tour
+  if (stepMotion(now || performance.now())) needsRender = true;
   if ($('opt-rotate').checked) {
     buildRoot.rotation.y += 0.0035;
     needsRender = true;

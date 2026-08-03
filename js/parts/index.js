@@ -1,20 +1,23 @@
 /**
  * Registre des pièces du build.
  * Chaque nouvelle pièce fournie sera ajoutée ici (un module = une pièce).
+ *
+ * Les flancs (05-flancs.js) ont été retirés du build : ils venaient d'un
+ * fichier STEP d'essai, ne se montent sur rien dans ce châssis, et
+ * revenaient dans la liste à chaque reconstruction. Le module et son STL
+ * restent dans le dépôt, simplement plus référencés ici.
  */
 
 import * as bottomPlate from './01-bottom-plate.js';
 import * as middlePlate from './02-middle-plate.js';
 import * as clampPlate from './03-clamp-plate.js';
 import * as topPlate from './04-top-plate.js';
-import * as flancs from './05-flancs.js';
 import * as armLong from './06-arm-long.js';
 import * as armShort from './07-arm-short.js';
 import { ACCESSORIES } from './08-accessoires.js';
 
 export const PARTS = [
   bottomPlate, middlePlate, clampPlate, topPlate,
-  flancs.gauche, flancs.droit,
   armLong.gauche, armLong.droit,
   armShort.gauche, armShort.droit,
   ...ACCESSORIES,
