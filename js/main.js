@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-03d · plan chargé = plan rangé';
+const BUILD = '2026-08-03e · sachet de visserie sur le plan';
 $('build-stamp').textContent = BUILD;
 
 /* ------------------------------------------------------------------ *
@@ -269,10 +269,15 @@ const BENCH_BLOCKS = [
   },
 ];
 
-/** Emplacements laissés libres, dans le quadrant bas-droite. */
+/**
+ * Emplacements du quadrant bas-droite. Les deux premiers reçoivent vraiment
+ * quelque chose — le sachet de visserie et les entretoises créées à la main —,
+ * le dernier réserve la place de ce qui n'est pas encore modélisé.
+ */
 const BENCH_RESERVED = [
-  { label: 'Visserie et entretoises', size: [90, 90] },
-  { label: 'Électronique · moteurs, hélices, batterie', size: [150, 110] },
+  { id: 'kit', label: 'Visserie du kit', size: [120, 120] },
+  { id: 'standoffs', label: 'Entretoises', size: [120, 45] },
+  { id: 'futur', label: 'Électronique · moteurs, hélices, batterie', size: [150, 100] },
 ];
 
 /** Pièce qui sert d'origine au build : le reste se monte autour d'elle. */
@@ -389,16 +394,27 @@ function computeBenchZones() {
     nextZ.set(key, z0 + depth + BENCH_LINE_GAP_MM);
   }
 
-  // emplacements réservés : quadrant bas-droite, l'un sous l'autre
+  // emplacements réservés : quadrant bas-droite, en lignes plutôt qu'en
+  // colonne — empilés, ils repoussaient à eux seuls la grille de 200 mm
   reservedZones = [];
+  const ROW_MAX = 260;
+  let rx = BENCH_MARGIN_MM;
   let rz = BENCH_MARGIN_MM;
+  let rowDepth = 0;
   for (const spot of BENCH_RESERVED) {
     const [w, d] = spot.size;
+    if (rx > BENCH_MARGIN_MM && (rx - BENCH_MARGIN_MM) + w > ROW_MAX) {
+      rz += rowDepth + BENCH_LINE_GAP_MM;
+      rx = BENCH_MARGIN_MM;
+      rowDepth = 0;
+    }
     reservedZones.push({
-      label: spot.label, w, d, x: snap(BENCH_MARGIN_MM + w / 2), z: snap(rz + d / 2),
+      id: spot.id, label: spot.label, w, d,
+      x: snap(rx + w / 2), z: snap(rz + d / 2),
     });
-    reach = Math.max(reach, BENCH_MARGIN_MM + w, rz + d);
-    rz += d + BENCH_LINE_GAP_MM;
+    reach = Math.max(reach, rx + w, rz + d);
+    rx += w + BENCH_LINE_GAP_MM;
+    rowDepth = Math.max(rowDepth, d);
   }
 
   benchZones = zones;
@@ -473,6 +489,68 @@ function renderReservedZones() {
     const label = zoneLabel(zone.label, zone.w * 0.92);
     label.position.set(zone.x, y + 0.1, zone.z - hd + zone.w / 16 + 4);
     reservedGroup.add(label);
+  }
+  invalidate();
+}
+
+/* ------------------------------------------------------------------ *
+ * Le sachet de visserie, posé sur le plan
+ * ------------------------------------------------------------------ */
+
+const kitGroup = new THREE.Group();
+kitGroup.name = 'screw-kit';
+scene.add(kitGroup);
+
+/** Ce qui reste du sachet : { id de ligne -> nombre encore disponible }. */
+let kitStock = new Map(hw.SCREW_KIT.map((l) => [l.id, l.count]));
+
+/**
+ * Étale le sachet dans son carré : une ligne par référence, les pièces
+ * rangées par blocs de huit, avec le libellé et le compte à gauche.
+ *
+ * Tout part sur le plan de travail — c'est le stock, il attend d'être posé.
+ * Ce qui a été utilisé par « Détecter et poser » disparaît du carré : le
+ * sachet se vide à mesure que le build se visse, comme le vrai.
+ */
+function renderKit() {
+  while (kitGroup.children.length) {
+    const c = kitGroup.children[0];
+    kitGroup.remove(c);
+    disposeObject(c);
+  }
+  const zone = reservedZones.find((z) => z.id === 'kit');
+  if (!zone) return;
+
+  const PITCH = 6.5;          // écart entre deux pièces, tête de 3,8 mm
+  const PER_ROW = 8;
+  const LABEL_W = 50;         // colonne de gauche, pour le libellé
+  const x0 = zone.x - zone.w / 2 + LABEL_W;
+  let z = zone.z - zone.d / 2 + 8;
+
+  for (const line of hw.SCREW_KIT) {
+    const left = kitStock.get(line.id) || 0;
+    const rows = Math.max(1, Math.ceil(left / PER_ROW));
+    const thread = hw.THREADS[line.thread];
+
+    // le libellé tient dans la colonne de gauche, à l'intérieur du carré :
+    // débordant, il empiétait sur le quadrant voisin
+    const label = zoneLabel(`${line.label} ×${left}`, LABEL_W - 6);
+    label.position.set(zone.x - zone.w / 2 + LABEL_W / 2 - 2, -13.7,
+      z + (rows - 1) * PITCH / 2);
+    kitGroup.add(label);
+
+    for (let i = 0; i < left; i++) {
+      const col = i % PER_ROW;
+      const row = Math.floor(i / PER_ROW);
+      const mesh = line.kind === 'nut'
+        ? hw.nutMesh(thread)
+        : hw.screwMesh(thread, line.length);
+      // les vis reposent sur leur tête, l'écrou à plat : c'est ainsi qu'un
+      // sachet vidé sur l'établi se présente
+      mesh.position.set(x0 + col * PITCH, line.kind === 'nut' ? -14 : -14 + line.length, z + row * PITCH);
+      kitGroup.add(mesh);
+    }
+    z += rows * PITCH + 4;
   }
   invalidate();
 }
@@ -568,8 +646,10 @@ function layoutParts() {
   const extent = computeBenchZones();
   resizeGrid(extent);
   renderReservedZones();
-  // les carrés réservés n'ont de sens que sur l'établi
+  renderKit();
+  // carrés réservés et sachet de visserie n'ont de sens que sur l'établi
   reservedGroup.visible = sideBySide;
+  kitGroup.visible = sideBySide && $('opt-hardware').checked;
 
   entries.forEach((e, i) => {
     if (!e.holder) return;
@@ -869,6 +949,10 @@ function clearHardware() {
     hardwareGroup.remove(child);
     disposeObject(child);
   }
+  // les vis retirées du build retournent au sachet : le stock est le même
+  // objet, il ne se perd pas en route
+  kitStock = new Map(hw.SCREW_KIT.map((l) => [l.id, l.count]));
+  if (typeof renderKit === 'function') renderKit();
   $('bom').innerHTML = '';
   invalidate();
 }
@@ -895,49 +979,65 @@ function placeHardware() {
     return;
   }
 
-  const items = [];
-  for (const site of sites) {
-    const item = hw.fastenerFor(site);
-    items.push(item);
+  // les vis sortent du sachet livré avec le châssis, pas d'un catalogue
+  // infini : c'est lui qui décide des longueurs disponibles
+  const { assigned, stock, missing } = hw.allocateFromKit(sites);
+  kitStock = stock;
 
+  for (const item of assigned) {
+    const { site } = item;
     if (item.standoffLength > 0) {
       const standoff = hw.standoffMesh(site.thread, item.standoffLength);
       standoff.position.set(site.x, site.lower.y + site.lower.thickness / 2, site.z);
       hardwareGroup.add(standoff);
     }
-
     // la vis appuie sur la face supérieure de la pièce haute
     const screw = hw.screwMesh(site.thread, item.screwLength);
     screw.position.set(site.x, site.upper.y + site.upper.thickness / 2, site.z);
     hardwareGroup.add(screw);
   }
 
-  renderBom(items, sites, candidates.length);
+  renderBom(assigned, sites, candidates.length, missing);
+  renderKit();
   hardwareGroup.visible = $('opt-hardware').checked;
   invalidate();
 }
 
-function renderBom(items, sites, candidateCount) {
-  const bom = hw.billOfMaterials(items);
+function renderBom(items, sites, candidateCount, missing = []) {
+  const used = new Map();
+  for (const item of items) used.set(item.line.id, (used.get(item.line.id) || 0) + 1);
   const play = Math.max(...items.map((i) => i.standoffPlay), 0);
   const filtered = candidateCount - sites.length;
 
-  $('bom').innerHTML = bom.map((line) =>
-    `<div><dt>${line.label}</dt><dd>× ${line.count}</dd></div>`).join('')
-    + `<div><dt>Fixations</dt><dd>${sites.length} / ${candidateCount} candidates</dd></div>`;
+  // la nomenclature suit le sachet, ligne par ligne : ce qui sert, ce qui reste
+  const rows = hw.SCREW_KIT.map((line) => {
+    const u = used.get(line.id) || 0;
+    return `<div${u ? '' : ' class="dim"'}><dt>${line.label}</dt>`
+      + `<dd>${u} / ${line.count}</dd></div>`;
+  }).join('');
 
+  const standoffs = items.filter((i) => i.standoffLength > 0).length;
+  $('bom').innerHTML = rows
+    + (standoffs ? `<div><dt>Entretoises à prévoir</dt><dd>× ${standoffs}</dd></div>` : '')
+    + `<div><dt>Fixations</dt><dd>${items.length} / ${candidateCount} candidates</dd></div>`;
+
+  // « pas de vis assez longue » recouvre deux cas très différents : la
+  // longueur n'existe pas dans le sachet, ou elle existe mais est épuisée
+  let short = '';
+  if (missing.length) {
+    const needed = Math.max(...missing.map((m) => m.needed));
+    const line = hw.SCREW_KIT.find((l) => l.kind === 'screw' && l.length >= needed - 0.01);
+    short = ` ${missing.length} fixation${missing.length > 1 ? 's' : ''} sans vis : `
+      + (line
+        ? `le sachet n'a plus de ${line.label} (les ${line.count} sont posées).`
+        : `il faudrait du M2×${Math.ceil(needed)}, absent du sachet.`);
+  }
   updateAsmHint(
-    `${sites.length} fixation${sites.length > 1 ? 's' : ''} posée${sites.length > 1 ? 's' : ''} : `
-    + `${bom.map((l) => `${l.count} × ${l.label.toLowerCase()}`).join(', ')}.`
-    + (filtered > 0
-      ? ` ${filtered} autre${filtered > 1 ? 's' : ''} perçage${filtered > 1 ? 's' : ''} en regard `
-        + `écarté${filtered > 1 ? 's' : ''} par l'espacement minimal — c'est une hypothèse, `
-        + 'ajuste-la si ton montage en veut plus.'
-      : '')
-    + (play > 0.35
-      ? ` L'entretoise du commerce la plus proche dépasse l'écart mesuré de ${play.toFixed(1)} mm.`
-      : ''),
-    play > 0.35 ? 'warn' : 'ok',
+    `${items.length} fixation${items.length > 1 ? 's' : ''} posée${items.length > 1 ? 's' : ''} `
+    + `avec les vis du sachet${filtered > 0 ? `, ${filtered} candidate${filtered > 1 ? 's' : ''} écartée${filtered > 1 ? 's' : ''} par l'espacement` : ''}`
+    + (play > 0.01 ? ` — jeu d'entretoise jusqu'à ${play.toFixed(2)} mm` : '')
+    + '.' + short,
+    short ? 'warn' : 'ok',
   );
 }
 
@@ -953,6 +1053,7 @@ $('hw-clear').addEventListener('click', () => {
 $('opt-hardware').addEventListener('change', () => {
   hardwareGroup.visible = $('opt-hardware').checked;
   standoffGroup.visible = $('opt-hardware').checked;
+  kitGroup.visible = $('opt-layout').checked && $('opt-hardware').checked;
   invalidate();
 });
 
@@ -983,7 +1084,7 @@ const PARK_PITCH_MM = 9;
 function parkingSpot(rank, total) {
   // dans le carré réservé à la visserie, en rangées : c'est la place prévue
   // pour elle sur le plan, autant qu'elle s'y trouve vraiment
-  const spot = reservedZones[0];
+  const spot = reservedZones.find((z) => z.id === 'standoffs');
   if (!spot) return { x: 0, y: 0, z: (rank - (total - 1) / 2) * PARK_PITCH_MM };
   const perRow = Math.max(1, Math.floor((spot.w - 12) / PARK_PITCH_MM));
   const rows = Math.ceil(total / perRow);
@@ -1293,6 +1394,7 @@ $('asm-assemble-chassis').addEventListener('click', () => {
   const targets = captureLayout(false);
   setMarkersVisible(false);
   reservedGroup.visible = false;
+  kitGroup.visible = false;
   updateAsmHint('Assemblage en cours…');
   animateTo(targets, () => {
     // la case ne bascule qu'à l'arrivée : sinon la disposition se ré-appliquerait

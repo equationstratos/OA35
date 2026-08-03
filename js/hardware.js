@@ -248,3 +248,100 @@ export function billOfMaterials(items) {
     .map(([label, count]) => ({ label, count }))
     .sort((a, b) => a.label.localeCompare(b.label, 'fr'));
 }
+
+/* ------------------------------------------------------------------ *
+ * Le sachet de visserie livré avec le châssis
+ * ------------------------------------------------------------------ */
+
+/**
+ * Contenu exact du sachet Sub250, relevé sur la fiche du fabricant.
+ *
+ * C'est un stock FINI : c'est lui qui décide des longueurs disponibles, pas
+ * la série du commerce. Une fixation qui demanderait du M2×10 ne se sert pas
+ * — autant le dire que de dessiner une vis qu'on n'a pas.
+ */
+export const SCREW_KIT = [
+  { id: 'nut-m2', kind: 'nut', thread: 'M2', label: 'Écrou M2', count: 8 },
+  { id: 'm2x4.5', kind: 'screw', thread: 'M2', length: 4.5, head: 'round', label: 'M2×4,5', count: 8 },
+  { id: 'm2x5', kind: 'screw', thread: 'M2', length: 5, head: 'round', label: 'M2×5', count: 4 },
+  { id: 'm2x6', kind: 'screw', thread: 'M2', length: 6, head: 'round', label: 'M2×6', count: 22 },
+  { id: 'm2x7', kind: 'screw', thread: 'M2', length: 7, head: 'round', label: 'M2×7', count: 14 },
+  { id: 'm2x8', kind: 'screw', thread: 'M2', length: 8, head: 'round', label: 'M2×8', count: 26 },
+  { id: 'm2x12', kind: 'screw', thread: 'M2', length: 12, head: 'round', label: 'M2×12', count: 2 },
+  { id: 'm2x16', kind: 'screw', thread: 'M2', length: 16, head: 'socket', label: 'M2×16', count: 4 },
+];
+
+/** Nombre total de pièces du sachet. */
+export const KIT_TOTAL = SCREW_KIT.reduce((n, l) => n + l.count, 0);
+
+/**
+ * Écrou six pans, axe vertical, origine à sa base.
+ * @returns {THREE.Group}
+ */
+export function nutMesh(thread) {
+  const group = new THREE.Group();
+  group.name = 'nut';
+  const height = thread.diameter * 0.8;
+  const radius = thread.acrossFlats / 2 / Math.cos(Math.PI / 6);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, height, 6), ANODIZED);
+  body.position.y = height / 2;
+  body.rotation.y = Math.PI / 6;
+  // le trou fileté, juste pour qu'un écrou se distingue d'une entretoise courte
+  const bore = new THREE.Mesh(
+    new THREE.CylinderGeometry(thread.diameter / 2, thread.diameter / 2, height * 1.05, 12),
+    STEEL,
+  );
+  bore.position.y = height / 2;
+  group.add(body, bore);
+  group.castShadow = true;
+  return group;
+}
+
+/**
+ * Répartit le sachet sur les points de fixation trouvés.
+ *
+ * Pour chaque point, la vis doit traverser la pièce du dessus puis mordre
+ * dans ce qu'il y a dessous — l'entretoise si les plaques sont écartées, la
+ * pièce basse sinon. On prend alors la PLUS COURTE vis du sachet qui tienne
+ * cette longueur : une vis trop longue dépasse et touche l'électronique, une
+ * vis trop courte ne prend pas.
+ *
+ * @param {object[]} sites points de fixation (findFastenerSites)
+ * @returns {{assigned:object[], stock:Map, missing:object[]}}
+ */
+export function allocateFromKit(sites) {
+  const stock = new Map(SCREW_KIT.map((l) => [l.id, l.count]));
+  const screws = SCREW_KIT
+    .filter((l) => l.kind === 'screw')
+    .sort((a, b) => a.length - b.length);
+
+  const assigned = [];
+  const missing = [];
+  // les fixations les plus exigeantes d'abord : sans ça les vis longues
+  // partent sur des points qui s'en passeraient, et il n'en reste plus là où
+  // elles sont indispensables
+  const ordered = [...sites].map((site) => {
+    const needsStandoff = site.gap > 0.5;
+    const needed = site.upper.thickness
+      + (needsStandoff ? site.gap + site.thread.engagement : site.lower.thickness);
+    return { site, needed, needsStandoff };
+  }).sort((a, b) => b.needed - a.needed);
+
+  for (const item of ordered) {
+    const line = screws.find((l) => l.length >= item.needed - 0.01 && stock.get(l.id) > 0);
+    if (!line) {
+      missing.push(item);
+      continue;
+    }
+    stock.set(line.id, stock.get(line.id) - 1);
+    assigned.push({
+      ...item,
+      line,
+      thread: item.site.thread,
+      screwLength: line.length,
+      standoffLength: item.needsStandoff ? standardLength(item.site.gap) : 0,
+      standoffPlay: item.needsStandoff ? standardLength(item.site.gap) - item.site.gap : 0,
+    });
+  }
+  return { assigned, stock, missing };
+}

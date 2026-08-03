@@ -638,3 +638,6 @@ main.side-collapsed #sidebar {
 }
 .bg-swatch:hover { border-color: #2b4055; }
 .bg-swatch.on { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(108, 199, 255, 0.28); }
+
+/* Ligne de sachet non utilisée : présente, mais en retrait. */
+.specs div.dim { opacity: 0.45; }
