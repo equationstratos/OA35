@@ -123,6 +123,17 @@ h1 small { color: var(--dim); font-weight: 400; letter-spacing: 0; }
   font-size: 12.5px;
 }
 #asm-assemble-chassis.primary { border-color: var(--accent); color: var(--accent); }
+#pose-mode {
+  background: #131c28;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12.5px;
+}
+#pose-mode:hover { color: var(--txt); border-color: #2b4055; }
+#pose-mode.on { border-color: #ffb454; color: #ffb454; }
 #asm-assemble-chassis:hover, #asm-disassemble:hover { color: var(--txt); border-color: #2b4055; }
 
 .tab, .view-btns button {

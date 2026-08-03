@@ -556,12 +556,115 @@ function renderKit() {
       // les vis reposent sur leur tête, l'écrou à plat : c'est ainsi qu'un
       // sachet vidé sur l'établi se présente
       mesh.position.set(x0 + col * PITCH, line.kind === 'nut' ? -14 : -14 + line.length, z + row * PITCH);
+      mesh.userData.kitLine = line.id;
       slots.push(mesh.position.clone());
       kitGroup.add(mesh);
     }
     z += rows * PITCH + 4;
   }
   invalidate();
+}
+
+/** Vis du sachet visables au lancer de rayon. */
+function kitTargets() {
+  if (!kitGroup.visible) return [];
+  const out = [];
+  kitGroup.traverse((o) => { if (o.isMesh && o.parent && o.parent.userData.kitLine) out.push(o); });
+  return out;
+}
+
+/** Vis choisie dans le sachet, en attente d'un perçage. */
+let selectedScrew = null;
+
+function selectScrew(lineId) {
+  selectedScrew = selectedScrew === lineId ? null : lineId;
+  const line = hw.SCREW_KIT.find((l) => l.id === lineId);
+  updateAsmHint(
+    selectedScrew
+      ? `Vis ${line.label} sélectionnée. Clique le perçage qui doit la recevoir : `
+        + 'elle s\'y enfonce jusqu\'à la butée de tête.'
+      : 'Vis reposée dans le sachet.',
+    'ok',
+  );
+  invalidate();
+}
+
+/**
+ * Enfonce la vis choisie dans le perçage cliqué, tête en butée.
+ *
+ * Et surtout, dit ce que ça donne : une vis trop courte ne prend pas, une vis
+ * trop longue ressort sous la pièce — dans un drone, elle touche
+ * l'électronique ou la batterie. La longueur nécessaire est celle du point de
+ * fixation quand le perçage en est un, sinon la matière du perçage plus la
+ * prise du filetage.
+ */
+function placeScrewOnMarker(marker) {
+  const line = hw.SCREW_KIT.find((l) => l.id === selectedScrew);
+  const entry = entryById(marker.userData.partId);
+  if (!line || !entry) return;
+  if ((kitStock.get(line.id) || 0) <= 0) {
+    updateAsmHint(`Le sachet n'a plus de ${line.label}.`, 'warn');
+    return;
+  }
+
+  const world = marker.getWorldPosition(new THREE.Vector3());
+  const parts = assembledParts();
+  const self = parts.find((p) => p.id === entry.mod.meta.id);
+  const hole = (self ? self.holes : [])
+    .map((h) => ({ h, d: Math.hypot(h.x - world.x, h.z - world.z) }))
+    .sort((a, b) => a.d - b.d)[0];
+  const under = marker.userData.face === 'bottom';
+
+  // le point de fixation correspondant, s'il existe : c'est lui qui donne la
+  // longueur juste, entretoise comprise
+  const site = hw.findFastenerSites(parts)
+    .filter((x) => Math.hypot(x.x - world.x, x.z - world.z) < 1.2)
+    .sort((a, b) => Math.hypot(a.x - world.x, a.z - world.z)
+      - Math.hypot(b.x - world.x, b.z - world.z))[0];
+
+  const thread = hw.THREADS[line.thread];
+  let needed;
+  if (site) {
+    const grip = site.gap > 0.5 ? thread.engagement
+      : Math.min(site.lowerMaterial, thread.engagement);
+    needed = site.upperMaterial + site.gap + (site.gap > 0.5 ? grip : grip);
+  } else {
+    const material = hole && Number.isFinite(hole.h.material) ? hole.h.material : entry.mod.meta.dims.thickness;
+    needed = material + Math.min(material, thread.engagement);
+  }
+
+  const seat = hole ? (under ? hole.h.bottom : hole.h.top) : world.y;
+  const screw = hw.screwMesh(thread, line.length);
+  screw.position.set(world.x, seat, world.z);
+  if (under) screw.rotation.z = Math.PI;      // vissée par en dessous, tête en bas
+  hardwareGroup.add(screw);
+  kitStock.set(line.id, kitStock.get(line.id) - 1);
+  renderKit();
+  hardwareGroup.visible = $('opt-hardware').checked;
+  invalidate();
+
+  const play = line.length - needed;
+  const where = `${entry.mod.meta.name} #${marker.userData.anchor.index}`;
+  if (play < -0.01) {
+    updateAsmHint(
+      `${line.label} posée sur ${where} — TROP COURTE de ${(-play).toFixed(1)} mm : `
+      + `il faut au moins ${needed.toFixed(1)} mm pour prendre.`,
+      'warn',
+    );
+  } else if (play > 1.5) {
+    updateAsmHint(
+      `${line.label} posée sur ${where} — elle DÉPASSE de ${play.toFixed(1)} mm `
+      + `sous la pièce (${needed.toFixed(1)} mm suffisaient).`,
+      'warn',
+    );
+  } else {
+    updateAsmHint(
+      `${line.label} posée sur ${where} : ${needed.toFixed(1)} mm nécessaires, `
+      + `${play < 0.05 ? 'pile la bonne longueur' : `${play.toFixed(1)} mm de marge`}.`,
+      'ok',
+    );
+  }
+  selectedScrew = null;
 }
 
 /* ------------------------------------------------------------------ *
@@ -670,9 +773,11 @@ function layoutParts() {
   resizeGrid(extent);
   renderReservedZones();
   renderKit();
-  // carrés réservés et sachet de visserie n'ont de sens que sur l'établi
+  // les carrés réservés n'ont de sens que sur l'établi ; le sachet, lui, reste
+  // là même une fois le build monté — c'est dedans qu'on va prendre les vis à
+  // poser une par une
   reservedGroup.visible = sideBySide;
-  kitGroup.visible = sideBySide && $('opt-kit').checked;
+  kitGroup.visible = $('opt-kit').checked;
 
   entries.forEach((e, i) => {
     if (!e.holder) return;
@@ -1190,9 +1295,7 @@ function placeHardware(options = {}) {
   // des pièces, une vis n'a que quelques centimètres à faire
   if (animated && moves.length) {
     kitGroup.visible = $('opt-kit').checked;
-    runMotion(moves, () => {
-      kitGroup.visible = $('opt-layout').checked && $('opt-kit').checked;
-    }, { duration: 700, stagger: 45 });
+    runMotion(moves, null, { duration: 700, stagger: 45 });
   }
   return assigned.length;
 }
@@ -1277,7 +1380,7 @@ $('opt-hardware').addEventListener('change', () => {
 // le sachet sur le plan se montre indépendamment de la visserie posée : on
 // veut souvent voir le build vissé sans le stock étalé à côté, et l'inverse
 $('opt-kit').addEventListener('change', () => {
-  kitGroup.visible = $('opt-layout').checked && $('opt-kit').checked;
+  kitGroup.visible = $('opt-kit').checked;
   invalidate();
 });
 
@@ -1705,7 +1808,6 @@ $('asm-assemble-chassis').addEventListener('click', () => {
   const { targets, sphere } = captureLayout(false);
   setMarkersVisible(false);
   reservedGroup.visible = false;
-  kitGroup.visible = false;
   updateAsmHint('Assemblage en cours…');
   animateTo(targets, () => {
     // la case ne bascule qu'à l'arrivée : sinon la disposition se ré-appliquerait
@@ -2065,7 +2167,115 @@ function storePlacement(entry, extra = {}) {
 
 let lastPick = null;
 
+/* ------------------------------------------------------------------ *
+ * Mode « Poser » : une face contre une face
+ * ------------------------------------------------------------------ */
+
+/**
+ * L'assemblage par perçages suppose deux trous en regard. Beaucoup de pièces
+ * n'en ont pas — un cover posé sur une plaque, un support qui s'appuie sans
+ * se visser. Ce mode-là ne demande que deux faces : celle qui doit toucher,
+ * et celle sur laquelle poser.
+ *
+ * Rien d'autre ne bouge : ni le plan (X, Z), ni les angles. La pièce descend
+ * ou monte de la différence de hauteur entre les deux points cliqués, ce qui
+ * met exactement en contact les deux faces à cet endroit.
+ */
+let poseMode = false;
+let poseFirst = null;      // { id, y, normal } de la pièce à poser
+
+function setPoseMode(on) {
+  poseMode = on;
+  poseFirst = null;
+  $('pose-mode').classList.toggle('on', on);
+  if (on) {
+    clearSelection();
+    updateAsmHint(
+      'Poser : clique la FACE de la pièce qui doit venir au contact '
+      + '(dessus ou dessous, pas un chant).',
+      'ok',
+    );
+  } else {
+    updateAsmHint();
+  }
+  invalidate();
+}
+
+$('pose-mode').addEventListener('click', () => setPoseMode(!poseMode));
+
+/** Traite un clic quand le mode Poser est actif. */
+function onPosePick(event) {
+  const hit = asm.pickFirstHit(event, renderer.domElement, camera, bodyTargets());
+  if (!hit) {
+    updateAsmHint('Rien sous le curseur — vise une pièce.', 'warn');
+    return;
+  }
+  let node = hit.object;
+  while (node && !node.userData.partId) node = node.parent;
+  const entry = node && entryById(node.userData.partId);
+  if (!entry) return;
+
+  // la normale de la facette, en repère monde : c'est elle qui dit si le clic
+  // vise le dessus, le dessous ou un chant
+  const n = hit.face.normal.clone()
+    .applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld))
+    .normalize();
+  if (Math.abs(n.y) < 0.5) {
+    updateAsmHint(
+      'Cette face est un chant, verticale : elle ne peut pas servir d\'appui. '
+      + 'Vise le dessus ou le dessous de la pièce.',
+      'warn',
+    );
+    return;
+  }
+
+  if (!poseFirst) {
+    poseFirst = { id: entry.mod.meta.id, y: hit.point.y, up: n.y > 0 };
+    selectPart(entry.mod.meta.id);
+    updateAsmHint(
+      `« ${entry.mod.meta.name} » : face ${n.y > 0 ? 'du dessus' : 'du dessous'} `
+      + 'retenue. Clique maintenant la face sur laquelle elle doit se poser.',
+      'ok',
+    );
+    return;
+  }
+
+  if (entry.mod.meta.id === poseFirst.id) {
+    updateAsmHint('Choisis la face d\'une AUTRE pièce pour l\'appui.', 'warn');
+    return;
+  }
+
+  const moving = entryById(poseFirst.id);
+  const dy = hit.point.y - poseFirst.y;
+  moving.holder.position.y += dy;
+  moving.holder.updateMatrixWorld(true);
+  // manual : la pose est un geste de l'utilisateur, elle doit tenir dans les
+  // deux vues. Sans ce drapeau, la disposition d'établi ramenait aussitôt la
+  // pièce à sa case et le déplacement semblait n'avoir servi à rien.
+  storePlacement(moving, {
+    refId: entry.mod.meta.id, side: poseFirst.up ? 'below' : 'above', manual: true,
+  });
+  measureHoles(moving);
+  layoutParts();
+  renderPartToolbar();
+  poseFirst = null;
+  updateAsmHint(
+    `« ${moving.mod.meta.name} » posée sur « ${entry.mod.meta.name} » `
+    + `(${dy >= 0 ? '+' : '−'}${Math.abs(dy).toFixed(2)} mm). `
+    + 'Clique une nouvelle face pour poser une autre pièce, ou quitte le mode.',
+    'ok',
+  );
+}
+
 function onPick(event) {
+  if (poseMode) { onPosePick(event); return; }
+
+  // une vis du sachet sous le curseur : c'est elle qu'on veut prendre
+  const kitHit = asm.pickFirst(event, renderer.domElement, camera, kitTargets());
+  if (kitHit && kitHit.parent && kitHit.parent.userData.kitLine) {
+    selectScrew(kitHit.parent.userData.kitLine);
+    return;
+  }
   // une entretoise sous le curseur prime : c'est elle qu'on veut placer, et
   // elle recouvre justement le perçage qui la porte
   const standoff = asm.pickFirst(event, renderer.domElement, camera, standoffTargets());
@@ -2091,8 +2301,12 @@ function onPick(event) {
 
   const hits = asm.pickMarkers(event, renderer.domElement, camera, pickTargets());
 
-  // une entretoise sélectionnée détourne le clic sur perçage : il la pose,
-  // au lieu d'ouvrir une contrainte d'assemblage
+  // une vis ou une entretoise sélectionnée détourne le clic sur perçage : il
+  // la pose, au lieu d'ouvrir une contrainte d'assemblage
+  if (selectedScrew && hits.length) {
+    placeScrewOnMarker(hits[0]);
+    return;
+  }
   if (selectedStandoff && hits.length) {
     placeStandoffOnMarker(hits[0]);
     return;

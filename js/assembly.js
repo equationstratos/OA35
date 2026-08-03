@@ -181,10 +181,21 @@ export function pickMarkers(event, element, camera, targets) {
 
 /** Premier objet touché parmi `targets`, ou null. */
 export function pickFirst(event, element, camera, targets) {
+  const hit = pickFirstHit(event, element, camera, targets);
+  return hit ? hit.object : null;
+}
+
+/**
+ * Comme pickFirst, mais rend l'INTERSECTION entière : point touché et facette.
+ *
+ * Poser une pièce sur une autre demande de savoir quelle face a été cliquée et
+ * à quelle hauteur — l'objet seul ne le dit pas.
+ */
+export function pickFirstHit(event, element, camera, targets) {
   const rect = element.getBoundingClientRect();
   pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
   const hits = raycaster.intersectObjects(targets, false);
-  return hits.length ? hits[0].object : null;
+  return hits.length ? hits[0] : null;
 }

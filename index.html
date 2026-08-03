@@ -26,6 +26,7 @@
     <button id="side-toggle" title="Replier / déplier le panneau (touche B)">⇤ Panneau</button>
     <button id="asm-assemble-chassis" class="primary" title="Monter le build, en mouvement">▶ Assembler</button>
     <button id="asm-disassemble" title="Ramener les pièces à leur rangement sur le plan">◀ Désassembler</button>
+    <button id="pose-mode" title="Poser une pièce sur une autre : clique la face qui doit toucher, puis la face d'appui">⇩ Poser</button>
     <span class="nav-sep"></span>
     <div class="menu" data-menu="affichage">
       <button class="menu-btn" type="button" aria-expanded="false">Affichage</button>
@@ -81,6 +82,11 @@
         échelle estimée : ses trous ne tombent pas en face. Le recalibrage la
         remet à l'échelle d'après ses propres motifs normalisés.</p>
 
+      <p class="hint"><strong>⇩ Poser</strong> sert aux pièces qui n'ont pas de
+        perçage en face : clique la face de la pièce qui doit venir au contact,
+        puis la face sur laquelle elle se pose. La pièce descend (ou monte)
+        juste ce qu'il faut pour que les deux se touchent, sans bouger d'un
+        millimètre dans le plan ni tourner.</p>
       <p class="hint">Les pièces rejoignent leur place dans le châssis, en
         mouvement, de bas en haut, et la vue se recadre en glissant.
         <strong>Désassembler</strong> les ramène à leur rangement sur le plan.
@@ -111,6 +117,10 @@
         <button id="hw-clear">Retirer</button>
       </div>
       <dl class="specs" id="bom"></dl>
+      <p class="hint">À la main, une par une : <strong>clique une vis du sachet</strong>
+        sur le plan, puis le perçage qui doit la recevoir. Elle s'y enfonce
+        jusqu'à la butée de tête, et l'outil dit si elle est trop courte pour
+        prendre ou si elle dépassera sous la pièce.</p>
 
       <h3>Entretoises à la référence</h3>
       <p class="hint">Pour une entretoise dont tu connais la référence mais pas
