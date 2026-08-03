@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-03l · plaque superieure calee sur les joues camera';
+const BUILD = '2026-08-03m · coin avant gauche repare, support VTX sur la plaque';
 $('build-stamp').textContent = BUILD;
 
 /* ------------------------------------------------------------------ *
