@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-03k · poser une face, poser une vis';
+const BUILD = '2026-08-03l · plaque superieure calee sur les joues camera';
 $('build-stamp').textContent = BUILD;
 
 /* ------------------------------------------------------------------ *

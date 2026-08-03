@@ -1,192 +1,192 @@
 {
-  "tool": "tinyhoop-mk1-workspace",
-  "version": 1,
-  "savedAt": "2026-08-03T09:34:25.503Z",
-  "placements": {
-    "camera-mount": {
-      "x": -14.465,
-      "y": 30.44197463989258,
-      "z": -26.724,
-      "rotY": 1.536,
-      "rotX": -3.141592653589793,
-      "rotZ": 0,
-      "refId": "bottom-plate",
-      "side": "above"
-    },
-    "camera-mount-mirror": {
-      "x": 14.465,
-      "y": 30.44197463989258,
-      "z": -26.724,
-      "rotY": -1.536,
-      "rotX": -3.141592653589793,
-      "rotZ": 0,
-      "refId": "bottom-plate",
-      "side": "above"
-    },
-    "clamp-plate": {
-      "x": -0.1119233064303468,
-      "y": 2.0000000000000036,
-      "z": 12.097883495754871,
-      "rotY": 0,
-      "rotX": 0,
-      "rotZ": 0,
-      "refId": "bottom-plate",
-      "side": "above"
-    },
-    "arm-short-l": {
-      "x": -43.933,
-      "y": 2.500000000000009,
-      "z": -10.475,
-      "rotY": 1.197,
-      "rotX": 0,
-      "rotZ": 0,
-      "refId": "bottom-plate",
-      "side": "above"
-    },
-    "arm-short-r": {
-      "x": 43.933,
-      "y": 2.500000000000009,
-      "z": -10.475,
-      "rotY": -1.197,
-      "rotX": 0,
-      "rotZ": 0,
-      "refId": "bottom-plate",
-      "side": "above"
-    },
-    "arm-long-r": {
-      "x": -42.738,
-      "y": 2.5000000000000115,
-      "z": 51.408,
-      "rotY": 2.356,
-      "rotX": 0,
-      "rotZ": 0,
-      "refId": "bottom-plate",
-      "side": "above"
-    },
-    "arm-long-l": {
-      "x": 42.738,
-      "y": 2.5000000000000115,
-      "z": 51.408,
-      "rotY": -2.356,
-      "rotX": 0,
-      "rotZ": 0,
-      "refId": "bottom-plate",
-      "side": "above"
-    },
-    "middle-plate": {
-      "x": -0.08299932424978351,
-      "y": 5.5,
-      "z": 33.2358664437449,
-      "rotY": 0,
-      "rotX": 0,
-      "rotZ": 0,
-      "refId": "clamp-plate",
-      "side": "above"
-    },
-    "vtx-mount": {
-      "x": -0.09999935689306483,
-      "y": 6.75,
-      "z": 82.69264530830789,
-      "rotY": -3.141592653589793,
-      "rotX": 0,
-      "rotZ": 0,
-      "manual": true,
-      "refId": "middle-plate",
-      "side": "above"
-    },
-    "top-plate": {
-      "x": -0.9696086170655747,
-      "y": 31.442,
-      "z": 29.2184614859124,
-      "rotY": 0,
-      "rotX": 0,
-      "rotZ": 0,
-      "refId": "camera-mount-mirror",
-      "side": "above",
-      "manual": true
-    },
-    "gps-mount": {
-      "x": -0.4019072625419877,
-      "y": 32.442,
-      "z": -21.026640116091826,
-      "rotY": 0,
-      "rotX": 0,
-      "rotZ": 0,
-      "refId": "top-plate",
-      "side": "above",
-      "manual": true
-    },
-    "cover-01": {
-      "x": -0.8,
-      "y": -1.4,
-      "z": 21.8,
-      "rotY": 0,
-      "rotX": 0,
-      "rotZ": 0,
-      "manual": true,
-      "refId": "middle-plate",
-      "side": "above"
-    },
-    "cover-02": {
-      "x": -0.4,
-      "y": 18,
-      "z": 56.8,
-      "rotY": 0,
-      "rotX": 0,
-      "rotZ": 0,
-      "refId": "top-plate",
-      "side": "above",
-      "manual": true
-    },
-    "footpad-ar-l": {
-      "x": 70.712,
-      "y": -7.95,
-      "z": 80.405,
-      "rotX": 0,
-      "rotY": 3.137,
-      "rotZ": 0,
-      "manual": true,
-      "refId": "arm-long-l",
-      "side": "below"
-    },
-    "footpad-ar-r": {
-      "x": -70.713,
-      "y": -7.95,
-      "z": 80.404,
-      "rotX": 0,
-      "rotY": 1.574,
-      "rotZ": 0,
-      "manual": true,
-      "refId": "arm-long-r",
-      "side": "below"
-    },
-    "footpad-av-l": {
-      "x": -70.477,
-      "y": -7.95,
-      "z": -22.22,
-      "rotX": 0,
-      "rotY": 0.399,
-      "rotZ": 0,
-      "manual": true,
-      "refId": "arm-short-l",
-      "side": "below"
-    },
-    "footpad-av-r": {
-      "x": 70.478,
-      "y": -7.95,
-      "z": -22.218,
-      "rotX": 0,
-      "rotY": -1.971,
-      "rotZ": 0,
-      "manual": true,
-      "refId": "arm-short-r",
-      "side": "below"
-    }
+ "tool": "tinyhoop-mk1-workspace",
+ "version": 1,
+ "savedAt": "2026-08-03T22:01:54.823984Z",
+ "placements": {
+  "camera-mount": {
+   "x": -14.465,
+   "y": 30.44197463989258,
+   "z": -26.724,
+   "rotY": 1.536,
+   "rotX": -3.141592653589793,
+   "rotZ": 0,
+   "refId": "bottom-plate",
+   "side": "above"
   },
-  "standoffs": [],
-  "hidden": [
-    "flanc-droit",
-    "flanc-gauche"
-  ],
-  "customParts": []
+  "camera-mount-mirror": {
+   "x": 14.465,
+   "y": 30.44197463989258,
+   "z": -26.724,
+   "rotY": -1.536,
+   "rotX": -3.141592653589793,
+   "rotZ": 0,
+   "refId": "bottom-plate",
+   "side": "above"
+  },
+  "clamp-plate": {
+   "x": -0.1119233064303468,
+   "y": 2.0000000000000036,
+   "z": 12.097883495754871,
+   "rotY": 0,
+   "rotX": 0,
+   "rotZ": 0,
+   "refId": "bottom-plate",
+   "side": "above"
+  },
+  "arm-short-l": {
+   "x": -43.933,
+   "y": 2.500000000000009,
+   "z": -10.475,
+   "rotY": 1.197,
+   "rotX": 0,
+   "rotZ": 0,
+   "refId": "bottom-plate",
+   "side": "above"
+  },
+  "arm-short-r": {
+   "x": 43.933,
+   "y": 2.500000000000009,
+   "z": -10.475,
+   "rotY": -1.197,
+   "rotX": 0,
+   "rotZ": 0,
+   "refId": "bottom-plate",
+   "side": "above"
+  },
+  "arm-long-r": {
+   "x": -42.738,
+   "y": 2.5000000000000115,
+   "z": 51.408,
+   "rotY": 2.356,
+   "rotX": 0,
+   "rotZ": 0,
+   "refId": "bottom-plate",
+   "side": "above"
+  },
+  "arm-long-l": {
+   "x": 42.738,
+   "y": 2.5000000000000115,
+   "z": 51.408,
+   "rotY": -2.356,
+   "rotX": 0,
+   "rotZ": 0,
+   "refId": "bottom-plate",
+   "side": "above"
+  },
+  "middle-plate": {
+   "x": -0.08299932424978351,
+   "y": 5.5,
+   "z": 33.2358664437449,
+   "rotY": 0,
+   "rotX": 0,
+   "rotZ": 0,
+   "refId": "clamp-plate",
+   "side": "above"
+  },
+  "vtx-mount": {
+   "x": -0.09999935689306483,
+   "y": 6.75,
+   "z": 82.69264530830789,
+   "rotY": -3.141592653589793,
+   "rotX": 0,
+   "rotZ": 0,
+   "manual": true,
+   "refId": "middle-plate",
+   "side": "above"
+  },
+  "top-plate": {
+   "x": -0.7916086170655747,
+   "y": 29.69,
+   "z": 29.016461485912398,
+   "rotY": 0,
+   "rotX": 0,
+   "rotZ": 0,
+   "refId": "camera-mount-mirror",
+   "side": "above",
+   "manual": true
+  },
+  "gps-mount": {
+   "x": -0.5119072625419877,
+   "y": 29.093,
+   "z": -21.227640116091827,
+   "rotY": 0,
+   "rotX": 0,
+   "rotZ": 0,
+   "refId": "top-plate",
+   "side": "above",
+   "manual": true
+  },
+  "cover-01": {
+   "x": -0.8,
+   "y": -1.4,
+   "z": 21.8,
+   "rotY": 0,
+   "rotX": 0,
+   "rotZ": 0,
+   "manual": true,
+   "refId": "middle-plate",
+   "side": "above"
+  },
+  "cover-02": {
+   "x": -0.222,
+   "y": 16.248,
+   "z": 56.598,
+   "rotY": 0,
+   "rotX": 0,
+   "rotZ": 0,
+   "refId": "top-plate",
+   "side": "above",
+   "manual": true
+  },
+  "footpad-ar-l": {
+   "x": 70.712,
+   "y": -7.95,
+   "z": 80.405,
+   "rotX": 0,
+   "rotY": 3.137,
+   "rotZ": 0,
+   "manual": true,
+   "refId": "arm-long-l",
+   "side": "below"
+  },
+  "footpad-ar-r": {
+   "x": -70.713,
+   "y": -7.95,
+   "z": 80.404,
+   "rotX": 0,
+   "rotY": 1.574,
+   "rotZ": 0,
+   "manual": true,
+   "refId": "arm-long-r",
+   "side": "below"
+  },
+  "footpad-av-l": {
+   "x": -70.477,
+   "y": -7.95,
+   "z": -22.22,
+   "rotX": 0,
+   "rotY": 0.399,
+   "rotZ": 0,
+   "manual": true,
+   "refId": "arm-short-l",
+   "side": "below"
+  },
+  "footpad-av-r": {
+   "x": 70.478,
+   "y": -7.95,
+   "z": -22.218,
+   "rotX": 0,
+   "rotY": -1.971,
+   "rotZ": 0,
+   "manual": true,
+   "refId": "arm-short-r",
+   "side": "below"
+  }
+ },
+ "standoffs": [],
+ "hidden": [
+  "flanc-droit",
+  "flanc-gauche"
+ ],
+ "customParts": []
 }

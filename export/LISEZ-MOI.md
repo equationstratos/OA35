@@ -3,7 +3,7 @@
 Tous les fichiers partagent **le même repère** : CAO, Z « haut », millimètres,
 origine au centre de la bottom-plate, nez du drone vers +Y. Le point bas du
 build (dessous des patins) est à Z −7,95, le point haut (support GPS) à
-Z 44,73. Ils se superposent donc sans rien régler.
+Z 40,58. Ils se superposent donc sans rien régler.
 
 ## Lequel prendre
 
@@ -45,13 +45,61 @@ Le plan `tinyhoop-mk1-plan-corrige.json` pose l'empilement prêt à visser :
 | plaque supérieure sur les deux joues de caméra | 0,000 mm |
 | support GPS sur la plaque supérieure | 0,000 mm |
 
-Reste un conflit qui vient des pièces elles-mêmes : le support d'antenne VTX
-fait 24,50 mm et son pied repose sur la plaque intermédiaire (dessus à 6,75),
-donc il monte à 31,25 — alors que les joues de caméra plafonnent à 30,44. Il
-dépasse de **0,81 mm** sous la plaque supérieure. Le poser sous la plaque
-enterrerait tout son pied dans la plaque intermédiaire (mesuré : 837 sommets
-dans la matière), on l'a donc laissé sur son pied. À arbitrer : raccourcir le
-support de 0,81 mm, ou surélever les joues d'autant.
+### La plaque supérieure était posée sur la lèvre, pas sur l'épaulement
+
+Chaque joue de caméra porte, tout en haut, **un épaulement plat à Z 28,690**
+(4,4 × 17,9 mm, une face franche de 65,6 mm² par joue) et, devant lui, **une
+lèvre de 0,6 mm d'épaisseur qui remonte 1,75 mm plus haut, jusqu'à 30,44**.
+C'est un logement classique : la plaque s'assied sur l'épaulement, la lèvre
+lui sert de butée avant.
+
+Le plan posait la plaque à 30,442, c'est-à-dire **sur le sommet de la lèvre** —
+d'où la plaque qui semblait chevaucher le support caméra, en appui sur un
+chant de 0,6 mm et 1,75 mm de vide sous elle. Elle descend maintenant à
+28,690 : contact **0,000 mm sur les deux joues**, dessus de plaque à 30,690,
+soit 0,25 mm au-dessus de la lèvre.
+
+Le calage horizontal suit le seul perçage traversant du montage : l'épaulement
+de chaque joue est percé d'un M2, et la plaque a été translatée de 0,178 mm sur
+la droite et 0,202 mm vers l'avant pour que son perçage avant tombe
+**exactement** sur celui de la joue droite (écart 0,000 mm, contre 0,27 mm
+avant). Le support GPS a suivi : ses deux oreilles sont sur le même axe,
+l'oreille droite est maintenant elle aussi à 0,000 mm de ce perçage. Une seule vis traverse donc support GPS → plaque supérieure → joue.
+
+**Côté gauche, cette vis ne peut pas passer.** La plaque supérieure n'a qu'un
+perçage avant fermé, à droite ; à gauche, à la même cote, le fichier STL ne
+porte pas un trou mais **une encoche ouverte sur le chant** (vérifié sur
+`top-plate.stl` à cinq hauteurs différentes : le contour extérieur y entre,
+fait le tour d'un arc de rayon ≈ 0,96 mm centré 1,65 mm plus au bord que le
+perçage de la joue, et ressort). La joue gauche, elle, a bien son M2. Deux
+issues : percer la plaque à gauche à 24,89 mm d'entraxe du perçage droit, ou
+n'en visser qu'un côté. Rien n'a été inventé dans le modèle.
+
+### Le support GPS reposait 1,61 mm au-dessus de la plaque
+
+Son encombrement descend à 32,44, mais ce point bas est un ergot situé
+**10 mm en avant du bord de la plaque**, dans le vide. Sa vraie face d'appui —
+171,9 mm² — est 1,61 mm plus haut. Elle est maintenant plaquée sur le dessus
+de la plaque : jeu 0,000 mm, aucune interpénétration (mesuré sur les 63 096
+sommets de la pièce).
+
+### Le conflit qui reste : le support d'antenne VTX
+
+Il empire, et il faut le dire : à l'arrière du build, le support VTX a **trois
+montants qui montent à 31,25**, son pied reposant sur la plaque intermédiaire
+(dessus à 6,75). Tant que la plaque supérieure perchait sur la lèvre à 30,44 il
+ne dépassait que de 0,81 mm ; maintenant qu'elle est à sa vraie place, à 28,69,
+**deux de ces montants la traversent sur 2,56 mm** — le troisième, le plus en
+arrière, passe derrière le bord de la plaque et ne gêne pas.
+
+Le poser sous la plaque enterrerait tout son pied dans la plaque intermédiaire
+(mesuré : 837 sommets dans la matière). À arbitrer : raccourcir les deux
+montants de 2,56 mm, ou reculer le support d'une dizaine de millimètres pour
+qu'il passe derrière la plaque. Le plan le laisse sur son pied, tel quel.
+
+Le capot `cover-02` a suivi la plaque au millimètre près (même translation, même
+descente de 1,752 mm) : il garde son jeu d'origine de 1,62 mm sous elle et ne
+touche pas la plaque intermédiaire.
 
 ## Couleurs
 
