@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-03i · menus en haut';
+const BUILD = '2026-08-03j · sélection sur l\'établi';
 $('build-stamp').textContent = BUILD;
 
 /* ------------------------------------------------------------------ *
@@ -1476,6 +1476,19 @@ $('so-create').addEventListener('click', () => {
   frameAll();
 });
 
+// les 4 entretoises du châssis restent posables d'un geste, mais à la
+// demande : l'assemblage ne les met plus tout seul
+$('so-chassis').addEventListener('click', () => {
+  const posed = placeChassisStandoffs();
+  updateAsmHint(
+    posed
+      ? `${posed} entretoises M2×4×22 posées sur la plaque intermédiaire, `
+        + `perçages #${CHASSIS_STANDOFF_HOLES.join(', #')}.`
+      : 'Plaque intermédiaire introuvable.',
+    posed ? 'ok' : 'warn',
+  );
+});
+
 $('so-clear').addEventListener('click', () => {
   standoffs = [];
   selectedStandoff = null;
@@ -1702,11 +1715,10 @@ $('asm-assemble-chassis').addEventListener('click', () => {
     layoutParts();
     // les perçages doivent tomber en face avant qu'on parle de visser
     const snapped = snapToReferenceHoles();
-    const posed = placeChassisStandoffs();
-    // la visserie ne part PAS toute seule : elle se pose à la demande, par le
-    // menu Visserie, pour laisser la main sur chaque vis
+    // Ni vis ni entretoises ne partent toutes seules : elles se posent à la
+    // demande, depuis le menu Visserie, pour laisser la main sur chacune.
     updateAsmHint(
-      `Build assemblé${posed ? ` — ${posed} entretoises M2×4×22 sur la middle-plate` : ''}`
+      'Build assemblé'
       + (snapped.length
         ? `, ${snapped.length} pièce(s) recalée(s) sur les perçages `
           + `(jusqu'à ${Math.max(...snapped.map((m) => Math.hypot(m.dx, m.dz))).toFixed(2)} mm)`
@@ -1730,8 +1742,16 @@ $('asm-disassemble').addEventListener('click', () => {
   }
   const { targets, sphere } = captureLayout(true, true);
   setMarkersVisible(false);
-  // la visserie retourne au sachet avant que les pièces ne bougent
+  // la visserie retourne au sachet avant que les pièces ne bougent, et les
+  // entretoises rejoignent leur carré : posées, elles resteraient en l'air
+  // là où le build se trouvait
   clearHardware();
+  if (standoffs.some((so_) => so_.x !== null)) {
+    standoffs.forEach((so_) => { so_.x = null; so_.y = null; so_.z = null; });
+    saveStandoffs();
+    renderStandoffs();
+    renderStandoffList();
+  }
   updateAsmHint('Désassemblage en cours…');
   animateTo(targets, () => {
     box.checked = true;
@@ -2055,7 +2075,20 @@ function onPick(event) {
     if (node) { selectStandoff(node.userData.standoffId); return; }
   }
 
-  if ($('opt-layout').checked) return;
+  // Sur l'établi, les perçages ne sont pas cliquables — on n'y assemble pas —
+  // mais la PIÈCE, elle, doit l'être : c'est là qu'on la choisit pour la
+  // teinter, la déplacer aux curseurs ou la retirer. Le clic ne faisait rien
+  // du tout tant qu'on n'avait pas assemblé.
+  if ($('opt-layout').checked) {
+    const body = asm.pickFirst(event, renderer.domElement, camera, bodyTargets());
+    clearStandoffSelection();
+    let node = body;
+    while (node && !node.userData.partId) node = node.parent;
+    if (node) selectPart(node.userData.partId);
+    else clearPartSelection();
+    return;
+  }
+
   const hits = asm.pickMarkers(event, renderer.domElement, camera, pickTargets());
 
   // une entretoise sélectionnée détourne le clic sur perçage : il la pose,
@@ -3324,6 +3357,7 @@ if (new URLSearchParams(location.search).has('debug')) {
   window.__camera = camera;
   window.__controls = controls;
   window.__assembledParts = assembledParts;
+  window.__layout = layoutParts;
   window.__hw = hw;
 
   /** Encombrement au sol de chaque pièce, pour vérifier la disposition. */
