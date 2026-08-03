@@ -53,8 +53,7 @@ Pourquoi simplifier : en STEP, une facette coûte environ 3 ko. Les 305 468
 triangles d'origine pèseraient plus de 700 Mo. Le regroupement de sommets sur
 grille fait tomber le support caméra de 92 352 à 916 triangles sans dépasser
 0,21 mm d'écart — ces fichiers CAO sont pavés de triangles bien plus fins que
-nécessaire. Les quatre patins ne sont écrits qu'une fois et instanciés quatre
-fois.
+nécessaire.
 
 ## TinyHoop-MK1-chassis.step — 8,6 Mo
 
