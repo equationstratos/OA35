@@ -24,7 +24,7 @@ header {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 12px 20px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--line);
   background: linear-gradient(180deg, #101823, #0b1119);
 }
@@ -37,7 +37,93 @@ h1 {
 }
 h1 small { color: var(--dim); font-weight: 400; letter-spacing: 0; }
 
-.tabs { display: flex; gap: 6px; }
+.tabs { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+
+/* La barre porte maintenant les menus : sur un écran étroit, le sous-titre
+   passe à la trappe avant que les boutons ne se cassent en deux lignes. */
+@media (max-width: 1500px) {
+  h1 small { display: none; }
+  .tab, .menu-btn, #asm-assemble-chassis, #asm-disassemble, #side-toggle { padding: 6px 10px; }
+}
+.nav-sep { width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
+
+/* ------------------------------------------------------------------ *
+ * Menus déroulants de la barre du haut
+ *
+ * Les réglages vivaient tous dans la colonne de gauche, qui finissait par
+ * faire trois écrans de haut : on cherchait un bouton en faisant défiler.
+ * Ils sont maintenant rangés par thème derrière un bouton de la barre, et
+ * le panneau de gauche ne garde que ce qu'on regarde en travaillant.
+ * ------------------------------------------------------------------ */
+
+.menu { position: relative; }
+
+.menu-btn {
+  background: #131c28;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12.5px;
+  transition: 0.15s;
+}
+.menu-btn::after { content: ' ▾'; opacity: 0.6; }
+.menu-btn:hover { color: var(--txt); border-color: #2b4055; }
+.menu.open > .menu-btn { color: var(--accent); border-color: var(--accent); }
+
+.menu-pop {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 40;
+  width: 360px;
+  max-height: min(72vh, 720px);
+  overflow-y: auto;
+  padding: 4px 14px 10px;
+  background: #0d141d;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+}
+.menu.open > .menu-pop { display: block; }
+/* le dernier menu de la rangée déborderait à droite de la fenêtre */
+.menu:nth-last-of-type(1) > .menu-pop { left: auto; right: 0; }
+.menu-pop section { border: none; padding: 12px 0 0; }
+.menu-pop section + section { border-top: 1px solid var(--line); }
+
+/* ------------------------------------------------------------------ *
+ * Sections repliables du panneau de gauche
+ * ------------------------------------------------------------------ */
+
+.fold-head {
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fold-head::before {
+  content: '▾';
+  font-size: 10px;
+  opacity: 0.7;
+  transition: transform 0.15s;
+}
+.fold.closed .fold-head::before { transform: rotate(-90deg); }
+.fold.closed > *:not(.fold-head) { display: none; }
+
+#asm-assemble-chassis, #asm-disassemble, #side-toggle {
+  background: #131c28;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12.5px;
+}
+#asm-assemble-chassis.primary { border-color: var(--accent); color: var(--accent); }
+#asm-assemble-chassis:hover, #asm-disassemble:hover { color: var(--txt); border-color: #2b4055; }
 
 .tab, .view-btns button {
   background: #131c28;
@@ -641,3 +727,25 @@ main.side-collapsed #sidebar {
 
 /* Ligne de sachet non utilisée : présente, mais en retrait. */
 .specs div.dim { opacity: 0.45; }
+
+/* ------------------------------------------------------------------ *
+ * Fiches de pièce repliées
+ * ------------------------------------------------------------------ */
+
+.part-head .card-fold {
+  /* la croix de suppression est calée dans le coin, en absolu : sans cette
+     marge le chevron se retrouvait dessous et n'était plus cliquable */
+  margin-left: auto;
+  margin-right: 24px;
+  background: none;
+  border: none;
+  color: var(--dim);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 4px;
+  transition: transform 0.15s;
+}
+.part-head .card-fold:hover { color: var(--accent); }
+.part.compact .card-fold { transform: rotate(-90deg); }
+.part.compact > *:not(.part-head) { display: none; }
+.part.compact { padding-bottom: 4px; }

@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-03h · les vis rejoignent le build';
+const BUILD = '2026-08-03i · menus en haut';
 $('build-stamp').textContent = BUILD;
 
 /* ------------------------------------------------------------------ *
@@ -1259,7 +1259,7 @@ function renderBom(items, sites, candidateCount, missing = [], free = [], parts 
   );
 }
 
-$('hw-place').addEventListener('click', placeHardware);
+$('hw-place').addEventListener('click', () => placeHardware({ animated: true }));
 $('hw-spacing').addEventListener('input', () => {
   $('v-spacing').value = `${$('hw-spacing').value} mm`;
   if (hardwareGroup.children.length) placeHardware();
@@ -1703,12 +1703,10 @@ $('asm-assemble-chassis').addEventListener('click', () => {
     // les perçages doivent tomber en face avant qu'on parle de visser
     const snapped = snapToReferenceHoles();
     const posed = placeChassisStandoffs();
-    // la visserie suit les pièces : elle quitte le plan de travail et vient
-    // se poser dans les perçages — sans ça on ne la voyait jamais sur le build
-    const screws = placeHardware({ animated: true });
+    // la visserie ne part PAS toute seule : elle se pose à la demande, par le
+    // menu Visserie, pour laisser la main sur chaque vis
     updateAsmHint(
-      `Build assemblé${screws ? ` — ${screws} vis posées` : ''}`
-      + (posed ? `, ${posed} entretoises M2×4×22 sur la middle-plate` : '')
+      `Build assemblé${posed ? ` — ${posed} entretoises M2×4×22 sur la middle-plate` : ''}`
       + (snapped.length
         ? `, ${snapped.length} pièce(s) recalée(s) sur les perçages `
           + `(jusqu'à ${Math.max(...snapped.map((m) => Math.hypot(m.dx, m.dz))).toFixed(2)} mm)`
@@ -2361,6 +2359,9 @@ $('opt-photo').addEventListener('change', () => {
  * Interface latérale
  * ------------------------------------------------------------------ */
 
+/** Fiches dépliées : l'état survit à un réaffichage de la liste. */
+const openCards = new Set();
+
 function renderPartList() {
   const partList = $('part-list');
   partList.innerHTML = '';
@@ -2395,13 +2396,17 @@ function renderPartList() {
       && e.mod.spec.scaleSource !== 'patterns' && e.mod.spec.scaleSource !== 'manual';
 
     const li = document.createElement('li');
-    li.className = 'part';
+    // Fiche repliée par défaut : dix-huit pièces déployées font quatre écrans
+    // de haut, et on passait son temps à faire défiler pour trouver un nom.
+    // Le chevron ouvre la fiche complète, le reste de la ligne sélectionne.
+    li.className = `part${openCards.has(m.id) ? '' : ' compact'}`;
     li.dataset.id = m.id;
     li.innerHTML = `
       <label class="part-head">
         <input type="checkbox" ${hiddenParts.has(m.id) ? '' : 'checked'}>
         <span class="idx">${String(m.index).padStart(2, '0')}</span>
         <span class="nm">${m.name}</span>
+        <button class="card-fold" title="Déplier / replier la fiche">▾</button>
       </label>
         <button class="del" title="${e.mod.isCustom
     ? 'Supprimer définitivement cette pièce créée'
@@ -2432,6 +2437,12 @@ function renderPartList() {
         <button class="recal" title="Recaler l'échelle sur les perçages normalisés">Recalibrer</button>
         <button class="mirror-dup" title="Crée une nouvelle pièce, symétrique de celle-ci — les deux restent visibles en même temps (utile pour un bras dont un seul côté a été tracé)">⇋ Dupliquer en miroir</button>
       </div>` : ''}`;
+    li.querySelector('.card-fold').addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const compact = li.classList.toggle('compact');
+      if (compact) openCards.delete(m.id); else openCards.add(m.id);
+    });
     li.querySelector('input').addEventListener('change', (ev) => {
       if (ev.target.checked) hiddenParts.delete(m.id);
       else hiddenParts.add(m.id);
@@ -3114,6 +3125,69 @@ function toggleSidebar() {
   try { localStorage.setItem(SIDE_KEY, sidebarCollapsed ? '1' : '0'); } catch { /* ignore */ }
   applySidebar(sidebarCollapsed);
 }
+
+/* ------------------------------------------------------------------ *
+ * Menus de la barre du haut
+ * ------------------------------------------------------------------ */
+
+const menus = [...document.querySelectorAll('.menu')];
+
+function closeMenus(except) {
+  for (const m of menus) {
+    if (m === except) continue;
+    m.classList.remove('open');
+    m.querySelector('.menu-btn').setAttribute('aria-expanded', 'false');
+  }
+}
+
+for (const m of menus) {
+  const btn = m.querySelector('.menu-btn');
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = !m.classList.contains('open');
+    closeMenus(m);
+    m.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  // un clic DANS le tiroir ne doit pas le refermer : on y règle des curseurs,
+  // on y coche des cases, souvent plusieurs à la suite
+  m.querySelector('.menu-pop').addEventListener('click', (e) => e.stopPropagation());
+}
+document.addEventListener('click', () => closeMenus(null));
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeMenus(null);
+});
+
+/* ------------------------------------------------------------------ *
+ * Sections repliables du panneau de gauche
+ * ------------------------------------------------------------------ */
+
+const FOLD_KEY = 'tinyhoop-mk1:folds';
+
+function loadFolds() {
+  try {
+    const raw = localStorage.getItem(FOLD_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch { return new Set(); }
+}
+
+const closedFolds = loadFolds();
+
+document.querySelectorAll('#sidebar .fold').forEach((section, i) => {
+  const head = section.querySelector('.fold-head');
+  const key = head.textContent.trim();
+  if (closedFolds.has(key)) section.classList.add('closed');
+  else if (closedFolds.size && !closedFolds.has(key)) section.classList.remove('closed');
+  const toggle = () => {
+    const closed = section.classList.toggle('closed');
+    if (closed) closedFolds.add(key); else closedFolds.delete(key);
+    try { localStorage.setItem(FOLD_KEY, JSON.stringify([...closedFolds])); } catch { /* ignore */ }
+  };
+  head.addEventListener('click', toggle);
+  head.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+  });
+});
 
 $('side-toggle').addEventListener('click', toggleSidebar);
 window.addEventListener('keydown', (e) => {
