@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-03g · tout est vissé';
+const BUILD = '2026-08-03h · les vis rejoignent le build';
 $('build-stamp').textContent = BUILD;
 
 /* ------------------------------------------------------------------ *
@@ -506,6 +506,9 @@ scene.add(kitGroup);
 /** Ce qui reste du sachet : { id de ligne -> nombre encore disponible }. */
 let kitStock = new Map(hw.SCREW_KIT.map((l) => [l.id, l.count]));
 
+/** Où se trouve chaque pièce du sachet : { id de ligne -> positions }. */
+let kitSlots = new Map();
+
 /**
  * Étale le sachet dans son carré : une ligne par référence, les pièces
  * rangées par blocs de huit, avec le libellé et le compte à gauche.
@@ -529,8 +532,11 @@ function renderKit() {
   const x0 = zone.x - zone.w / 2 + LABEL_W;
   let z = zone.z - zone.d / 2 + 8;
 
+  kitSlots = new Map();
   for (const line of hw.SCREW_KIT) {
     const left = kitStock.get(line.id) || 0;
+    const slots = [];
+    kitSlots.set(line.id, slots);
     const rows = Math.max(1, Math.ceil(left / PER_ROW));
     const thread = hw.THREADS[line.thread];
 
@@ -550,6 +556,7 @@ function renderKit() {
       // les vis reposent sur leur tête, l'écrou à plat : c'est ainsi qu'un
       // sachet vidé sur l'établi se présente
       mesh.position.set(x0 + col * PITCH, line.kind === 'nut' ? -14 : -14 + line.length, z + row * PITCH);
+      slots.push(mesh.position.clone());
       kitGroup.add(mesh);
     }
     z += rows * PITCH + 4;
@@ -590,25 +597,39 @@ const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2)
  * @param {function} done appelée à la fin
  */
 function animateTo(targets, done) {
-  const DURATION = 900;     // par pièce, en ms
-  const STAGGER = 120;      // décalage d'une pièce à la suivante
   const moves = [];
   entries.forEach((e) => {
     const target = targets.get(e.mod.meta.id);
     if (!e.holder || !target) return;
     moves.push({
-      holder: e.holder,
+      object: e.holder,
       from: { p: e.holder.position.clone(), q: e.holder.quaternion.clone() },
       to: target,
     });
   });
+  runMotion(moves, done);
+}
+
+/**
+ * Fait glisser une liste d'objets vers leur place, en décalant les départs.
+ *
+ * Sert aux pièces comme à la visserie : une vis part de son casier sur le
+ * plan de travail et va se poser dans son perçage, exactement comme une
+ * plaque rejoint le châssis.
+ *
+ * @param {{object:THREE.Object3D, from:{p,q}, to:{position,quaternion}}[]} moves
+ * @param {function} [done]
+ * @param {{duration:number, stagger:number}} [timing]
+ */
+function runMotion(moves, done, timing = {}) {
+  const DURATION = timing.duration || 900;   // par objet, en ms
+  const STAGGER = timing.stagger || 120;     // décalage d'un objet au suivant
   // du plus bas au plus haut : c'est l'ordre de montage
   moves.sort((a, b) => a.to.position.y - b.to.position.y);
   moves.forEach((m, i) => { m.delay = i * STAGGER; });
 
-  const total = DURATION + (moves.length - 1) * STAGGER;
-  const start = performance.now();
-  motion = { moves, start, total, done, DURATION };
+  const total = DURATION + Math.max(0, moves.length - 1) * STAGGER;
+  motion = { moves, start: performance.now(), total, done, DURATION };
   invalidate();
 }
 
@@ -619,9 +640,9 @@ function stepMotion(now) {
   for (const m of motion.moves) {
     const t = Math.min(1, Math.max(0, (elapsed - m.delay) / motion.DURATION));
     const k = easeInOut(t);
-    m.holder.position.lerpVectors(m.from.p, m.to.position, k);
-    m.holder.quaternion.slerpQuaternions(m.from.q, m.to.quaternion, k);
-    m.holder.updateMatrixWorld(true);
+    m.object.position.lerpVectors(m.from.p, m.to.position, k);
+    if (m.to.quaternion) m.object.quaternion.slerpQuaternions(m.from.q, m.to.quaternion, k);
+    m.object.updateMatrixWorld(true);
   }
   if (elapsed < motion.total) return true;
   const { done } = motion;
@@ -651,7 +672,7 @@ function layoutParts() {
   renderKit();
   // carrés réservés et sachet de visserie n'ont de sens que sur l'établi
   reservedGroup.visible = sideBySide;
-  kitGroup.visible = sideBySide && $('opt-hardware').checked;
+  kitGroup.visible = sideBySide && $('opt-kit').checked;
 
   entries.forEach((e, i) => {
     if (!e.holder) return;
@@ -1074,7 +1095,8 @@ function clearHardware() {
  * d'entretoise de l'écart entre les plaques, la longueur de vis de l'épaisseur
  * traversée. Les valeurs sont arrondies aux longueurs du commerce.
  */
-function placeHardware() {
+function placeHardware(options = {}) {
+  const animated = !!options.animated;
   clearHardware();
 
   const parts = assembledParts();
@@ -1125,16 +1147,37 @@ function placeHardware() {
   const { assigned, stock, missing } = hw.allocateFromKit(sites);
   kitStock = stock;
 
+  // d'où part chaque vis : de son casier sur le plan quand on assemble le
+  // build, directement en place quand on ne fait que recalculer la visserie
+  const moves = [];
+  const spare = new Map([...kitSlots].map(([id, list]) => [id, [...list]]));
+  const spacerZone = reservedZones.find((z) => z.id === 'standoffs');
+
   for (const item of assigned) {
     const { site } = item;
     if (item.standoffLength > 0) {
       const standoff = hw.standoffMesh(site.thread, item.standoffLength);
-      standoff.position.set(site.x, site.lowerTop, site.z);
+      const to = new THREE.Vector3(site.x, site.lowerTop, site.z);
+      if (animated && spacerZone) {
+        standoff.position.set(
+          spacerZone.x + (moves.length % 8) * 9 - 32, -14, spacerZone.z,
+        );
+        moves.push({ object: standoff, from: { p: standoff.position.clone() }, to: { position: to } });
+      } else {
+        standoff.position.copy(to);
+      }
       hardwareGroup.add(standoff);
     }
     // la vis appuie sur la face supérieure de la pièce haute, au droit du trou
     const screw = hw.screwMesh(site.thread, item.screwLength);
-    screw.position.set(site.x, site.upperTop, site.z);
+    const to = new THREE.Vector3(site.x, site.upperTop, site.z);
+    const slot = (spare.get(item.line.id) || []).pop();
+    if (animated && slot) {
+      screw.position.copy(slot);
+      moves.push({ object: screw, from: { p: screw.position.clone() }, to: { position: to } });
+    } else {
+      screw.position.copy(to);
+    }
     hardwareGroup.add(screw);
   }
 
@@ -1142,6 +1185,16 @@ function placeHardware() {
   renderKit();
   hardwareGroup.visible = $('opt-hardware').checked;
   invalidate();
+
+  // la visserie part du plan et va se poser : plus courte que le mouvement
+  // des pièces, une vis n'a que quelques centimètres à faire
+  if (animated && moves.length) {
+    kitGroup.visible = $('opt-kit').checked;
+    runMotion(moves, () => {
+      kitGroup.visible = $('opt-layout').checked && $('opt-kit').checked;
+    }, { duration: 700, stagger: 45 });
+  }
+  return assigned.length;
 }
 
 function renderBom(items, sites, candidateCount, missing = [], free = [], parts = []) {
@@ -1218,7 +1271,13 @@ $('hw-clear').addEventListener('click', () => {
 $('opt-hardware').addEventListener('change', () => {
   hardwareGroup.visible = $('opt-hardware').checked;
   standoffGroup.visible = $('opt-hardware').checked;
-  kitGroup.visible = $('opt-layout').checked && $('opt-hardware').checked;
+  invalidate();
+});
+
+// le sachet sur le plan se montre indépendamment de la visserie posée : on
+// veut souvent voir le build vissé sans le stock étalé à côté, et l'inverse
+$('opt-kit').addEventListener('change', () => {
+  kitGroup.visible = $('opt-layout').checked && $('opt-kit').checked;
   invalidate();
 });
 
@@ -1644,8 +1703,12 @@ $('asm-assemble-chassis').addEventListener('click', () => {
     // les perçages doivent tomber en face avant qu'on parle de visser
     const snapped = snapToReferenceHoles();
     const posed = placeChassisStandoffs();
+    // la visserie suit les pièces : elle quitte le plan de travail et vient
+    // se poser dans les perçages — sans ça on ne la voyait jamais sur le build
+    const screws = placeHardware({ animated: true });
     updateAsmHint(
-      `Build assemblé${posed ? ` — ${posed} entretoises M2×4×22 posées sur la middle-plate` : ''}`
+      `Build assemblé${screws ? ` — ${screws} vis posées` : ''}`
+      + (posed ? `, ${posed} entretoises M2×4×22 sur la middle-plate` : '')
       + (snapped.length
         ? `, ${snapped.length} pièce(s) recalée(s) sur les perçages `
           + `(jusqu'à ${Math.max(...snapped.map((m) => Math.hypot(m.dx, m.dz))).toFixed(2)} mm)`
@@ -1669,6 +1732,8 @@ $('asm-disassemble').addEventListener('click', () => {
   }
   const { targets, sphere } = captureLayout(true, true);
   setMarkersVisible(false);
+  // la visserie retourne au sachet avant que les pièces ne bougent
+  clearHardware();
   updateAsmHint('Désassemblage en cours…');
   animateTo(targets, () => {
     box.checked = true;

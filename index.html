@@ -97,10 +97,10 @@
         <button id="asm-disassemble">◀ Désassembler</button>
       </div>
       <p class="hint">Les pièces rejoignent leur place dans le châssis, en
-        mouvement, de bas en haut ; 4 entretoises M2×4×22 se posent sur la
-        middle-plate au passage. La vue suit le mouvement et se recadre en
-        glissant. <strong>Désassembler</strong> les ramène exactement d'où
-        elles venaient, à leur rangement sur le plan.</p>
+        mouvement, de bas en haut ; puis <strong>les vis quittent le sachet</strong>
+        et viennent se poser dans leurs perçages. La vue suit le mouvement et
+        se recadre en glissant. <strong>Désassembler</strong> ramène les pièces
+        à leur rangement et les vis au sachet.</p>
     </section>
 
     <section>
@@ -127,7 +127,8 @@
         <em>possible</em> : l'espacement minimal écarte les redondants.</p>
       <label class="ctl">Espacement minimal <output id="v-spacing">8 mm</output>
         <input type="range" id="hw-spacing" min="0" max="30" step="1" value="8"></label>
-      <label class="opt"><input type="checkbox" id="opt-hardware" checked> Afficher la visserie</label>
+      <label class="opt"><input type="checkbox" id="opt-hardware" checked> Afficher la visserie posée</label>
+      <label class="opt"><input type="checkbox" id="opt-kit" checked> Afficher le sachet sur le plan</label>
       <div class="btn-row">
         <button id="hw-place" class="primary">Détecter et poser</button>
         <button id="hw-clear">Retirer</button>

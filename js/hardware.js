@@ -72,8 +72,11 @@ export function standardLength(needed) {
  * Géométrie
  * ------------------------------------------------------------------ */
 
+// Acier clair, et un rien lumineux : une tête de vis fait 3,8 mm sur un
+// châssis noir de 175 mm. Trop sombre, on ne la distingue pas du carbone —
+// c'était le cas, et la visserie posée passait inaperçue.
 const STEEL = new THREE.MeshPhysicalMaterial({
-  color: 0x9aa3ad, metalness: 0.9, roughness: 0.32,
+  color: 0xd2d8e0, metalness: 0.85, roughness: 0.22, emissive: 0x20262e,
 });
 const ANODIZED = new THREE.MeshPhysicalMaterial({
   color: 0x2a2f36, metalness: 0.65, roughness: 0.45,
