@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-04a · cover-01 remis a l endroit, cover-02 pose dessus';
+const BUILD = '2026-08-04b · vis, entretoises, mode fil, mode isole';
 $('build-stamp').textContent = BUILD;
 
 /* ------------------------------------------------------------------ *
@@ -640,8 +640,7 @@ function placeScrewOnMarker(marker) {
   hardwareGroup.add(screw);
   kitStock.set(line.id, kitStock.get(line.id) - 1);
   renderKit();
-  hardwareGroup.visible = $('opt-hardware').checked;
-  invalidate();
+  applyHardwareVisibility();
 
   const play = line.length - needed;
   const where = `${entry.mod.meta.name} #${marker.userData.anchor.index}`;
@@ -866,12 +865,27 @@ function saveHidden() {
   } catch { /* stockage indisponible : valable pour la session */ }
 }
 
+/* Pièce mise en avant par le mode isolé. La sélection elle-même est déclarée
+ * plus bas ; on garde l'identifiant ici pour qu'applyHidden puisse en tenir
+ * compte sans dépendre de l'ordre des déclarations. */
+let isolatedId = null;
+
 /** Applique l'état masqué/visible à toutes les pièces montées. */
 function applyHidden() {
   entries.forEach((e) => {
-    if (e.object) e.object.visible = !hiddenParts.has(e.mod.meta.id);
+    if (!e.object) return;
+    const id = e.mod.meta.id;
+    // le mode isolé ne touche pas à la liste des pièces masquées : il se
+    // superpose, et tout revient en le décochant
+    e.object.visible = !hiddenParts.has(id) && (!isolatedId || id === isolatedId);
   });
   invalidate();
+}
+
+/** Met à jour la pièce isolée d'après la case et la sélection courante. */
+function applyIsolation(id) {
+  isolatedId = $('opt-isolate').checked ? (id || null) : null;
+  applyHidden();
 }
 
 /* ------------------------------------------------------------------ *
@@ -1179,6 +1193,26 @@ function assembledParts() {
     });
 }
 
+/* ------------------------------------------------------------------ *
+ * Visibilité de la visserie
+ *
+ * Vis et entretoises se montrent séparément : on veut souvent voir les
+ * entretoises seules pour juger d'un empilement, ou les vis seules pour
+ * vérifier ce qui dépasse. Les deux cases vivent dans le menu Affichage ;
+ * un seul point de vérité, appelé partout où la visserie change.
+ * ------------------------------------------------------------------ */
+
+function applyHardwareVisibility() {
+  const vis = $('opt-screws').checked;
+  const entretoises = $('opt-standoffs').checked;
+  hardwareGroup.visible = vis || entretoises;
+  for (const o of hardwareGroup.children) {
+    o.visible = o.name === 'standoff' ? entretoises : vis;
+  }
+  standoffGroup.visible = entretoises;
+  invalidate();
+}
+
 function clearHardware() {
   while (hardwareGroup.children.length) {
     const child = hardwareGroup.children[0];
@@ -1288,8 +1322,7 @@ function placeHardware(options = {}) {
 
   renderBom(assigned, sites, candidates.length, missing, hw.unfastened(parts, assigned), parts);
   renderKit();
-  hardwareGroup.visible = $('opt-hardware').checked;
-  invalidate();
+  applyHardwareVisibility();
 
   // la visserie part du plan et va se poser : plus courte que le mouvement
   // des pièces, une vis n'a que quelques centimètres à faire
@@ -1371,11 +1404,8 @@ $('hw-clear').addEventListener('click', () => {
   clearHardware();
   updateAsmHint('Visserie retirée.');
 });
-$('opt-hardware').addEventListener('change', () => {
-  hardwareGroup.visible = $('opt-hardware').checked;
-  standoffGroup.visible = $('opt-hardware').checked;
-  invalidate();
-});
+$('opt-screws').addEventListener('change', applyHardwareVisibility);
+$('opt-standoffs').addEventListener('change', applyHardwareVisibility);
 
 // le sachet sur le plan se montre indépendamment de la visserie posée : on
 // veut souvent voir le build vissé sans le stock étalé à côté, et l'inverse
@@ -1438,7 +1468,7 @@ function renderStandoffs() {
     mesh.position.set(at.x, at.y, at.z);
     standoffGroup.add(mesh);
   });
-  standoffGroup.visible = $('opt-hardware').checked;
+  applyHardwareVisibility();
   invalidate();
 }
 
@@ -1895,12 +1925,14 @@ function applySelectionLook() {
 function selectPart(id) {
   selectedId = id;
   applySelectionLook();
+  applyIsolation(id);
   renderPartToolbar();
 }
 
 function clearPartSelection() {
   selectedId = null;
   applySelectionLook();
+  applyIsolation(null);
   renderPartToolbar();
 }
 
@@ -2780,13 +2812,17 @@ document.querySelectorAll('[data-view]').forEach((btn) => {
   btn.addEventListener('click', () => setView(VIEWS[btn.dataset.view], btn.dataset.view));
 });
 
-/** Arêtes, transparence de la plaque sous le calque photo. */
+/** Arêtes, mode fil, transparence de la plaque sous le calque photo. */
 function applyDisplayOptions() {
-  const showEdges = $('opt-edges').checked;
+  const fil = $('opt-wire').checked;
+  // en mode fil les arêtes restent allumées quoi qu'il arrive : sans elles on
+  // ne voit plus que le maillage, et le contour de la pièce se perd dedans
+  const showEdges = $('opt-edges').checked || fil;
   const ghost = $('opt-photo').checked && !!photoPlane;
   buildRoot.traverse((o) => {
     if (o.name === 'edges') o.visible = showEdges;
     if (o.name === 'body' && o.material) {
+      o.material.wireframe = fil;
       o.material.transparent = ghost;
       o.material.opacity = ghost ? 0.55 : 1;
       o.material.needsUpdate = true;
@@ -2800,6 +2836,8 @@ function applyDisplayOptions() {
 controls.addEventListener('start', () => { camMotion = null; });
 
 $('opt-edges').addEventListener('change', applyDisplayOptions);
+$('opt-wire').addEventListener('change', applyDisplayOptions);
+$('opt-isolate').addEventListener('change', () => applyIsolation(selectedId));
 
 /* --- repères de perçage : visibles ou non, d'une session à l'autre --- */
 const MARKERS_KEY = 'tinyhoop-mk1:markers';
@@ -3573,6 +3611,9 @@ if (new URLSearchParams(location.search).has('debug')) {
   window.__assembledParts = assembledParts;
   window.__layout = layoutParts;
   window.__hw = hw;
+  window.__hwGroup = hardwareGroup;
+  window.__standoffGroup = standoffGroup;
+  window.__selectPart = selectPart;
 
   /** Encombrement au sol de chaque pièce, pour vérifier la disposition. */
   window.__benchBoxes = () => {

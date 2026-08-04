@@ -1,7 +1,7 @@
 {
  "tool": "tinyhoop-mk1-workspace",
  "version": 1,
- "savedAt": "2026-08-04T11:31:31.775965Z",
+ "savedAt": "2026-08-04T17:12:00.583334Z",
  "placements": {
   "camera-mount": {
    "x": -14.465,
@@ -139,44 +139,44 @@
    "manual": true
   },
   "footpad-ar-l": {
-   "x": 70.712,
+   "x": 70.6555,
    "y": -7.95,
-   "z": 80.405,
+   "z": 80.5216,
    "rotX": 0,
-   "rotY": 3.137,
+   "rotY": 3.141787,
    "rotZ": 0,
    "manual": true,
    "refId": "arm-long-l",
    "side": "below"
   },
   "footpad-ar-r": {
-   "x": -70.713,
+   "x": -70.7461,
    "y": -7.95,
-   "z": 80.404,
+   "z": 80.479,
    "rotX": 0,
-   "rotY": 1.574,
+   "rotY": 1.570602,
    "rotZ": 0,
    "manual": true,
    "refId": "arm-long-r",
    "side": "below"
   },
   "footpad-av-l": {
-   "x": -70.477,
+   "x": -70.6136,
    "y": -7.95,
-   "z": -22.22,
+   "z": -22.5388,
    "rotX": 0,
-   "rotY": 0.399,
+   "rotY": 0.411602,
    "rotZ": 0,
    "manual": true,
    "refId": "arm-short-l",
    "side": "below"
   },
   "footpad-av-r": {
-   "x": 70.478,
+   "x": 70.2569,
    "y": -7.95,
-   "z": -22.218,
+   "z": -22.538,
    "rotX": 0,
-   "rotY": -1.971,
+   "rotY": -1.982398,
    "rotZ": 0,
    "manual": true,
    "refId": "arm-short-r",

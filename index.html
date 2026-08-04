@@ -37,6 +37,13 @@
       <label class="opt"><input type="checkbox" id="opt-rotate"> Rotation auto</label>
       <label class="opt"><input type="checkbox" id="opt-layout" checked> Pièces côte à côte</label>
       <label class="opt"><input type="checkbox" id="opt-markers" checked> Repères de perçage</label>
+      <label class="opt"><input type="checkbox" id="opt-screws" checked> Vis posées</label>
+      <label class="opt"><input type="checkbox" id="opt-standoffs" checked> Entretoises posées</label>
+      <label class="opt"><input type="checkbox" id="opt-wire"> Mode fil (arêtes seules)</label>
+      <label class="opt"><input type="checkbox" id="opt-isolate"> Isoler la pièce sélectionnée</label>
+      <p class="hint"><strong>Isoler</strong> ne montre que la pièce cliquée —
+        dans la scène ou dans la liste de gauche. Décoche pour tout revoir : les
+        pièces masquées à la main gardent leur état.</p>
       <label class="slider">
         Vue éclatée <span id="explode-val">0 mm</span>
         <input type="range" id="explode" min="0" max="60" step="1" value="0">
@@ -110,8 +117,9 @@
         redondants.</p>
       <label class="ctl">Espacement minimal <output id="v-spacing">8 mm</output>
         <input type="range" id="hw-spacing" min="0" max="30" step="1" value="8"></label>
-      <label class="opt"><input type="checkbox" id="opt-hardware" checked> Afficher la visserie posée</label>
       <label class="opt"><input type="checkbox" id="opt-kit" checked> Afficher le sachet sur le plan</label>
+      <p class="hint">Vis et entretoises posées s'affichent ou se cachent
+        séparément, depuis le menu <strong>Affichage</strong>.</p>
       <div class="btn-row">
         <button id="hw-place" class="primary">Détecter et poser</button>
         <button id="hw-clear">Retirer</button>

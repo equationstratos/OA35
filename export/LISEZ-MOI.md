@@ -19,13 +19,29 @@ le ZIP de STL), insérées par *Insérer un maillage*.
 
 ## Trois corrections sur la géométrie
 
-**Perçages moteur des bras arrière.** Le fichier `arm-long1.stl` fourni ne
-dessine pas les quatre trous de vis moteur : à leur place une ouverture en
-croix de 10 × 10 mm qui les relie tous. Le bras avant, lui, porte le motif
-complet — quatre M2 sur un carré de 7,48 mm plus un passage d'arbre Ø4,25. Ce
-motif a été rétabli sur les bras arrière, centré sur la croix, aux mêmes
-positions de vis. C'est une modification volontaire du fichier d'origine : les
-quatre bras portent maintenant le même montage moteur.
+**Perçages moteur, les quatre bras.** Deux défauts différents dans les fichiers
+fournis, une seule correction.
+
+`arm-long1.stl` ne dessine pas les quatre trous de vis moteur : à leur place
+une ouverture en croix de 10 × 10 mm qui les relie tous. `arm-short1.stl`, lui,
+les dessine — mais en **oblongs** : deux lobes Ø1,85 espacés de 1,5 mm, à 45°,
+pointant vers l'extérieur depuis le passage d'arbre. Ce sont ces oblongs qui
+apparaissaient comme des « trous en ellipse ». Le trou y accepte donc un rayon
+de montage compris entre 4,58 et 6,07 mm — c'est une lumière de réglage, pas
+une erreur, mais on ne peut pas la modéliser comme un point de vissage.
+
+Les quatre bras portent maintenant **quatre perçages ronds Ø1,85 à 6,00 mm du
+passage d'arbre**, sur les diagonales à 45° — soit un carré de 8,49 mm de côté,
+12,0 mm en diagonale. Cette cote-là n'est pas choisie au hasard : **les quatre
+perçages Ø2,0 du patin sont exactement à 6,00 mm de son centre**. Vis moteur,
+bras et patin tombent donc sur le même motif, ce qui n'était pas le cas avant
+(le carré relevé au centre des oblongs faisait 7,48 mm de côté, soit 0,71 mm
+d'écart radial avec le patin sur chaque vis).
+
+Les quatre patins ont été recalés dessus par ajustement rigide : l'écart
+résiduel mesuré sur le build assemblé est de **0,05 à 0,20 mm** contre 0,54 à
+0,89 mm avant, et ce qui reste vient du recalage automatique de l'assemblage,
+pas de la géométrie.
 
 **Chanfrein.** Les contours étaient relevés sur la face supérieure des STL, qui
 porte un chanfrein de 0,08 mm : le contour y était 0,16 mm trop petit et chaque
