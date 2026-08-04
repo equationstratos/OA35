@@ -1,7 +1,7 @@
 {
  "tool": "tinyhoop-mk1-workspace",
  "version": 1,
- "savedAt": "2026-08-03T22:52:57.308169Z",
+ "savedAt": "2026-08-04T11:31:31.775965Z",
  "placements": {
   "camera-mount": {
    "x": -14.465,
@@ -117,10 +117,10 @@
    "manual": true
   },
   "cover-01": {
-   "x": -0.8,
-   "y": -1.4,
-   "z": 21.8,
-   "rotY": 0,
+   "x": -0.4,
+   "y": 3.5,
+   "z": 27.75,
+   "rotY": 3.141592653589793,
    "rotX": 0,
    "rotZ": 0,
    "manual": true,
@@ -128,9 +128,9 @@
    "side": "above"
   },
   "cover-02": {
-   "x": 0.368,
-   "y": 16.248,
-   "z": 56.368,
+   "x": -0.6,
+   "y": 27.8,
+   "z": 48.6,
    "rotY": 0,
    "rotX": 0,
    "rotZ": 0,

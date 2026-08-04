@@ -57,10 +57,13 @@ Le plan `tinyhoop-mk1-plan-corrige.json` pose l'empilement prêt à visser :
 | chant avant de la plaque contre la lèvre des joues | 0,000 / 0,017 mm |
 | support GPS sur la plaque supérieure | 0,000 mm |
 | support d'antenne VTX sur la plaque supérieure | 0,000 mm |
-| capot `cover-02` sous la plaque supérieure | 1,62 mm (jeu d'origine) |
+| capot `cover-01` contre la plaque supérieure | 0,023 mm |
+| capot `cover-01` au-dessus de la plaque intermédiaire | 0,074 mm |
+| capot `cover-02` sur le capot `cover-01` | 0,004 mm |
 
-Aucune interpénétration nulle part : chaque contact a été vérifié sommet par
-sommet, dans les deux sens.
+Aucune interpénétration : pas un seul des 32 868 sommets du `cover-01` ni des
+11 472 du `cover-02` n'est dans la matière d'une plaque, d'un bras ou d'un
+support.
 
 ### La plaque supérieure était posée sur la lèvre, pas sur l'épaulement
 
@@ -87,8 +90,8 @@ seul perçage :
   couples de perçages symétriques de la plaque inférieure et de la plaque
   intermédiaire), ce qui fixe sa position en largeur.
 
-Le support GPS et le capot `cover-02` ont suivi la même translation ; les deux
-oreilles du support GPS retombent à 0,178 mm des perçages avant de la plaque.
+Le support GPS a suivi la même translation ; ses deux oreilles retombent à
+0,178 mm des perçages avant de la plaque.
 
 **Ces pièces sont sur-contraintes : six vis, et les six trous ne peuvent pas
 tomber en face en même temps.** Voici les écarts, mesurés :
@@ -115,6 +118,36 @@ Son encombrement descend à 32,44, mais ce point bas est un ergot situé
 171,9 mm² — est 1,61 mm plus haut. Elle est maintenant plaquée sur le dessus
 de la plaque : jeu 0,000 mm, aucune interpénétration (mesuré sur les 63 096
 sommets de la pièce).
+
+### Le `cover-01` était monté à l'envers
+
+C'est la cause des « collisions et formes qui se mélangent ». À la place où le
+plan le posait, **9 712 de ses 32 868 sommets étaient dans la matière** — 30 %
+de la pièce. Il traversait la plaque intermédiaire, les deux joues de caméra,
+la plaque inférieure et les deux bras avant.
+
+Le capot n'a aucun perçage : impossible de le caler sur des trous comme les
+plaques. La position a donc été cherchée par occupation — on balaie les
+décalages et on compte les points dans la matière, le test étant fait au rayon
+contre le maillage, sans voxel qui épaissirait artificiellement les pièces.
+
+Dans le sens où il était posé, **il n'existe aucune position qui l'y fasse
+entrer** : le balayage de ±5 mm en travers, ±18 mm en profondeur et ±16 mm en
+hauteur ne donne que des positions où il flotte au-dessus du build. Le mieux
+qu'on puisse faire dans ce sens laisse 322 sommets dans la plaque
+intermédiaire, et le capot part 8 mm trop en arrière.
+
+**Tourné de 180°, il tombe en place.** Sa position est maintenant
+x −0,40 · y 3,50 · z 27,75, demi-tour sur l'axe vertical : **zéro sommet dans
+la matière**, et il est bien posé — 0,05 mm plus bas, il touche la plaque
+supérieure. Il est donc pris entre la plaque supérieure (0,023 mm) et la
+plaque intermédiaire (0,074 mm), et il dégage les joues de caméra de 2,87 mm.
+C'est aussi le seul sens qui donne la silhouette de la photo du fabricant :
+haut vers l'avant, redescendant vers l'arrière.
+
+Le `cover-02` a suivi la même méthode, une fois le `cover-01` en place :
+x −0,60 · y 27,80 · z 48,60. Zéro sommet dans la matière, posé sur le
+`cover-01` à 0,004 mm, 0,488 mm sous la plaque supérieure.
 
 ### Le support d'antenne VTX allait **sur** la plaque, pas dessous
 

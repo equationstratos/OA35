@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-03m · coin avant gauche repare, support VTX sur la plaque';
+const BUILD = '2026-08-04a · cover-01 remis a l endroit, cover-02 pose dessus';
 $('build-stamp').textContent = BUILD;
 
 /* ------------------------------------------------------------------ *
