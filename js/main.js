@@ -35,8 +35,14 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-04b · vis, entretoises, mode fil, mode isole';
+const BUILD = '2026-08-04c · visserie masquable partout, capots separes G/D';
 $('build-stamp').textContent = BUILD;
+
+/* Les trois groupes de visserie — sachet du plan de travail, visserie posée,
+ * entretoises placées à la main — s'inscrivent ici à leur création. La
+ * visibilité peut alors s'appliquer dès le premier rendu, sans dépendre de
+ * l'ordre des déclarations dans le fichier. */
+const visserieGroupes = new Map();
 
 /* ------------------------------------------------------------------ *
  * Scène
@@ -251,7 +257,7 @@ const BENCH_BLOCKS = [
     // les covers d'abord, donc à gauche du bloc ; le reste des pièces
     // imprimées suit et passe à la ligne tout seul
     ids: [
-      'cover-01', 'cover-02',
+      'cover-01-g', 'cover-01-d', 'cover-02-g', 'cover-02-d',
       'gps-mount', 'vtx-mount', 'camera-mount', 'camera-mount-mirror',
       'footpad-ar-l', 'footpad-ar-r', 'footpad-av-l', 'footpad-av-r',
     ],
@@ -501,6 +507,7 @@ function renderReservedZones() {
 
 const kitGroup = new THREE.Group();
 kitGroup.name = 'screw-kit';
+visserieGroupes.set('kit', kitGroup);
 scene.add(kitGroup);
 
 /** Ce qui reste du sachet : { id de ligne -> nombre encore disponible }. */
@@ -562,7 +569,7 @@ function renderKit() {
     }
     z += rows * PITCH + 4;
   }
-  invalidate();
+  applyHardwareVisibility();
 }
 
 /** Vis du sachet visables au lancer de rayon. */
@@ -776,7 +783,7 @@ function layoutParts() {
   // là même une fois le build monté — c'est dedans qu'on va prendre les vis à
   // poser une par une
   reservedGroup.visible = sideBySide;
-  kitGroup.visible = $('opt-kit').checked;
+  applyHardwareVisibility();
 
   entries.forEach((e, i) => {
     if (!e.holder) return;
@@ -1057,6 +1064,7 @@ function entryById(id) {
 
 const hardwareGroup = new THREE.Group();
 hardwareGroup.name = 'hardware';
+visserieGroupes.set('hardware', hardwareGroup);
 scene.add(hardwareGroup);
 
 /** Perçages d'une pièce, en coordonnées monde. */
@@ -1205,11 +1213,19 @@ function assembledParts() {
 function applyHardwareVisibility() {
   const vis = $('opt-screws').checked;
   const entretoises = $('opt-standoffs').checked;
-  hardwareGroup.visible = vis || entretoises;
-  for (const o of hardwareGroup.children) {
-    o.visible = o.name === 'standoff' ? entretoises : vis;
+  // Toute la visserie de la scène, pas seulement celle posée sur le build : le
+  // sachet étalé sur le plan de travail en fait partie. C'est là qu'on voyait
+  // encore des vis après avoir décoché la case. Une étiquette de ligne du
+  // sachet suit les vis — le sachet n'est fait que de ça.
+  for (const g of visserieGroupes.values()) {
+    for (const o of g.children) o.visible = o.name === 'standoff' ? entretoises : vis;
   }
-  standoffGroup.visible = entretoises;
+  const pose = visserieGroupes.get('hardware');
+  const manuelles = visserieGroupes.get('standoffs');
+  const sachet = visserieGroupes.get('kit');
+  if (pose) pose.visible = vis || entretoises;
+  if (manuelles) manuelles.visible = entretoises;
+  if (sachet) sachet.visible = $('opt-kit').checked && (vis || entretoises);
   invalidate();
 }
 
@@ -1327,7 +1343,7 @@ function placeHardware(options = {}) {
   // la visserie part du plan et va se poser : plus courte que le mouvement
   // des pièces, une vis n'a que quelques centimètres à faire
   if (animated && moves.length) {
-    kitGroup.visible = $('opt-kit').checked;
+    applyHardwareVisibility();
     runMotion(moves, null, { duration: 700, stagger: 45 });
   }
   return assigned.length;
@@ -1409,10 +1425,7 @@ $('opt-standoffs').addEventListener('change', applyHardwareVisibility);
 
 // le sachet sur le plan se montre indépendamment de la visserie posée : on
 // veut souvent voir le build vissé sans le stock étalé à côté, et l'inverse
-$('opt-kit').addEventListener('change', () => {
-  kitGroup.visible = $('opt-kit').checked;
-  invalidate();
-});
+$('opt-kit').addEventListener('change', applyHardwareVisibility);
 
 /* ------------------------------------------------------------------ *
  * Entretoises posées à la main
@@ -1422,6 +1435,7 @@ $('opt-kit').addEventListener('change', () => {
  * elle doit suivre la rotation automatique comme les plaques. */
 const standoffGroup = new THREE.Group();
 standoffGroup.name = 'standoffs';
+visserieGroupes.set('standoffs', standoffGroup);
 buildRoot.add(standoffGroup);
 
 let standoffs = so.load();
@@ -3605,6 +3619,7 @@ if (new URLSearchParams(location.search).has('debug')) {
   // la scène elle-même : les boîtes englobantes ne disent pas dans quel sens
   // pointe une pièce, il faut pouvoir remonter à ses sommets
   window.__buildRoot = buildRoot;
+  window.__scene = scene;
   window.__THREE = THREE;
   window.__camera = camera;
   window.__controls = controls;

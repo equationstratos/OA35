@@ -72,14 +72,10 @@ Le plan `tinyhoop-mk1-plan-corrige.json` pose l'empilement prêt à visser :
 | plaque supérieure sur les deux joues de caméra | 0,000 mm |
 | chant avant de la plaque contre la lèvre des joues | 0,000 / 0,017 mm |
 | support GPS sur la plaque supérieure | 0,000 mm |
-| support d'antenne VTX sur la plaque supérieure | 0,000 mm |
-| capot `cover-01` contre la plaque supérieure | 0,023 mm |
-| capot `cover-01` au-dessus de la plaque intermédiaire | 0,074 mm |
-| capot `cover-02` sur le capot `cover-01` | 0,004 mm |
+| support d'antenne VTX sur la plaque intermédiaire | 0,000 mm |
 
-Aucune interpénétration : pas un seul des 32 868 sommets du `cover-01` ni des
-11 472 du `cover-02` n'est dans la matière d'une plaque, d'un bras ou d'un
-support.
+Les quatre capots (voir plus bas) sont laissés à leur pose d'origine : ils
+attendent d'être placés flanc par flanc.
 
 ### La plaque supérieure était posée sur la lèvre, pas sur l'épaulement
 
@@ -135,52 +131,44 @@ Son encombrement descend à 32,44, mais ce point bas est un ergot situé
 de la plaque : jeu 0,000 mm, aucune interpénétration (mesuré sur les 63 096
 sommets de la pièce).
 
-### Le `cover-01` était monté à l'envers
+### Chaque fichier de capot contient DEUX coques
 
-C'est la cause des « collisions et formes qui se mélangent ». À la place où le
-plan le posait, **9 712 de ses 32 868 sommets étaient dans la matière** — 30 %
-de la pièce. Il traversait la plaque intermédiaire, les deux joues de caméra,
-la plaque inférieure et les deux bras avant.
+C'est l'explication de tout ce qui coinçait. `oasisfly35DC-Cover-01.stl` et
+`oasisfly35 DC-Cover-02.stl` ne contiennent pas un capot chacun mais **deux
+coques distinctes, un flanc gauche et un flanc droit**, écartées de 33,5 mm
+pour le cover 01 et de 23,6 mm pour le cover 02. Vérifié par découpe en
+composantes connexes : deux volumes séparés, identiques au miroir près
+(5 478 facettes et 2 303,8 mm³ chacun pour le cover 01).
 
-Le capot n'a aucun perçage : impossible de le caler sur des trous comme les
-plaques. La position a donc été cherchée par occupation — on balaie les
-décalages et on compte les points dans la matière, le test étant fait au rayon
-contre le maillage, sans voxel qui épaissirait artificiellement les pièces.
+Chargées d'un bloc, les deux coques formaient **une seule pièce rigide dont
+l'écartement était figé**. D'où l'impasse : aucune position ne la faisait
+entrer dans le châssis sans traverser une plaque, et il était impossible de
+poser un flanc sans l'autre.
 
-Dans le sens où il était posé, **il n'existe aucune position qui l'y fasse
-entrer** : le balayage de ±5 mm en travers, ±18 mm en profondeur et ±16 mm en
-hauteur ne donne que des positions où il flotte au-dessus du build. Le mieux
-qu'on puisse faire dans ce sens laisse 322 sommets dans la plaque
-intermédiaire, et le capot part 8 mm trop en arrière.
+Les coques ont été **séparées à la source** — `cover-01-gauche.stl`,
+`cover-01-droite.stl`, `cover-02-gauche.stl`, `cover-02-droite.stl`, obtenus
+par découpe en composantes connexes, sans la moindre retouche de géométrie —
+et chacune est maintenant une pièce à part entière du visualisateur :
+*Cover 01 gauche*, *Cover 01 droit*, *Cover 02 gauche*, *Cover 02 droit*.
 
-**Tourné de 180°, il tombe en place.** Sa position est maintenant
-x −0,40 · y 3,50 · z 27,75, demi-tour sur l'axe vertical : **zéro sommet dans
-la matière**, et il est bien posé — 0,05 mm plus bas, il touche la plaque
-supérieure. Il est donc pris entre la plaque supérieure (0,023 mm) et la
-plaque intermédiaire (0,074 mm), et il dégage les joues de caméra de 2,87 mm.
-C'est aussi le seul sens qui donne la silhouette de la photo du fabricant :
-haut vers l'avant, redescendant vers l'arrière.
+Elles sont replacées **dans leur sens d'origine** (aucune rotation) et à leur
+position d'origine, chaque coque décalée de l'écart entre son propre centre et
+celui de la paire — le modèle est donc, au pixel près, celui du fichier de
+départ, mais les quatre flancs se déplacent maintenant séparément.
 
-Le `cover-02` a suivi la même méthode, une fois le `cover-01` en place :
-x −0,60 · y 27,80 · z 48,60. Zéro sommet dans la matière, posé sur le
-`cover-01` à 0,004 mm, 0,488 mm sous la plaque supérieure.
+### Le support d'antenne VTX, et le conflit qui reste
 
-### Le support d'antenne VTX allait **sur** la plaque, pas dessous
+Il n'est pas mal placé en X/Y : ses deux bossages Ø4 tombent à **0,003 et
+0,064 mm** des M2 de la plaque intermédiaire. C'est sur ces deux perçages-là
+qu'il se visse, et il y est reposé, pied à 6,75 sur la plaque intermédiaire.
 
-Le plan le posait sur la plaque intermédiaire, pied à 6,75. Avec la plaque
-supérieure à sa vraie place, ses montants la traversaient de 2,56 mm — c'est le
-« l'arrière de la top plate dépasse sur le support antenne » constaté à
-l'écran.
-
-Ce n'était pas une erreur de position en X/Y : ses deux bossages Ø4 tombent à
-**0,003 et 0,064 mm** des M2 de la plaque intermédiaire, il était donc bien
-placé sur ses perçages. Ce qui n'allait pas, c'est l'étage : ces deux M2
-traversent aussi la plaque supérieure, et un support d'antenne enterré sous la
-plaque n'a pas de sens — l'antenne sort par le haut, à l'arrière. Il est
-maintenant posé **sur** la plaque supérieure (pied à 30,690, sommet à 55,19),
-recentré sur les perçages arrière de celle-ci (0,116 mm) : une vis M2 traverse
-support VTX → plaque supérieure → plaque intermédiaire. Contact 0,000 mm,
-plus aucune matière en commun avec la plaque.
+Reste que ses montants culminent à **31,25**, alors que la plaque supérieure
+est à sa vraie place, dessous à 28,69. Deux d'entre eux la traversent donc de
+**2,56 mm** — le troisième, le plus en arrière, passe derrière le bord de la
+plaque et ne gêne pas. Le poser sous la plaque enterrerait tout son pied dans
+la plaque intermédiaire (mesuré : 837 sommets dans la matière). À arbitrer :
+raccourcir les deux montants de 2,56 mm, ou reculer le support d'une dizaine
+de millimètres.
 
 ## Couleurs
 
@@ -202,18 +190,19 @@ rédacteur STEP perd une des deux couleurs (vérifié sur un cas réduit). Le
 fichier pèse plus lourd — les quatre patins y sont écrits quatre fois — mais
 il arrive teinté.
 
-## TinyHoop-MK1-build-complet.step — 44 Mo, 18 corps nommés
+## TinyHoop-MK1-build-complet.step — 20 corps nommés
 
 *(et sa version allégée `TinyHoop-MK1-build-leger.step`, 23 Mo : même contenu,
 mêmes couleurs, mêmes positions, maillages plus grossiers — écart jusqu'à
 0,55 mm au lieu de 0,29. Elle existe parce que 44 Mo ne passent pas par la
 messagerie.)*
 
-Un assemblage de 18 corps nommés :
+Un assemblage de 20 corps nommés :
 
 - les 8 pièces carbone en **formes exactes** (contour extrudé, perçages en
   vrais cercles) — identiques au fichier châssis ;
-- les 10 pièces imprimées en solides facettés **simplifiés**.
+- les 12 pièces imprimées en solides facettés **simplifiés** (les capots
+  comptent pour quatre depuis leur séparation en flancs gauche et droit).
 
 Écart mesuré des pièces simplifiées, distance point-surface dans les deux
 sens : **0,006 à 0,030 mm en moyenne, 0,11 à 0,29 mm au pire** — soit moins
@@ -234,11 +223,11 @@ Les 8 pièces carbone seules, formes exactes, corps nommés, teintées carbone.
 Faces planes sur lesquelles esquisser, trous cylindriques mesurables. Rien n'y
 est approché.
 
-## Les 10 pièces imprimées, maillages à pleine résolution
+## Les 12 pièces imprimées, maillages à pleine résolution
 
 Même contenu dans deux formats, positions vérifiées à 0,000 mm :
 
-- `TinyHoop-MK1-pieces-imprimees-STL.zip` — dix STL binaires, un par pièce,
+- `TinyHoop-MK1-pieces-imprimees-STL.zip` — douze STL binaires, un par pièce,
   déjà placés. *Insérer un maillage*, tout sélectionner d'un coup, ne toucher
   à aucun réglage de la boîte de dialogue.
 - `TinyHoop-MK1-pieces-imprimees.3mf` — un seul fichier, corps nommés.

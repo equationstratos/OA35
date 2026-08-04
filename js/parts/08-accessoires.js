@@ -22,15 +22,32 @@ const FOOTPAD_SLOTS = [
 ];
 
 export const ACCESSORIES = await Promise.all([
+  // Les deux fichiers de capot contiennent CHACUN DEUX coques distinctes, un
+  // flanc gauche et un flanc droit, écartés de 33,5 mm (cover 01) et 23,6 mm
+  // (cover 02). Les charger d'un bloc en faisait une seule pièce rigide dont
+  // l'écartement était figé : impossible de la loger, et impossible de placer
+  // un flanc sans l'autre. Les coques ont été séparées à la source (fichiers
+  // `cover-0x-gauche.stl` / `-droite.stl`, obtenus par découpe en composantes
+  // connexes, aucune modification de géométrie) et chacune est une pièce.
   meshPart({
-    url: 'assets/parts-3d/oasisfly35DC-Cover-01.stl',
-    id: 'cover-01', index: 10, name: 'Cover 01',
-    material: PRINTED, source: 'fichier STL fourni',
+    url: 'assets/parts-3d/cover-01-gauche.stl',
+    id: 'cover-01-g', index: 10, name: 'Cover 01 gauche',
+    material: PRINTED, source: 'coque gauche de oasisfly35DC-Cover-01.stl',
   }),
   meshPart({
-    url: 'assets/parts-3d/oasisfly35 DC-Cover-02.stl',
-    id: 'cover-02', index: 11, name: 'Cover 02',
-    material: PRINTED, source: 'fichier STL fourni',
+    url: 'assets/parts-3d/cover-01-droite.stl',
+    id: 'cover-01-d', index: 11, name: 'Cover 01 droit',
+    material: PRINTED, source: 'coque droite de oasisfly35DC-Cover-01.stl',
+  }),
+  meshPart({
+    url: 'assets/parts-3d/cover-02-gauche.stl',
+    id: 'cover-02-g', index: 20, name: 'Cover 02 gauche',
+    material: PRINTED, source: 'coque gauche de oasisfly35 DC-Cover-02.stl',
+  }),
+  meshPart({
+    url: 'assets/parts-3d/cover-02-droite.stl',
+    id: 'cover-02-d', index: 21, name: 'Cover 02 droit',
+    material: PRINTED, source: 'coque droite de oasisfly35 DC-Cover-02.stl',
   }),
   meshPart({
     url: 'assets/parts-3d/oasisfly-35-front-GPS-mount.STL',
