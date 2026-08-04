@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-04c · visserie masquable partout, capots separes G/D';
+const BUILD = '2026-08-04d · etabli stable, desassemblage par le haut';
 $('build-stamp').textContent = BUILD;
 
 /* Les trois groupes de visserie — sachet du plan de travail, visserie posée,
@@ -305,15 +305,38 @@ let reservedZones = [];
 /**
  * Encombrement au sol d'une pièce, dans son orientation d'établi.
  *
- * Mesuré sur la géométrie montée (boîte de la géométrie transformée par
- * l'objet), pas déduit des cotes nominales : une plaque est couchée, un
- * maillage peut être basculé, et une pièce tournée d'un quart de tour
- * échange sa longueur et sa largeur.
+ * Mesuré sur la géométrie DANS LE REPÈRE DE SON PORTEUR, et non dans le monde.
+ * C'est la correction d'un défaut visible : une pièce prise dans le build est
+ * tournée et posée en l'air, sa boîte monde ne dit donc plus rien de la place
+ * qu'elle prend à plat. La disposition de l'établi, qui se calcule à partir de
+ * ces encombrements, sortait différente selon que le build était monté ou non
+ * — et au désassemblage les pièces ne retombaient pas dans la même case que
+ * celle d'où elles étaient parties.
+ *
+ * Le relevé ne dépend plus que de la géométrie : il est fait une fois et gardé,
+ * la clé étant la géométrie elle-même (une pièce remise en miroir ou remise à
+ * l'échelle en reçoit une neuve, et se fait donc remesurer).
+ *
+ * Mesuré, et non déduit des cotes nominales : une plaque est couchée, un
+ * maillage peut être basculé, et une pièce tournée d'un quart de tour échange
+ * sa longueur et sa largeur.
  */
 function benchFootprint(entry, rotY = 0) {
-  const box = new THREE.Box3().setFromObject(entry.object);
-  const sx = box.max.x - box.min.x;
-  const sz = box.max.z - box.min.z;
+  const body = entry.object && entry.object.getObjectByName('body');
+  const key = body ? body.geometry.uuid : null;
+  if (!entry.footprint || entry.footprintKey !== key) {
+    const keep = { p: entry.holder.position.clone(), q: entry.holder.quaternion.clone() };
+    entry.holder.position.set(0, 0, 0);
+    entry.holder.quaternion.identity();
+    entry.holder.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(entry.object);
+    entry.footprint = { x: box.max.x - box.min.x, z: box.max.z - box.min.z };
+    entry.footprintKey = key;
+    entry.holder.position.copy(keep.p);
+    entry.holder.quaternion.copy(keep.q);
+    entry.holder.updateMatrixWorld(true);
+  }
+  const { x: sx, z: sz } = entry.footprint;
   const c = Math.abs(Math.cos(rotY));
   const s = Math.abs(Math.sin(rotY));
   return { x: sx * c + sz * s, z: sx * s + sz * c };
@@ -705,7 +728,7 @@ const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2)
  * @param {Map} targets id -> { position, quaternion } visés
  * @param {function} done appelée à la fin
  */
-function animateTo(targets, done) {
+function animateTo(targets, done, timing = {}) {
   const moves = [];
   entries.forEach((e) => {
     const target = targets.get(e.mod.meta.id);
@@ -716,7 +739,7 @@ function animateTo(targets, done) {
       to: target,
     });
   });
-  runMotion(moves, done);
+  runMotion(moves, done, timing);
 }
 
 /**
@@ -733,8 +756,14 @@ function animateTo(targets, done) {
 function runMotion(moves, done, timing = {}) {
   const DURATION = timing.duration || 900;   // par objet, en ms
   const STAGGER = timing.stagger || 120;     // décalage d'un objet au suivant
-  // du plus bas au plus haut : c'est l'ordre de montage
-  moves.sort((a, b) => a.to.position.y - b.to.position.y);
+  // Au montage : du plus bas au plus haut, c'est l'ordre où l'on visse.
+  // Au démontage : du plus haut au plus bas, comme on démonte pour de vrai —
+  // et là c'est la hauteur DE DÉPART qui compte, puisque toutes les pièces
+  // vont au même niveau, sur l'établi. Trier sur l'arrivée les faisait partir
+  // dans un ordre quelconque, capot avant plaque supérieure.
+  moves.sort((a, b) => (timing.descending
+    ? b.from.p.y - a.from.p.y
+    : a.to.position.y - b.to.position.y));
   moves.forEach((m, i) => { m.delay = i * STAGGER; });
 
   const total = DURATION + Math.max(0, moves.length - 1) * STAGGER;
@@ -1904,7 +1933,7 @@ $('asm-disassemble').addEventListener('click', () => {
     forceBench = true;
     layoutParts();
     updateAsmHint('Pièces revenues à leur place sur le plan.', 'ok');
-  });
+  }, { descending: true });
   flyToFrame(sphere, motion ? motion.total : 900);
 });
 
