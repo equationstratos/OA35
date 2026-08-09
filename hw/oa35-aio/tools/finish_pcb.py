@@ -238,11 +238,39 @@ def patch_project():
     json.dump(doc, open(path, 'w'), indent=2, sort_keys=True)
 
 
+def bare_nets(board):
+    """Nets that have more than one pad and no copper at all on them.
+
+    The router prints "Auto-routing was completed" whether or not it managed
+    to route everything, so this is the check that decides.
+    """
+    import collections
+    pads = collections.Counter()
+    for fp in board.GetFootprints():
+        for pad in fp.Pads():
+            name = pad.GetNetname()
+            if name:
+                pads[name] += 1
+    copper = collections.Counter()
+    for t in board.GetTracks():
+        copper[t.GetNetname()] += 1
+    for z in board.Zones():
+        copper[z.GetNetname()] += 1
+    return sorted(n for n, k in pads.items()
+                  if k > 1 and not copper[n]
+                  and not n.startswith(('NC', 'ND')))
+
+
 def report(board):
     conn = board.GetConnectivity()
     conn.RecalculateRatsnest()
     un = conn.GetUnconnectedCount(False)
+    bare = bare_nets(board)
     print('unconnected pads: %d' % un)
+    if bare:
+        print('nets with no copper at all: %d' % len(bare))
+        print('  ' + ', '.join(bare[:20])
+              + (' ...' if len(bare) > 20 else ''))
     rpt = os.path.join(ROOT, 'build', 'drc.rpt')
     if not os.path.isdir(os.path.dirname(rpt)):
         os.makedirs(os.path.dirname(rpt))
