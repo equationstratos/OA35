@@ -119,6 +119,12 @@ def zip_gerbers():
     return path
 
 
+def schematic_pdf():
+    run('kicad-cli', 'sch', 'export', 'pdf', '--output',
+        os.path.join(OUT, 'oa35-aio-schematic.pdf'),
+        os.path.join(ROOT, 'oa35-aio.kicad_sch'))
+
+
 def previews():
     for side, layers, extra in (
             ('top', 'F.Cu,F.SilkS,F.Mask,Edge.Cuts', []),
@@ -144,7 +150,8 @@ def main():
     z = zip_gerbers()
     print('zip: %s' % os.path.basename(z))
     previews()
-    print('previews written')
+    schematic_pdf()
+    print('previews and schematic pdf written')
 
 
 if __name__ == '__main__':
