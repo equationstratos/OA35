@@ -51,10 +51,15 @@ def stackup_and_rules(bd):
     ds.m_HoleToHoleMin = mm(0.25)
     ds.m_HoleClearance = mm(0.2)
     ds.m_CopperEdgeClearance = mm(0.25)
+    # 0.13 mm track and clearance is JLCPCB's standard 5 mil capability, and
+    # it is what makes the board routable: at 0.2/0.15 there is no channel
+    # between the pins of a 0.4 mm pitch QFN, and the autorouter leaves a
+    # third of the nets bare.  The current-carrying nets are fattened again
+    # afterwards by stitch.widen().
     nc = ds.m_NetSettings.m_DefaultNetClass
-    nc.SetClearance(mm(0.15))
-    nc.SetTrackWidth(mm(0.2))
-    nc.SetViaDiameter(mm(0.5))
+    nc.SetClearance(mm(0.13))
+    nc.SetTrackWidth(mm(0.13))
+    nc.SetViaDiameter(mm(0.45))
     nc.SetViaDrill(mm(0.25))
     bd.b.SetCopperLayerCount(6)
     for lid, name in ((pcbnew.In1_Cu, 'GND1'), (pcbnew.In2_Cu, 'PWR'),
