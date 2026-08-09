@@ -178,8 +178,12 @@ C('C6', '100n', 'VBAT', 'GND')
 C('C44', '4.7u_50V', 'VBAT_IN', 'GND', 'C0805', LCSC['C_4.7u_50V'])
 
 # high-side current sense amplifier, 100 V/V -> 20 mV/A, 165 A full scale
+# DCK/SC70-6 pinout: 1 REF, 2 GND, 3 VS, 4 IN+, 5 IN-, 6 OUT.  High-side
+# sensing wants IN+ on the battery side of the shunt and IN- on the load
+# side; the OpenESC reference wires these the other way round, which is why
+# they are spelled out here.
 add('U1', 'INA186A3IDCKR', 'SC70_6', LCSC['INA186A3IDCKR'],
-    {'1': 'GND', '2': 'GND', '3': '+3V3', '4': 'VBAT', '5': 'VBAT_IN',
+    {'1': 'GND', '2': 'GND', '3': '+3V3', '4': 'VBAT_IN', '5': 'VBAT',
      '6': 'CURR_RAW'}, 'INA186')
 R('R1', '1k', 'CURR_RAW', 'CURR')
 C('C7', '100n', 'CURR', 'GND')
@@ -222,8 +226,9 @@ C('C17', '100n', '+5V', 'GND')
 C('C18', '100n', '+5V', 'GND')
 
 # ---- +3V3 for the flight controller --------------------------------------
+# WSON-6: 1 OUT, 2 NC, 3 GND, 4 EN, 5 PG (open drain), 6 IN, 7 EP
 add('U4', 'LP5912-3.3DRVR', 'WSON6', LCSC['LP5912-3.3DRVR'],
-    {'1': '+3V3', '2': '+3V3', '3': 'GND', '4': '+5V', '5': 'GND',
+    {'1': '+3V3', '2': 'NC_U4_2', '3': 'GND', '4': '+5V', '5': 'NC_U4_5',
      '6': '+5V', '7': 'GND'}, 'LDO6')
 C('C19', '4.7u', '+3V3', 'GND')
 C('C20', '100n', '+3V3', 'GND')
@@ -231,6 +236,7 @@ C('C21', '100n', '+3V3', 'GND')
 C('C22', '100n', '+3V3', 'GND')
 
 # ---- +3V3 for the four ESC MCUs, fed from the gate rail -------------------
+# WSON-6: 1 OUT, 2 FB/SNS, 3 GND, 4 EN, 5 GND, 6 IN, 7 EP
 add('U5', 'TLV76733DRVR', 'WSON6', LCSC['TLV76733DRVR'],
     {'1': '+3V3E', '2': '+3V3E', '3': 'GND', '4': '+10V', '5': 'GND',
      '6': '+10V', '7': 'GND'}, 'LDO6')

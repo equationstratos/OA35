@@ -37,7 +37,7 @@ CHANNEL_DEPTH = 15.2          # local y the block may occupy
 FET_X = {'A': 2.78, 'B': 0.0, 'C': -2.78}
 FET_Y_LOW = 2.25
 FET_Y_HIGH = 7.0
-FET_ANGLE = 270.0
+FET_ANGLE = 90.0
 
 DRIVER_LOCAL = (0.0, 12.7, 0.0)
 
@@ -50,6 +50,7 @@ TOP = {
     'J3': (4.2, 15.3, 0.0),      # BAT+ / capacitor
     'J4': (9.4, 15.3, 0.0),      # BAT-
     'RS1': (6.8, 11.2, 0.0),     # 0.2 mOhm shunt
+    'U1': (1.6, 12.9, 0.0),      # INA186, right at the shunt
 }
 
 # ------------------------------------------------------------ bottom side --
@@ -68,6 +69,7 @@ BOTTOM = {
     'U30': (10.0, -9.2, 315.0),      # ESC 2 micro
     'U40': (-10.0, 9.2, 135.0),      # ESC 3 micro
     'U50': (-10.0, -9.2, 225.0),     # ESC 4 micro
+    'U10': (-8.0, 0.0, 90.0),        # USB ESD array, between connector and MCU
 }
 
 # IO pads: a row along the front edge, then down both sides
@@ -101,3 +103,37 @@ TEST_PADS = {
 
 # Silkscreen labels for the wire pads: ref -> text
 PAD_LABEL_OFFSET = 1.5
+
+
+# Decoupling and loop-critical passives: sit next to this reference rather
+# than wherever the net centroid happens to fall.  Power rails have too many
+# pins for a centroid to mean anything.
+NEAR = {
+    # STM32F722 supply
+    'C25': 'U6', 'C26': 'U6', 'C27': 'U6', 'C28': 'U6', 'C29': 'U6',
+    'C30': 'U6', 'C31': 'U6', 'C32': 'U6', 'C33': 'U6', 'C34': 'U6',
+    'R8': 'U6', 'R9': 'U6',
+    # 9.85 V gate-rail buck
+    'C8': 'U2', 'C9': 'U2', 'C10': 'U2', 'C11': 'U2', 'R2': 'U2', 'R3': 'U2',
+    'C1': 'U2', 'C2': 'U2',
+    # 5 V BEC
+    'C12': 'U3', 'C13': 'U3', 'C14': 'U3', 'C15': 'U3', 'R4': 'U3',
+    'R5': 'U3', 'C3': 'U3',
+    'D3': 'U3', 'D4': 'U3', 'C16': 'U3', 'C17': 'U3', 'C18': 'U3',
+    # LDOs
+    'C19': 'U4', 'C20': 'U4', 'C21': 'U4', 'C22': 'U4',
+    'C23': 'U5', 'C24': 'U5',
+    # battery input, shunt and clamp
+    'C4': 'RS1', 'C5': 'RS1', 'C6': 'RS1', 'C44': 'J3',
+    'D1': 'J3', 'D2': 'J4', 'U1': 'RS1', 'R1': 'RS1', 'C7': 'RS1',
+    # sensors and memory
+    'C38': 'U7', 'C39': 'U7', 'R19': 'U7',
+    'C40': 'U8', 'R20': 'U8', 'R21': 'U8',
+    'C41': 'U9', 'R22': 'U9',
+    # USB
+    'C42': 'J1', 'C43': 'J1', 'R23': 'J1', 'R24': 'J1', 'U10': 'J1',
+}
+for _ch in (1, 2, 3, 4):
+    NEAR['CVCC%d' % _ch] = 'U%d1' % (_ch + 1)
+    for _r in ('CVDD', 'CVDA', 'CRST', 'RVDA', 'RRST', 'RBT0'):
+        NEAR['%s%d' % (_r, _ch)] = 'U%d0' % (_ch + 1)

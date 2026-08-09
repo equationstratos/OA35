@@ -76,6 +76,11 @@ def add_pours(w):
     w.zone('GND', ['In4'], poly, priority=1)
     w.zone('GND', ['F'], poly, priority=1)
     w.zone('GND', ['B'], poly, priority=1)
+    # copper around the battery input pads, so the clamps and the shunt sit
+    # on plane rather than on a trace
+    w.zone('VBAT_IN', ['F'],
+           [(-0.4, 8.9), (12.3, 8.9), (12.3, 17.2), (-0.4, 17.2)],
+           priority=20)
     for net, p in phase_polys():
         w.zone(net, ['F'], p, priority=30)
 
@@ -115,6 +120,68 @@ def add_silk(w, board):
            thickness=0.14, justify=pcbnew.GR_TEXT_H_ALIGN_CENTER)
 
 
+PRO_PATCH = {
+    'net_settings': {
+        'classes': [
+            {'bus_width': 12, 'clearance': 0.15, 'diff_pair_gap': 0.25,
+             'diff_pair_via_gap': 0.25, 'diff_pair_width': 0.2,
+             'line_style': 0, 'microvia_diameter': 0.3,
+             'microvia_drill': 0.1, 'name': 'Default',
+             'pcb_color': 'rgba(0, 0, 0, 0.000)',
+             'schematic_color': 'rgba(0, 0, 0, 0.000)',
+             'track_width': 0.2, 'via_diameter': 0.5, 'via_drill': 0.25,
+             'wire_width': 6},
+            {'bus_width': 12, 'clearance': 0.15, 'diff_pair_gap': 0.25,
+             'diff_pair_via_gap': 0.25, 'diff_pair_width': 0.2,
+             'line_style': 0, 'microvia_diameter': 0.3,
+             'microvia_drill': 0.1, 'name': 'supply',
+             'pcb_color': 'rgba(0, 0, 0, 0.000)',
+             'schematic_color': 'rgba(0, 0, 0, 0.000)',
+             'track_width': 0.5, 'via_diameter': 0.5, 'via_drill': 0.25,
+             'wire_width': 6},
+            {'bus_width': 12, 'clearance': 0.15, 'diff_pair_gap': 0.25,
+             'diff_pair_via_gap': 0.25, 'diff_pair_width': 0.2,
+             'line_style': 0, 'microvia_diameter': 0.3,
+             'microvia_drill': 0.1, 'name': 'phase',
+             'pcb_color': 'rgba(0, 0, 0, 0.000)',
+             'schematic_color': 'rgba(0, 0, 0, 0.000)',
+             'track_width': 0.8, 'via_diameter': 0.6, 'via_drill': 0.3,
+             'wire_width': 6},
+        ],
+        'netclass_patterns': [
+            {'netclass': 'phase', 'pattern': 'PH_*'},
+            {'netclass': 'phase', 'pattern': 'VBAT'},
+            {'netclass': 'phase', 'pattern': 'VBAT_IN'},
+            {'netclass': 'supply', 'pattern': '+5V*'},
+            {'netclass': 'supply', 'pattern': '+10V'},
+            {'netclass': 'supply', 'pattern': '+3V3*'},
+            {'netclass': 'supply', 'pattern': 'VBUS'},
+        ],
+    },
+    'libraries': {'pinned_footprint_libs': ['oa35'],
+                  'pinned_symbol_libs': []},
+}
+
+
+def patch_project():
+    """pcbnew rewrites the project file when it saves; put back the net
+    classes and the pinned library."""
+    import json
+    path = os.path.join(ROOT, 'oa35-aio.kicad_pro')
+    if not os.path.exists(path):
+        return
+    doc = json.load(open(path))
+    doc.setdefault('net_settings', {})
+    doc['net_settings']['classes'] = PRO_PATCH['net_settings']['classes']
+    doc['net_settings']['netclass_patterns'] = \
+        PRO_PATCH['net_settings']['netclass_patterns']
+    doc['libraries'] = PRO_PATCH['libraries']
+    doc.setdefault('erc', {})['rule_severities'] = {
+        'pin_not_connected': 'ignore', 'pin_not_driven': 'ignore',
+        'power_pin_not_driven': 'ignore'}
+    json.dump(doc, open(path, 'w'), indent=2, sort_keys=True)
+
+
 def report(board):
     conn = board.GetConnectivity()
     conn.RecalculateRatsnest()
@@ -144,8 +211,13 @@ def main():
     w = Wrap(board)
     add_pours(w)
     add_silk(w, board)
+    # fabrication origin at the lower-left corner of the outline, so gerber
+    # and pick-and-place coordinates share the same reference
+    board.GetDesignSettings().SetAuxOrigin(
+        pcbnew.VECTOR2I(mm(ORIGIN[0] - HALF), mm(ORIGIN[1] + HALF)))
     w.fill_zones()
     board.Save(PCB)
+    patch_project()
     print('zones: %d' % board.GetAreaCount())
     return report(board)
 

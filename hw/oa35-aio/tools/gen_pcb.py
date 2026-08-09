@@ -226,12 +226,16 @@ class Placer(object):
     def auto(self, ref, prefer=None, side=None):
         part = design.PARTS[ref]
         a, vote = self.anchor(ref)
+        hint = LO.NEAR.get(ref)
+        if hint and hint in self.placed:
+            hx, hy, _, hs = self.placed[hint]
+            a, vote = (hx, hy), hs
         a = prefer or a or (0.0, 0.0)
         if side is None:
             side = vote
         sides = [False, True] if side is None else [side]
         best = None
-        for radius in range(0, 300):
+        for radius in range(0, 260):
             rr = radius * GRID * 2
             for (x, y) in ring(a[0], a[1], rr):
                 for angle in (0.0, 90.0):
@@ -247,6 +251,9 @@ class Placer(object):
                             best = (d, px, py, angle, bottom)
             if best is not None:
                 break
+        if best is None and side is not None:
+            # preferred side is full, take the other one
+            return self.auto(ref, prefer=a, side=not side)
         if best is None:
             raise SystemExit('no room left for %s' % ref)
         _, px, py, angle, bottom = best
@@ -391,6 +398,16 @@ def main():
             n += sum(1 for o, _ in nets[net] if o in pl.placed)
         return n
 
+    # anything a hint points at has to exist before the hint can be used
+    for ref in sorted(r for r in rest if r in set(LO.NEAR.values())):
+        rest.discard(ref)
+        pl.auto(ref, side=FORCED_SIDE.get(side_key(ref)))
+    # parts with an explicit "sit next to X" hint go next, otherwise the
+    # ring around each chip is already taken by the time they are placed
+    for ref in sorted(rest):
+        if ref in LO.NEAR and LO.NEAR[ref] in pl.placed:
+            rest.discard(ref)
+            pl.auto(ref, side=FORCED_SIDE.get(side_key(ref)))
     while rest:
         ref = max(sorted(rest), key=neighbours)
         rest.discard(ref)

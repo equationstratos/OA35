@@ -43,6 +43,13 @@ mesure inclut les moteurs et le BEC. L'INA186A3 (gain 100 V/V) donne
 **20 mV/A**, soit 165 A de pleine échelle sur l'ADC 3,3 V. Un filtre R1 = 1 k
 avec C7 = 100 nF (constante de temps 100 µs) attaque `PC2`.
 
+Le boîtier DCK (SC70‑6) est câblé 1 = REF, 2 = GND, 3 = VS, 4 = IN+,
+5 = IN−, 6 = OUT ; en mesure côté haut, IN+ va du côté batterie du shunt et
+IN− du côté charge. **La conception de référence OpenESC câble ces deux
+entrées dans l'autre sens** ; c'est corrigé ici, et c'est le point à
+recontrôler sur la fiche technique avant de lancer une série, parce qu'une
+inversion donne une lecture de courant nulle et rien d'autre.
+
 ## Un canal d'ESC
 
 Chaque canal est autonome : son micro, son driver, ses six MOSFET. C'est la
