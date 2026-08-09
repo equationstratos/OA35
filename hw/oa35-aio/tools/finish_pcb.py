@@ -293,6 +293,11 @@ def main():
                                        corner_r=LO.CORNER_R)
     print('stitching vias: %d beside pads, %d in the pour grid'
           % (per_pad, grid_vias))
+    fat = stitch.widen(board, ('VBAT', 'VBAT_IN', '+5V', '+5V_BUCK', '+10V',
+                               '+3V3', '+3V3E', 'VBUS', 'SW_5V', 'SW_GD')
+                       + tuple('PH_%s_%d' % (p, c) for p in 'ABC'
+                               for c in (1, 2, 3, 4)))
+    print('widened %d track segments on the current-carrying nets' % fat)
     w = Wrap(board)
     add_pours(w)
     add_silk(w, board)

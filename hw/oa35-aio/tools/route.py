@@ -24,68 +24,22 @@ PCB = os.path.join(ROOT, 'oa35-aio.kicad_pcb')
 JAR = os.path.join(HERE, 'freerouting.jar')
 WORK = os.path.join(ROOT, 'build')
 
-# Trace widths handed to the router, in um.  The motor phases and the
-# battery rail carry their current in the copper pours that finish_pcb.py
-# adds afterwards, so what the router lays down only has to establish the
-# connection.  Asking it for 0.8 mm phases made the autoroute run past half
-# an hour without converging.
-WIDE = 400          # motor phases and the battery feed
-MID = 400           # supply rails
-THIN = 200          # signals
+def check_classes(path):
+    """Report the class split KiCad exported, without touching it.
 
-
-def net_class(name):
-    if name.startswith('PH_') or name in ('VBAT', 'VBAT_IN'):
-        return 'phase'
-    if name in ('+5V', '+5V_BUCK', '+10V', '+3V3', '+3V3E', '+3V3A', 'VBUS',
-                'SW_5V', 'SW_GD'):
-        return 'supply'
-    return 'kicad_default'
-
-
-CLASS_WIDTH = {'phase': WIDE, 'supply': MID, 'kicad_default': THIN}
-
-
-def rewrite_classes(path):
-    """Split the single exported net class into three, by trace width."""
+    Rewriting this block to give the phases and the supply rails wider
+    traces looked harmless and was not: with the rewritten classes
+    freerouting silently gave up on most of the board (85 nets routed out of
+    279), while the block KiCad writes itself routes all of them.  Trace
+    width for the high-current nets comes from the pours added by
+    finish_pcb.py and from widen_supplies() below, not from the router.
+    """
     txt = open(path).read()
-    m = re.search(r'\n(    \(class kicad_default .*?\n    \)\n)  \)\n',
-                  txt, re.S)
+    m = re.search(r'\(class (\S+) ""(.*?)\(circuit', txt, re.S)
     if not m:
-        raise SystemExit('could not find the class block in the DSN')
-    block = m.group(1)
-    names = re.findall(r'[^\s()"]+|"[^"]*"', block.split('(circuit')[0])
-    names = [n for n in names[3:] if n not in ('class', 'kicad_default', '""')]
-    groups = {}
-    for n in names:
-        groups.setdefault(net_class(n.strip('"')), []).append(n)
-
-    out = []
-    for cls in ('kicad_default', 'supply', 'phase'):
-        members = groups.get(cls, [])
-        if not members:
-            continue
-        body = []
-        line = '    (class %s "" ' % cls
-        for n in members:
-            if len(line) > 90:
-                body.append(line)
-                line = '      '
-            line += n + ' '
-        body.append(line)
-        body.append('      (circuit')
-        body.append('        (use_via Via[0-5]_500:250_um)')
-        body.append('      )')
-        body.append('      (rule')
-        body.append('        (width %d)' % CLASS_WIDTH[cls])
-        body.append('        (clearance 150.1)')
-        body.append('      )')
-        body.append('    )')
-        out.append('\n'.join(body))
-    new = '\n'.join(out) + '\n  )\n'
-    txt = txt[:m.start()] + '\n' + new + txt[m.end():]
-    open(path, 'w').write(txt)
-    return dict((c, len(v)) for c, v in groups.items())
+        return {}
+    names = re.findall(r'[^\s()"]+|"[^"]*"', m.group(2))
+    return {m.group(1): len(names)}
 
 
 def run_freerouting(dsn, ses, passes=10):
@@ -192,7 +146,7 @@ def main(passes=10):
 
     if not pcbnew.ExportSpecctraDSN(board, dsn):
         raise SystemExit('DSN export failed')
-    print('classes:', rewrite_classes(dsn))
+    print('classes:', check_classes(dsn))
     run_freerouting(dsn, ses, passes)
 
     board = pcbnew.LoadBoard(PCB)

@@ -219,3 +219,43 @@ def stitch(board, nets=('GND', 'VBAT'), half=18.0, edge_clr=0.5,
                     obs.add_circle(x, y, VIA_DIA / 2.0, gnd)
                     grid_vias += 1
     return per_pad, grid_vias
+
+
+def widen(board, nets, widths=(0.8, 0.6, 0.5, 0.4, 0.3), samples=6):
+    """Fatten the tracks of the high-current nets wherever there is room.
+
+    The router lays everything at the default width because that is the only
+    way it converges on this board; the current-carrying nets get their
+    copper back here, segment by segment, testing the widened shape against
+    everything else before committing to it.
+    """
+    obs = collect(board)
+    codes = {}
+    for name in nets:
+        n = board.FindNet(name)
+        if n:
+            codes[n.GetNetCode()] = name
+    widened = 0
+    for t in board.GetTracks():
+        if t.Type() == pcbnew.PCB_VIA_T or t.GetNetCode() not in codes:
+            continue
+        a, b = t.GetStart(), t.GetEnd()
+        ax, ay = tomm(a.x), tomm(a.y)
+        bx, by = tomm(b.x), tomm(b.y)
+        have = tomm(t.GetWidth())
+        for w in widths:
+            if w <= have:
+                break
+            half = w / 2.0 + CLEAR
+            ok = True
+            for i in range(samples + 1):
+                u = i / float(samples)
+                x, y = ax + (bx - ax) * u, ay + (by - ay) * u
+                if obs.blocked(x, y, half, t.GetNetCode()):
+                    ok = False
+                    break
+            if ok:
+                t.SetWidth(mm(w))
+                widened += 1
+                break
+    return widened
