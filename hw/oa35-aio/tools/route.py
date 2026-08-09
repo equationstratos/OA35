@@ -65,6 +65,34 @@ def check_classes(path):
     return {m.group(1): len(names)}
 
 
+def progress(board):
+    """(nets with copper on them, nets that need any) for the progress bar.
+
+    GND and VBAT are deliberately left out: they are planes, they are taken
+    out of the DSN before routing, and counting them would show the board as
+    permanently one percent short of done.
+    """
+    import collections
+    pads = collections.Counter()
+    for fp in board.GetFootprints():
+        for pad in fp.Pads():
+            if pad.GetNetname():
+                pads[pad.GetNetname()] += 1
+    wanted = set(n for n, k in pads.items()
+                 if k > 1 and n not in PLANE_NETS
+                 and not n.startswith(('NC', 'ND')))
+    done = set(t.GetNetname() for t in board.GetTracks()) & wanted
+    return len(done), len(wanted)
+
+
+def bar(done, total, width=44, note=''):
+    frac = (float(done) / total) if total else 0.0
+    full = int(frac * width)
+    return '[%s%s] %3d%%  %d/%d nets%s' % (
+        '#' * full, '.' * (width - full), int(round(frac * 100)),
+        done, total, ('  ' + note) if note else '')
+
+
 def run_freerouting(dsn, ses, passes=10):
     """Run the router, echoing its progress as it goes.
 
@@ -73,16 +101,21 @@ def run_freerouting(dsn, ses, passes=10):
     """
     cmd = ['xvfb-run', '-a', 'java', '-jar', JAR,
            '-de', dsn, '-do', ses, '-mp', str(passes)]
-    print('  ' + ' '.join(cmd), flush=True)
+    log = os.path.join(WORK, 'freerouting.log')
     tail = []
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT, text=True, bufsize=1)
-    for line in p.stdout:
-        tail.append(line)
-        del tail[:-200]
-        if any(k in line for k in ('Auto-routing', 'optimization', 'Saving',
-                                   'pass', 'unrouted', 'Routing')):
-            print('  ' + line.rstrip().split('] ')[-1], flush=True)
+    with open(log, 'a') as fh:
+        fh.write('\n=== %s\n' % ' '.join(cmd))
+        for line in p.stdout:
+            fh.write(line)
+            fh.flush()          # this file is what the progress bar reads
+            tail.append(line)
+            del tail[:-200]
+            if any(k in line for k in ('Auto-routing', 'optimization',
+                                       'Saving', 'pass', 'unrouted',
+                                       'Routing')):
+                print('    ' + line.rstrip().split('] ')[-1], flush=True)
     p.wait(timeout=7200)
     if not os.path.exists(ses):
         print(''.join(tail))
@@ -225,11 +258,20 @@ if __name__ == '__main__':
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     n = int(args[0]) if args else 10
     rounds = int(args[1]) if len(args) > 1 else 1
+    import time
     rc = 0
+    t0 = time.time()
+    last = None
     for i in range(rounds):
         if rounds > 1:
-            print('--- round %d/%d' % (i + 1, rounds), flush=True)
+            print('--- round %d/%d  (%.0f min elapsed)'
+                  % (i + 1, rounds, (time.time() - t0) / 60.0), flush=True)
         rc = main(n, ses_only=only, keep=cont or i > 0)
+        board = pcbnew.LoadBoard(PCB)
+        done, total = progress(board)
+        note = '' if last is None else '%+d' % (done - last)
+        last = done
+        print(bar(done, total, note=note), flush=True)
         if rc == 0:
             break
     sys.exit(0 if rc == 0 else 1)
