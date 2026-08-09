@@ -125,16 +125,18 @@ class Field(object):
             self.hist[li][k] += HISTORY_GROWTH * (self.count[li][k] - 1)
 
 
-def search(field, sources, targets, net, budget=300000):
+def search(field, sources, targets, net, budget=120000):
     """Cheapest path under the current prices, not the shortest one."""
     if not sources or not targets:
         return None
     tset = set(targets)
     tx = sum(t[1] for t in targets) / float(len(targets))
     ty = sum(t[2] for t in targets) / float(len(targets))
-
-    def h(ix, iy):
-        return math.hypot(ix - tx, iy - ty) * GRID
+    hypot = math.hypot
+    counts, hists = field.count, field.hist
+    shuts, owners = field.sp.shut, field.sp.owner
+    present = field.present
+    STEPS = FR.STEPS
 
     open_q = []
     best = {}
@@ -142,7 +144,8 @@ def search(field, sources, targets, net, budget=300000):
         if s in tset:
             return [s]
         best[s] = 0.0
-        heapq.heappush(open_q, (h(s[1], s[2]), 0.0, s, None))
+        heapq.heappush(open_q, (hypot(s[1] - tx, s[2] - ty) * GRID,
+                                0.0, s, None))
     came = {}
     seen = 0
     while open_q:
@@ -162,29 +165,54 @@ def search(field, sources, targets, net, budget=300000):
             return None
         li, ix, iy = cur
         mult = LAYER_COST[li]
-        for dx, dy, step in FR.STEPS:
+        # The next twenty lines are usable() and price() written out by hand.
+        # They are called ten times per node expanded and several million
+        # times per iteration; as method calls they were most of the run.
+        count = counts[li]
+        hist = hists[li]
+        shut = shuts[li]
+        owner = owners[li]
+        for dx, dy, step in STEPS:
             jx, jy = ix + dx, iy + dy
-            if (li, jx, jy) in came or not field.usable(li, jx, jy, net):
+            if jx < 0 or jy < 0 or jx >= N or jy >= N:
                 continue
-            ng = g + step * mult * field.price(li, jx, jy, net)
             nxt = (li, jx, jy)
+            if nxt in came:
+                continue
+            k = jy * N + jx
+            if shut[k]:
+                continue
+            own = owner[k]
+            if own and own != net:
+                continue
+            n = count[k]
+            share = (n - 1 if n else 0) if own == net else n
+            ng = g + step * mult * (1.0 + hist[k]) * (1.0 + present * share)
             if best.get(nxt, 1e18) <= ng:
                 continue
             best[nxt] = ng
-            heapq.heappush(open_q, (ng + h(jx, jy), ng, nxt, cur))
+            heapq.heappush(open_q, (ng + hypot(jx - tx, jy - ty) * GRID,
+                                    ng, nxt, cur))
+        k0 = iy * N + ix
         for lj in ROUTABLE:
             if lj == li:
                 continue
             nxt = (lj, ix, iy)
-            if nxt in came or not field.usable(lj, ix, iy, net):
+            if nxt in came or shuts[lj][k0]:
                 continue
-            ng = g + VIA_COST * field.price(lj, ix, iy, net)
+            own = owners[lj][k0]
+            if own and own != net:
+                continue
+            n = counts[lj][k0]
+            share = (n - 1 if n else 0) if own == net else n
+            ng = g + VIA_COST * (1.0 + hists[lj][k0]) * (1.0 + present * share)
             if best.get(nxt, 1e18) <= ng:
                 continue
             if not FR.via_ok(field.sp, ix, iy, net):
                 continue
             best[nxt] = ng
-            heapq.heappush(open_q, (ng + h(ix, iy), ng, nxt, cur))
+            heapq.heappush(open_q, (ng + hypot(ix - tx, iy - ty) * GRID,
+                                    ng, nxt, cur))
     return None
 
 
