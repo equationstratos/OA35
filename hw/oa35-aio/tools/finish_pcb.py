@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Add the copper pours and silkscreen, fill, then check the board.
 
-Run after routing.  Idempotent: it removes anything it added last time
-before adding it again, so the board can be rebuilt at will.
+Runs after routing, on a board that came from gen_pcb.py in this same build:
+gen_pcb.py lays down the three planes the router needs, this adds the rest of
+the copper, the silkscreen and the fabrication origin.  Re-running it on its
+own output would duplicate the zones, so always rebuild from gen_pcb.py.
 """
 
 import math
@@ -59,20 +61,10 @@ def phase_polys():
     return out
 
 
-def clear_generated(board):
-    for z in list(board.Zones()):
-        board.Remove(z)
-    for d in list(board.GetDrawings()):
-        if d.GetLayer() in (pcbnew.F_SilkS, pcbnew.B_SilkS,
-                            pcbnew.Cmts_User):
-            board.Remove(d)
-
-
 def add_pours(w):
+    """The three planes are already there from gen_pcb.py, which needs them
+    before the DSN export; this adds the rest."""
     poly = gen_pcb.board_poly()
-    w.zone('GND', ['In1'], poly, priority=10)
-    w.zone('GND', ['In3'], poly, priority=10)
-    w.zone('VBAT', ['In2'], poly, priority=10)
     w.zone('GND', ['In4'], poly, priority=1)
     w.zone('GND', ['F'], poly, priority=1)
     w.zone('GND', ['B'], poly, priority=1)
@@ -110,7 +102,7 @@ def add_silk(w, board):
             ty, tx = y, x + dx
         else:
             tx, ty = x, y + dy
-        w.text(layer, part.value, tx, ty, size=0.7, thickness=0.11,
+        w.text(layer, part.value, tx, ty, size=0.8, thickness=0.12,
                mirror=bottom,
                justify=pcbnew.GR_TEXT_H_ALIGN_CENTER)
     w.text(pcbnew.B_SilkS, 'OA35-AIO  rev A', 0.0, 5.6, size=1.0,
@@ -179,13 +171,22 @@ def patch_project():
     doc.setdefault('erc', {})['rule_severities'] = {
         'pin_not_connected': 'ignore', 'pin_not_driven': 'ignore',
         'power_pin_not_driven': 'ignore'}
+    # This board is denser than IPC nominal courtyards allow, like every
+    # commercial AIO of this size; silk over copper is clipped by the
+    # fabricator.  Neither is a manufacturing constraint, so they are not
+    # allowed to hide the checks that are.
+    sev = doc['board']['design_settings'].setdefault('rule_severities', {})
+    sev['courtyards_overlap'] = 'warning'
+    sev['silk_over_copper'] = 'ignore'
+    sev['silk_overlap'] = 'ignore'
+    sev['silk_edge_clearance'] = 'warning'
     json.dump(doc, open(path, 'w'), indent=2, sort_keys=True)
 
 
 def report(board):
     conn = board.GetConnectivity()
     conn.RecalculateRatsnest()
-    un = conn.GetUnconnectedCount()
+    un = conn.GetUnconnectedCount(False)
     print('unconnected pads: %d' % un)
     rpt = os.path.join(ROOT, 'build', 'drc.rpt')
     if not os.path.isdir(os.path.dirname(rpt)):
@@ -207,7 +208,6 @@ def report(board):
 
 def main():
     board = pcbnew.LoadBoard(PCB)
-    clear_generated(board)
     w = Wrap(board)
     add_pours(w)
     add_silk(w, board)

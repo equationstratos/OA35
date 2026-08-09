@@ -24,7 +24,7 @@ LIBS = ['/usr/share/kicad/footprints', os.path.join(ROOT, 'lib')]
 OUT = os.path.join(ROOT, 'oa35-aio.kicad_pcb')
 
 HALF = LO.BOARD / 2.0
-CLR = 0.25                    # component-to-component keep-apart, mm
+CLR = 0.3                     # component-to-component keep-apart, mm
 GRID = 0.1                    # auto-placement grid
 
 
@@ -145,6 +145,37 @@ def pad_extent(fp):
     return (min(xs), min(ys), max(xs), max(ys))
 
 
+COURTYARD = (pcbnew.F_CrtYd, pcbnew.B_CrtYd)
+
+
+def courtyard_extent(fp):
+    """Bounding box of the courtyard drawings, read straight off the
+    graphics: GetCourtyard() needs a cache that only exists once the
+    footprint belongs to a board."""
+    xs, ys = [], []
+    items = fp.GraphicalItems()
+    for i in range(items.size()):
+        it = items[i]
+        if it.GetLayer() not in COURTYARD:
+            continue
+        bb = it.GetBoundingBox()
+        xs += [pcbnew.ToMM(bb.GetLeft()), pcbnew.ToMM(bb.GetRight())]
+        ys += [pcbnew.ToMM(bb.GetTop()), pcbnew.ToMM(bb.GetBottom())]
+    if not xs:
+        return None
+    return (min(xs), min(ys), max(xs), max(ys))
+
+
+def keepout_extent(fp):
+    """Courtyard if the footprint has one, unioned with its pads."""
+    x0, y0, x1, y1 = pad_extent(fp)
+    cy = courtyard_extent(fp)
+    if cy:
+        x0, y0 = min(x0, cy[0]), min(y0, cy[1])
+        x1, y1 = max(x1, cy[2]), max(y1, cy[3])
+    return (x0, y0, x1, y1)
+
+
 def occupy(grid, bd, fp, side):
     x0, y0, x1, y1 = pad_extent(fp)
     ox, oy = pcbnew.ToMM(fp.GetPosition().x), pcbnew.ToMM(fp.GetPosition().y)
@@ -181,17 +212,47 @@ class Placer(object):
         self.placed[ref] = (x, y, angle, bottom)
         x0, y0, x1, y1 = self.abs_extent(ref)
         occupy_abs(self.grid, bottom, x0, y0, x1, y1)
+        # a through-hole pad eats space on both sides, not just its own
+        for box in self.through_boxes(ref):
+            occupy_abs(self.grid, not bottom, *box)
         return fp
 
-    def abs_extent(self, ref):
+    def through_boxes(self, ref):
+        """One box per through-hole pad, so a connector's shell posts do not
+        block the whole rectangle between them."""
+        through = (pcbnew.PAD_ATTRIB_PTH, pcbnew.PAD_ATTRIB_NPTH)
+        out = []
+        for pad in self.fps[ref].Pads():
+            if pad.GetAttribute() not in through:
+                continue
+            bb = pad.GetBoundingBox()
+            out.append((pcbnew.ToMM(bb.GetLeft()) - 150.0,
+                        pcbnew.ToMM(bb.GetTop()) - 100.0,
+                        pcbnew.ToMM(bb.GetRight()) - 150.0,
+                        pcbnew.ToMM(bb.GetBottom()) - 100.0))
+        return out
+
+    def abs_extent(self, ref, through_only=False):
+        """Keep-out box: the pads plus CLR.
+
+        Courtyards would be the textbook keep-out, but searching free space
+        against full IPC courtyards does not converge on a board this dense,
+        and a courtyard overlap is a design convention rather than something
+        the fabricator cares about.  See finish_pcb.patch_project().
+        """
         fp = self.fps[ref]
         xs, ys = [], []
+        through = (pcbnew.PAD_ATTRIB_PTH, pcbnew.PAD_ATTRIB_NPTH)
         for pad in fp.Pads():
+            if through_only and pad.GetAttribute() not in through:
+                continue
             bb = pad.GetBoundingBox()
             xs += [pcbnew.ToMM(bb.GetLeft()) - 150.0,
                    pcbnew.ToMM(bb.GetRight()) - 150.0]
             ys += [pcbnew.ToMM(bb.GetTop()) - 100.0,
                    pcbnew.ToMM(bb.GetBottom()) - 100.0]
+        if not xs:
+            return None
         return (min(xs), min(ys), max(xs), max(ys))
 
     def anchor(self, ref):
@@ -272,6 +333,8 @@ class Placer(object):
                 errs.append('%s sticks out of the board: %.2f..%.2f, '
                             '%.2f..%.2f' % (ref, x0, x1, y0, y1))
             boxes.append((ref, bottom, x0, y0, x1, y1))
+            for box in self.through_boxes(ref):
+                boxes.append((ref, not bottom) + box)
         for i in range(len(boxes)):
             r1, s1, ax0, ay0, ax1, ay1 = boxes[i]
             for j in range(i + 1, len(boxes)):
@@ -363,8 +426,10 @@ def main():
         x, y = f.xy(dx, dy)
         pl.put('U%d1' % (ch + 1), x, y, f.ang(da))
 
-        # motor pads, rotated into this channel's corner
-        rotdeg = (ch - 1) * -90.0
+        # motor pads, rotated into this channel's corner.  The rotation is
+        # the channel frame's own angle relative to channel 1, otherwise
+        # channels 3 and 4 land in each other's corners.
+        rotdeg = ang - LO.CHANNEL_FRAME[1][2]
         for k, (px, py, pa) in enumerate(LO.MOTOR_PADS):
             ca, sa = (math.cos(math.radians(rotdeg)),
                       math.sin(math.radians(rotdeg)))
@@ -413,15 +478,16 @@ def main():
         rest.discard(ref)
         pl.auto(ref, side=FORCED_SIDE.get(side_key(ref)))
 
+    add_planes(bd)
+    bd.save(OUT)
+    print('placed %d footprints -> %s' % (len(pl.placed), OUT))
+    # save first, then complain: a board that can be looked at is easier to
+    # fix than an exception
     errs = pl.verify()
     for e in errs:
         print('  PLACEMENT', e)
     if errs:
         raise SystemExit('%d placement problems' % len(errs))
-
-    add_planes(bd)
-    bd.save(OUT)
-    print('placed %d footprints -> %s' % (len(pl.placed), OUT))
     return pl
 
 

@@ -27,7 +27,10 @@ CHANNEL_FRAME = {
     1: (15.0, 5.0, 90.0),
     2: (5.0, -15.0, 0.0),
     3: (-5.0, 15.0, 180.0),
-    4: (-15.0, -5.0, 270.0),
+    # channel 4 is pushed 4.4 mm forward so the USB-C shell posts, which are
+    # through-hole and therefore eat space on the top side too, clear its
+    # MOSFET array
+    4: (-15.0, -9.4, 270.0),
 }
 CHANNEL_HALF_W = 4.1          # local |x| the block may occupy
 CHANNEL_DEPTH = 15.2          # local y the block may occupy

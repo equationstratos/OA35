@@ -189,8 +189,8 @@ def main(passes=10):
 
     conn = board.GetConnectivity()
     conn.RecalculateRatsnest()
-    print('unconnected pads after routing: %d' % conn.GetUnconnectedCount())
-    return conn.GetUnconnectedCount()
+    print("unconnected pads after routing: %d" % conn.GetUnconnectedCount(False))
+    return conn.GetUnconnectedCount(False)
 
 
 if __name__ == '__main__':

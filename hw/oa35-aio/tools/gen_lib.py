@@ -46,7 +46,7 @@ def smd(num, x, y, w, h, rot=0, layers='"F.Cu" "F.Paste" "F.Mask"',
 
 def npth(num, x, y, d):
     return ('  (pad "%s" np_thru_hole circle (at %.3f %.3f) (size %.3f %.3f) '
-            '(drill %.3f) (layers "F&B.Cu" "*.Mask"))\n'
+            '(drill %.3f) (layers *.Cu *.Mask))\n'
             % (num, x, y, d, d, d))
 
 
@@ -64,11 +64,13 @@ def nsg2065q():
     """QFN-24, 4 x 4 mm, 0.5 mm pitch, 2.8 x 2.8 mm exposed pad.
 
     KiCad pin order: 1-6 left top->bottom, 7-12 bottom left->right,
-    13-18 right bottom->top, 19-24 top right->left.
+    13-18 right bottom->top, 19-24 top right->left.  No thermal vias: the
+    flight controller sits directly underneath on this board, so the exposed
+    pad reaches ground through the surrounding pour instead.
     """
     b = ''
-    pl, pw = 0.90, 0.28          # pad length (outward), pad width
-    c = 1.80                     # pad centre distance from package centre
+    pl, pw = 0.775, 0.25         # pad length (outward), pad width
+    c = 1.9875                   # pad centre distance from package centre
     off = [-1.25, -0.75, -0.25, 0.25, 0.75, 1.25]
     for i, o in enumerate(off):                        # 1..6 left
         b += smd(str(i + 1), -c, o, pl, pw)
@@ -83,10 +85,6 @@ def nsg2065q():
     for sx in (-0.7, 0.7):
         for sy in (-0.7, 0.7):
             b += smd('25', sx, sy, 1.2, 1.2, layers='"F.Paste"')
-    for sx in (-0.9, 0, 0.9):
-        for sy in (-0.9, 0, 0.9):
-            b += ('  (pad "25" thru_hole circle (at %.2f %.2f) (size 0.6 0.6) '
-                  '(drill 0.3) (layers "*.Cu" "*.Mask"))\n' % (sx, sy))
     b += rect('F.CrtYd', -2.5, -2.5, 2.5, 2.5, 0.05)
     b += rect('F.Fab', -2.0, -2.0, 2.0, 2.0)
     b += circle('F.SilkS', -2.35, -2.35, 0.12, 0.2)
@@ -133,8 +131,8 @@ def mounting_hole():
     b = npth('', 0, 0, 3.0)
     b += circle('F.CrtYd', 0, 0, 1.75, 0.05)
     b += circle('F.SilkS', 0, 0, 1.75, 0.15)
-    return write('MountingHole_3.0mm', b, attr='exclude_from_pos_files',
-                 extent=1.9)
+    return write('MountingHole_3.0mm', b,
+                 attr='exclude_from_pos_files exclude_from_bom', extent=1.9)
 
 
 def main():
