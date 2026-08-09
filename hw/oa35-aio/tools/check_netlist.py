@@ -64,6 +64,11 @@ def canon(name):
 
 
 def main():
+    bad = design.check()
+    for b in bad:
+        print('  DESIGN', b)
+    if bad:
+        return 1
     path = export()
     comps, nets = read_netlist(path)
 

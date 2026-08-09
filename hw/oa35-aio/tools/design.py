@@ -100,6 +100,19 @@ LCSC = {
     'SM06B-SRSS-TB':   'C160405',
 }
 
+# Package each LCSC part actually comes in, so a value can never be emitted
+# on a land pattern the part does not fit.  Checked by check().
+LCSC_PACKAGE = {
+    'C106226': '0201', 'C473542': '0201', 'C226468': '0201',
+    'C57784': '0201', 'C270365': '0201', 'C166281': '0201',
+    'C2107920': '0201', 'C106225': '0201', 'C320695': '0201',
+    'C270364': '0201', 'C181043': '0201',
+    'C25905': '0402', 'C1525': '0402', 'C1554': '0402', 'C52923': '0402',
+    'C23733': '0402', 'C965793': '0402',
+    'C45783': '0805', 'C98192': '0805',
+    'C695806': '2512',
+}
+
 # ------------------------------------------------------------------ model ---
 
 
@@ -613,6 +626,11 @@ def check():
     for part in PARTS.values():
         if part.fp not in FP.values():
             problems.append('%s: unknown footprint %s' % (part.ref, part.fp))
+        pkg = LCSC_PACKAGE.get(part.lcsc)
+        if pkg and pkg not in part.fp:
+            problems.append('%s: %s is a %s part but the footprint is %s'
+                            % (part.ref, part.lcsc, pkg,
+                               part.fp.split(':')[-1]))
     return problems
 
 
