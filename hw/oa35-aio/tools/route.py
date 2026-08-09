@@ -11,6 +11,8 @@ import os
 import re
 import subprocess
 import sys
+import threading
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -93,7 +95,11 @@ def bar(done, total, width=44, note=''):
         done, total, ('  ' + note) if note else '')
 
 
-def run_freerouting(dsn, ses, passes=10):
+class RouterStuck(Exception):
+    """The router did not produce a session file in the time allowed."""
+
+
+def run_freerouting(dsn, ses, passes=10, limit=900):
     """Run the router, echoing its progress as it goes.
 
     Buffering the whole run and printing at the end makes a twenty minute
@@ -103,23 +109,47 @@ def run_freerouting(dsn, ses, passes=10):
            '-de', dsn, '-do', ses, '-mp', str(passes)]
     log = os.path.join(WORK, 'freerouting.log')
     tail = []
+    deadline = time.time() + limit
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT, text=True, bufsize=1)
-    with open(log, 'a') as fh:
-        fh.write('\n=== %s\n' % ' '.join(cmd))
-        for line in p.stdout:
-            fh.write(line)
-            fh.flush()          # this file is what the progress bar reads
-            tail.append(line)
-            del tail[:-200]
-            if any(k in line for k in ('Auto-routing', 'optimization',
-                                       'Saving', 'pass', 'unrouted',
-                                       'Routing')):
-                print('    ' + line.rstrip().split('] ')[-1], flush=True)
-    p.wait(timeout=7200)
+    watchdog = threading.Timer(limit, p.kill)
+    watchdog.daemon = True
+    watchdog.start()
+    try:
+        with open(log, 'a') as fh:
+            fh.write('\n=== %s\n' % ' '.join(cmd))
+            for line in p.stdout:
+                fh.write(line)
+                fh.flush()      # this file is the router's own account
+                tail.append(line)
+                del tail[:-200]
+                if any(k in line for k in ('Auto-routing', 'optimization',
+                                           'Saving', 'pass', 'unrouted',
+                                           'Routing')):
+                    print('    ' + line.rstrip().split('] ')[-1], flush=True)
+        p.wait(timeout=60)
+    finally:
+        watchdog.cancel()
     if not os.path.exists(ses):
+        if time.time() >= deadline:
+            raise RouterStuck('the router did not finish within %d s' % limit)
         print(''.join(tail))
         raise SystemExit('freerouting produced no session file')
+
+
+SNAP = 1000                     # internal units, i.e. 1 um
+
+
+def snap(v):
+    """Round a coordinate to 1 um.
+
+    freerouting works in tenths of a micron and hands back wires whose ends
+    miss each other by a fraction of one, which is invisible on any board but
+    not to the router: fed its own output back in, it warns that it cannot
+    normalize the net and then never starts routing at all.  A micron is
+    already three orders of magnitude below anything a fabricator resolves.
+    """
+    return int(round(v / float(SNAP))) * SNAP
 
 
 def import_ses(board, path):
@@ -152,16 +182,15 @@ def import_ses(board, path):
                 lname = str(path[1])
                 width = float(path[2]) / 10000.0
                 nums = [float(v) for v in path[3:]]
-                pts = [(nums[i] / 10000.0, -nums[i + 1] / 10000.0)
+                pts = [(snap(pcbnew.FromMM(nums[i] / 10000.0)),
+                        snap(pcbnew.FromMM(-nums[i + 1] / 10000.0)))
                        for i in range(0, len(nums), 2)]
                 for a, b in zip(pts, pts[1:]):
                     if a == b:
                         continue
                     t = pcbnew.PCB_TRACK(board)
-                    t.SetStart(pcbnew.VECTOR2I(pcbnew.FromMM(a[0]),
-                                               pcbnew.FromMM(a[1])))
-                    t.SetEnd(pcbnew.VECTOR2I(pcbnew.FromMM(b[0]),
-                                             pcbnew.FromMM(b[1])))
+                    t.SetStart(pcbnew.VECTOR2I(a[0], a[1]))
+                    t.SetEnd(pcbnew.VECTOR2I(b[0], b[1]))
                     t.SetWidth(pcbnew.FromMM(width))
                     t.SetLayer(layer_of[lname])
                     t.SetNetCode(code)
@@ -175,7 +204,8 @@ def import_ses(board, path):
             dia, drill = (0.5, 0.25) if not m else (int(m.group(1)) / 1000.0,
                                                     int(m.group(2)) / 1000.0)
             v = pcbnew.PCB_VIA(board)
-            v.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(x), pcbnew.FromMM(y)))
+            v.SetPosition(pcbnew.VECTOR2I(snap(pcbnew.FromMM(x)),
+                                          snap(pcbnew.FromMM(y))))
             v.SetWidth(pcbnew.FromMM(dia))
             v.SetDrill(pcbnew.FromMM(drill))
             v.SetLayerPair(pcbnew.F_Cu, pcbnew.B_Cu)
@@ -258,7 +288,6 @@ if __name__ == '__main__':
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     n = int(args[0]) if args else 10
     rounds = int(args[1]) if len(args) > 1 else 1
-    import time
     rc = 0
     t0 = time.time()
     last = None
@@ -266,7 +295,13 @@ if __name__ == '__main__':
         if rounds > 1:
             print('--- round %d/%d  (%.0f min elapsed)'
                   % (i + 1, rounds, (time.time() - t0) / 60.0), flush=True)
-        rc = main(n, ses_only=only, keep=cont or i > 0)
+        try:
+            rc = main(n, ses_only=only, keep=cont or i > 0)
+        except RouterStuck as e:
+            # the board on disk is still the last round's, which is routed;
+            # stopping here keeps it rather than losing the series to a hang
+            print('  stopping: %s' % e, flush=True)
+            break
         board = pcbnew.LoadBoard(PCB)
         done, total = progress(board)
         note = '' if last is None else '%+d' % (done - last)
