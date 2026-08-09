@@ -703,7 +703,7 @@ def route_pass(board, sp, todo, label):
     return done, lost, names
 
 
-def main(limit=None, rounds=6):
+def main(limit=None, rounds=6, escapes=False):
     board = pcbnew.LoadBoard(PCB)
     sp = paint(board)
     todo = in_pieces(board)
@@ -720,9 +720,16 @@ def main(limit=None, rounds=6):
     done, lost, names = route_pass(board, sp, local, 'local')
     print('local nets: %d joined, %d out of reach' % (done, lost), flush=True)
 
-    rest = [t for t in in_pieces(board) if t[2] > LOCAL]
-    print('escape vias: %d placed'
-          % fanout(board, sp, set(c for _n, c, _s in rest)), flush=True)
+    # Reserving an escape via per pad was tried here and is worse, not
+    # better: a through via costs space on all six layers, and 284 of them
+    # take a tenth of every layer out of use, clustered exactly where the
+    # long nets have to pass.  Failures went from five in the first sixty
+    # nets to eleven in the first thirty.  fanout() is kept for the record
+    # and left switched off.
+    if escapes:
+        rest = [t for t in in_pieces(board) if t[2] > LOCAL]
+        print('escape vias: %d placed'
+              % fanout(board, sp, set(c for _n, c, _s in rest)), flush=True)
     done, lost, names = route_pass(board, sp, in_pieces(board), 'pass 1')
     board.Save(PCB)
     print('pass 1: %d joined, %d out of reach' % (done, lost), flush=True)
