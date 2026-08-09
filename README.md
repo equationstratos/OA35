@@ -301,6 +301,37 @@ Une pièce pas encore assemblée reste à sa place sur l'établi plutôt que d'a
 à l'origine : sinon les pièces se recouvriraient et deviendraient impossibles
 à viser.
 
+### Changer l'habillage d'un cover
+
+Le **side guard** (flanc de protection latéral, pièces 30 et 31) existe en huit
+habillages. Clique sur le cover — dans la vue 3D ou sur sa fiche — et une ligne
+**Habillage** s'ajoute en haut de la barre d'actions. Le fichier est chargé au
+moment où tu le demandes, pas au démarrage ; la pièce garde sa place, sa
+rotation et sa teinte, et chaque côté choisit le sien.
+
+| Habillage | Ce qu'il change | Matière |
+|-----------|-----------------|---------|
+| **Origine** | fichier fourni, non modifié | 2,746 cm³ |
+| **Nid d'abeille** | percé, 13 alvéoles de 5,2 mm entre plats, cloisons 1,7 mm | −17,5 % |
+| **Persiennes** | percé, 8 fentes obliques de 2,7 mm à 62° | −17,3 % |
+| **Treillis** | percé, 18 triangles alternés, cloisons 2,2 mm | −12,1 % |
+| **Skull** | relief plein, crâne de face, 0,66 mm de saillie | +2,5 % |
+| **Shark** | relief plein, requin de profil sur 44 mm, 0,62 mm | +4,5 % |
+| **Circuit** | relief plein, routage de circuit imprimé, pistes de 0,9 mm | +0,1 % |
+| **Carbone tressé** | relief plein, tissage à ±45° sur toute la joue, 0,46 mm | +2,5 % |
+
+Les huit partagent au micron près l'encombrement du fichier d'origine
+(104,66 × 17,62 × 29,87 mm), son épaisseur de paroi (1,55 mm) et toutes ses
+surfaces de montage : le motif s'arrête à 0,9 mm des bords, et ni les ergots,
+ni les épaulements, ni le perçage ovale arrière ne sont touchés. Un habillage
+se substitue donc à un autre sans rien changer au reste du châssis.
+
+Les percés ouvrent la joue **là seulement où la coque est une paroi simple** de
+0,9 à 2,6 mm — nervures et zones épaisses sont exclues par construction. Les
+reliefs, eux, ne percent rien : c'est la face externe (celle qui ne porte pas
+les nervures) qui est déplacée vers l'extérieur par un champ de hauteur.
+L'épaisseur locale ne peut qu'augmenter.
+
 ## Visserie
 
 La visserie est le seul élément qui n'a pas à être photographié : elle est
@@ -424,5 +455,7 @@ js/lib/patterns.js         motifs de perçage normalisés, calage de l'échelle
 js/lib/geom.js             pixels -> mm, congés, symétrie, extrusion
 js/lib/materials.js        carbone sergé 2x2 généré au runtime
 js/parts/01-bottom-plate.js
+js/parts/09-side-guard.js  side guard gauche/droit et ses huit habillages
+assets/parts-3d/side-guard/  les sept habillages dérivés du side guard
 vendor/three/              Three.js r160 (embarqué)
 ```

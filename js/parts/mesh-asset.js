@@ -115,3 +115,67 @@ export async function meshPart({
     },
   };
 }
+
+/**
+ * Pièce importée qui existe en plusieurs styles : même géométrie de montage,
+ * un fichier STL par habillage. Le style se change en cours de session, la
+ * pièce garde sa place et sa teinte.
+ *
+ * Les fichiers sont chargés À LA DEMANDE, pas tous au démarrage : huit
+ * habillages de cover pèsent une quarantaine de mégaoctets, les charger d'un
+ * bloc retarderait le premier rendu de plusieurs secondes pour sept maillages
+ * dont on n'affichera jamais qu'un seul. Chaque style chargé est gardé, si
+ * bien qu'un aller-retour entre deux habillages est instantané.
+ *
+ * @param {object} o
+ * @param {Array<{id:string,name:string,url:string,note:string}>} o.styles
+ *        le premier de la liste est celui affiché au démarrage
+ */
+export async function styledMeshPart({
+  styles, id, index, name, material,
+  mirrored = false, zUp = true, upsideDown = false,
+}) {
+  const loaded = new Map();
+  let currentId = styles[0].id;
+
+  async function ensure(styleId) {
+    if (loaded.has(styleId)) return loaded.get(styleId);
+    const style = styles.find((s) => s.id === styleId);
+    if (!style) throw new Error(`style inconnu : ${styleId}`);
+    const part = await meshPart({
+      url: style.url, id, index, name, material, source: style.note,
+      mirrored, zUp, upsideDown,
+    });
+    loaded.set(styleId, part);
+    return part;
+  }
+
+  const first = await ensure(currentId);
+  // meta est lu et gardé tel quel par le montage : c'est le MÊME objet qui est
+  // mis à jour d'un style à l'autre, en remplacer la référence laisserait la
+  // scène sur l'ancien.
+  const meta = {
+    ...first.meta,
+    styles: styles.map(({ id: sid, name: sname, note }) => ({ id: sid, name: sname, note })),
+    styleId: currentId,
+  };
+
+  return {
+    meta,
+    build(flip = false) {
+      return loaded.get(currentId).build(flip);
+    },
+    /** Bascule sur un autre habillage. L'appelant remonte ensuite la pièce. */
+    async setStyle(styleId) {
+      const part = await ensure(styleId);
+      // un fichier manquant NE DOIT PAS devenir le style courant : sa
+      // géométrie est nulle, le montage échouerait et emporterait le build.
+      if (part.meta.missingAsset) throw new Error(part.meta.missingAsset);
+      currentId = styleId;
+      meta.styleId = styleId;
+      meta.source = part.meta.source;
+      meta.dims = part.meta.dims;
+      return part;
+    },
+  };
+}

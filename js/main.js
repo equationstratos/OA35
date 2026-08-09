@@ -2053,8 +2053,21 @@ function renderPartToolbar() {
       <output>${Math.round(value)}°</output>
     </label>`;
 
+  // Sélecteur d'habillage — n'apparaît que pour les pièces qui en déclarent
+  // (les covers). C'est le clic sur la pièce dans la scène qui l'ouvre :
+  // choisir un motif se fait en regardant la pièce, pas dans une liste.
+  const styles = entry.mod.meta.styles;
+  const styleRow = styles ? `
+    <div class="row styles">
+      <span class="row-label" title="Le fichier change, les cotes et les surfaces de montage ne bougent pas">Habillage</span>
+      ${styles.map((s) => `<button data-style="${s.id}"
+        class="${s.id === entry.mod.meta.styleId ? 'on' : ''}"
+        title="${s.note}">${s.name}</button>`).join('')}
+    </div>` : '';
+
   bar.innerHTML = `
-    <div class="row">
+    ${styleRow}
+    <div class="row actions">
       <span class="sel-name">${entry.mod.meta.name}</span>
       <button data-act="mirror" class="${placement.mirrored ? 'on' : ''}"
         title="Symétrie gauche/droite de la pièce">⇋ Miroir</button>
@@ -2084,8 +2097,13 @@ function renderPartToolbar() {
       <button data-act="reset-rot" title="Remettre la pièce d'aplomb">↺</button>
     </div>`;
 
-  bar.querySelectorAll('.row:first-child button').forEach((btn) => {
+  // `.row.actions` et non plus « la première ligne » : le sélecteur
+  // d'habillage passe devant elle sur les covers, et prenait sa place.
+  bar.querySelectorAll('.row.actions button').forEach((btn) => {
     btn.addEventListener('click', () => partAction(btn.dataset.act));
+  });
+  bar.querySelectorAll('.row.styles button').forEach((btn) => {
+    btn.addEventListener('click', () => setPartStyle(entry, btn.dataset.style));
   });
   bar.querySelector('#part-tint').addEventListener('input', (e) => {
     setPartColor(selectedId, e.target.value);
@@ -2118,6 +2136,34 @@ function renderPartToolbar() {
       invalidate();
     });
   });
+}
+
+/**
+ * Change l'habillage d'un cover.
+ *
+ * Le fichier n'est chargé qu'ici, au moment où on le demande, et il pèse
+ * plusieurs mégaoctets : les boutons sont neutralisés le temps du chargement,
+ * sinon deux clics rapides lancent deux montages qui se croisent.
+ *
+ * Le remontage passe par `remountAll()` : la scène se reconstruit depuis les
+ * placements enregistrés, donc la pièce retrouve exactement sa position, sa
+ * rotation et sa teinte — remonter la seule pièce concernée la ramènerait à
+ * sa place d'établi par défaut.
+ */
+async function setPartStyle(entry, styleId) {
+  if (!styleId || entry.mod.meta.styleId === styleId) return;
+  const bar = $('part-toolbar');
+  bar.querySelectorAll('.row.styles button').forEach((b) => { b.disabled = true; });
+  const style = entry.mod.meta.styles.find((s) => s.id === styleId);
+  try {
+    await entry.mod.setStyle(styleId);
+  } catch (err) {
+    updateAsmHint(`Habillage « ${style ? style.name : styleId} » indisponible : ${err.message}`, 'warn');
+    renderPartToolbar();
+    return;
+  }
+  remountAll();
+  updateAsmHint(`« ${entry.mod.meta.name} » : habillage ${style.name} — ${style.note}.`, 'ok');
 }
 
 function partAction(action) {

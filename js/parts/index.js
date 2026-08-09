@@ -15,12 +15,14 @@ import * as topPlate from './04-top-plate.js';
 import * as armLong from './06-arm-long.js';
 import * as armShort from './07-arm-short.js';
 import { ACCESSORIES } from './08-accessoires.js';
+import * as sideGuard from './09-side-guard.js';
 
 export const PARTS = [
   bottomPlate, middlePlate, clampPlate, topPlate,
   armLong.gauche, armLong.droit,
   armShort.gauche, armShort.droit,
   ...ACCESSORIES,
+  sideGuard.gauche, sideGuard.droit,
 ];
 
 /** Emplacements réservés — remplis au fur et à mesure des pièces envoyées. */

@@ -628,6 +628,19 @@ ul { list-style: none; margin: 0; padding: 0; }
 }
 .part-toolbar .row-label { font-size: 12px; color: var(--dim); width: 10px; }
 
+/* Sélecteur d'habillage des covers. Huit motifs tiennent mal sur une ligne
+   dans une fenêtre étroite : ils passent à la ligne plutôt que d'étirer la
+   barre au-delà de la vue 3D. Le libellé, lui, a besoin de sa largeur — la
+   règle générale ci-dessus le taille pour une flèche d'une lettre. */
+.part-toolbar .row.styles {
+  flex-wrap: wrap;
+  max-width: 700px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+}
+.part-toolbar .row.styles .row-label { width: auto; margin-right: 2px; }
+.part-toolbar .row.styles button { padding: 4px 9px; font-size: 11.5px; }
+
 .part.selected {
   border-color: var(--warm);
   box-shadow: 0 0 0 1px rgba(255, 180, 84, 0.35);
