@@ -24,6 +24,29 @@ PCB = os.path.join(ROOT, 'oa35-aio.kicad_pcb')
 JAR = os.path.join(HERE, 'freerouting.jar')
 WORK = os.path.join(ROOT, 'build')
 
+PLANE_NETS = ('GND', 'VBAT')
+
+
+def strip_plane_nets(path, names=PLANE_NETS):
+    """Take the plane nets out of the DSN before handing it to the router.
+
+    GND alone has 177 pads; asked to route it as a tree, freerouting spends
+    most of its time there and still leaves a third of the board bare.  The
+    pads stay in the file as obstacles, only their net membership goes, so
+    the router works on signals alone -- and GND and VBAT get their copper
+    from the planes, the pours and the stitching vias instead.
+    """
+    txt = open(path).read()
+    removed = 0
+    for name in names:
+        pat = re.compile(r'\n    \(net %s\n(?:.*?\n)*?    \)' % re.escape(name))
+        txt, n = pat.subn('', txt)
+        removed += n
+        txt = re.sub(r'(?<=[\s])%s(?=[\s])' % re.escape(name), '', txt, count=0)
+    open(path, 'w').write(txt)
+    return removed
+
+
 def check_classes(path):
     """Report the class split KiCad exported, without touching it.
 
@@ -129,25 +152,44 @@ def import_ses(board, path):
     return ntrack, nvia
 
 
-def main(passes=10):
+def clear_tracks():
+    """Drop anything previously routed, in its own process.
+
+    BOARD.Remove() leaves pcbnew's python proxies broken for the rest of the
+    interpreter, so this cannot share a process with the import that follows.
+    """
+    subprocess.check_call([sys.executable, os.path.abspath(__file__),
+                           '--clear'])
+
+
+def _clear_here():
+    board = pcbnew.LoadBoard(PCB)
+    tracks = list(board.GetTracks())
+    if not tracks:
+        return
+    for t in tracks:
+        board.Remove(t)
+    board.Save(PCB)
+
+
+def main(passes=10, ses_only=False):
     if not os.path.isdir(WORK):
         os.makedirs(WORK)
     dsn = os.path.join(WORK, 'oa35-aio.dsn')
     ses = os.path.join(WORK, 'oa35-aio.ses')
-    for f in (dsn, ses):
-        if os.path.exists(f):
-            os.remove(f)
+    if not ses_only:
+        for f in (dsn, ses):
+            if os.path.exists(f):
+                os.remove(f)
 
-    board = pcbnew.LoadBoard(PCB)
-    # start from a clean slate: drop anything previously routed
-    for t in list(board.GetTracks()):
-        board.Remove(t)
-    board.Save(PCB)
-
-    if not pcbnew.ExportSpecctraDSN(board, dsn):
-        raise SystemExit('DSN export failed')
-    print('classes:', check_classes(dsn))
-    run_freerouting(dsn, ses, passes)
+    if not ses_only:
+        clear_tracks()
+        board = pcbnew.LoadBoard(PCB)
+        if not pcbnew.ExportSpecctraDSN(board, dsn):
+            raise SystemExit('DSN export failed')
+        print('removed %d plane nets from the DSN' % strip_plane_nets(dsn))
+        print('classes:', check_classes(dsn))
+        run_freerouting(dsn, ses, passes)
 
     board = pcbnew.LoadBoard(PCB)
     ntrack, nvia = import_ses(board, ses)
@@ -161,5 +203,10 @@ def main(passes=10):
 
 
 if __name__ == '__main__':
-    n = int(sys.argv[1]) if len(sys.argv) > 1 else 10
-    sys.exit(0 if main(n) == 0 else 1)
+    if '--clear' in sys.argv:
+        _clear_here()
+        sys.exit(0)
+    only = '--import-only' in sys.argv
+    args = [a for a in sys.argv[1:] if not a.startswith('--')]
+    n = int(args[0]) if args else 10
+    sys.exit(0 if main(n, ses_only=only) == 0 else 1)
