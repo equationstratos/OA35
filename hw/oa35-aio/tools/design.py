@@ -19,8 +19,10 @@ from collections import OrderedDict
 # ---------------------------------------------------------------- library ---
 
 FP = {
+    'R0201':   'Resistor_SMD:R_0201_0603Metric',
     'R0402':   'Resistor_SMD:R_0402_1005Metric',
     'R2512':   'Resistor_SMD:R_2512_6332Metric',
+    'C0201':   'Capacitor_SMD:C_0201_0603Metric',
     'C0402':   'Capacitor_SMD:C_0402_1005Metric',
     'C0603':   'Capacitor_SMD:C_0603_1608Metric',
     'C0805':   'Capacitor_SMD:C_0805_2012Metric',
@@ -46,6 +48,7 @@ FP = {
     'IND3030': 'oa35:L_3.0x3.0mm',
     'PAD_S':   'oa35:Pad_1.6x1.2mm',
     'PAD_M':   'oa35:Pad_2.2x1.6mm',
+    'PAD_MOT': 'oa35:Pad_2.8x2.0mm',
     'PAD_L':   'oa35:Pad_4.0x3.0mm',
     'MOUNT':   'oa35:MountingHole_3.0mm',
 }
@@ -53,27 +56,24 @@ FP = {
 # LCSC part numbers.  Verified against LCSC/JLCPCB listings in 2026-08;
 # re-check stock before ordering with tools/verify_bom.py.
 LCSC = {
-    # passives (JLCPCB Basic library)
-    'R_0R':      'C17168',
-    'R_10R':     'C25077',
-    'R_22R':     'C25092',
-    'R_100R':    'C25076',
-    'R_220R':    'C25091',
-    'R_470R':    'C25117',
-    'R_1k':      'C11702',
-    'R_2.4k':    'C25882',
-    'R_4.7k':    'C25900',
+    # 0201 passives -- same parts the OpenESC-20x20 reference design uses
+    'R_10R':     'C106226',
+    'R_15R':     'C473542',
+    'R_220R':    'C226468',
+    'R_510R':    'C57784',
+    'R_1k':      'C270365',
+    'R_2.4k':    'C166281',
+    'R_6.49k':   'C2107920',
+    'R_10k':     'C106225',
+    'R_13.7k':   'C320695',
+    'R_100k':    'C270364',
+    'C_100n':    'C181043',
+    # 0402 / 0805 passives (JLCPCB Basic library)
     'R_5.1k':    'C25905',
-    'R_10k':     'C25744',
-    'R_20k':     'C25765',
-    'R_47k':     'C25792',
-    'R_100k':    'C25741',
+    'C_100n_16V': 'C1525',
     'C_20p':     'C1554',
-    'C_1n':      'C1523',
-    'C_100n':    'C1525',
     'C_1u':      'C52923',
     'C_4.7u':    'C23733',
-    'C_10u_25V': 'C15850',
     'C_22u_25V': 'C45783',
     'C_4.7u_50V': 'C98192',
     'LED_G':     'C965793',
@@ -85,7 +85,6 @@ LCSC = {
     'LMR51430YFDDCR':  'C5219261',
     'LP5912-3.3DRVR':  'C524780',
     'TLV76733DRVR':    'C2848334',
-    'TPS2116DRLR':     'C3235557',
     'INA186A3IDCKR':   'C2058245',
     'USBLC6-2SC6':     'C7519',
     '2N7002':          'C8545',
@@ -131,11 +130,16 @@ def add(ref, value, fp, lcsc, pins, sym='generic', dnp=False, desc=''):
     return PARTS[ref]
 
 
-def R(ref, val, a, b, fp='R0402'):
+R0402_ONLY = ('5.1k',)
+
+
+def R(ref, val, a, b, fp=None):
+    if fp is None:
+        fp = 'R0402' if val in R0402_ONLY else 'R0201'
     return add(ref, val, fp, LCSC['R_' + val], {'1': a, '2': b}, 'R')
 
 
-def C(ref, val, a, b, fp='C0402', lcsc=None):
+def C(ref, val, a, b, fp='C0201', lcsc=None):
     return add(ref, val, fp, lcsc or LCSC['C_' + val], {'1': a, '2': b}, 'C')
 
 
@@ -149,12 +153,11 @@ def LED(ref, anode, cathode):
 # =========================================================================
 block('POWER')
 
-# Battery pads: 3S-6S.  BATT+ goes through the shunt before feeding the
-# MOSFET drains, so the INA186 measures total motor + BEC current.
+# Battery pads: 3S-6S.  The battery lead and the low-ESR capacitor both go
+# on J3/J4.  BATT+ passes through the shunt before it reaches the MOSFET
+# drains, so the INA186 measures total motor plus BEC current.
 add('J3', 'BAT+', 'PAD_L', '', {'1': 'VBAT_IN'}, 'PAD')
 add('J4', 'BAT-', 'PAD_L', '', {'1': 'GND'}, 'PAD')
-add('J5', 'CAP+', 'PAD_L', '', {'1': 'VBAT_IN'}, 'PAD')
-add('J6', 'CAP-', 'PAD_L', '', {'1': 'GND'}, 'PAD')
 
 add('D1', 'SMF24A-T13', 'SOD123F', LCSC['SMF24A-T13'],
     {'1': 'GND', '2': 'VBAT_IN'}, 'TVS',
@@ -181,30 +184,27 @@ add('U1', 'INA186A3IDCKR', 'SC70_6', LCSC['INA186A3IDCKR'],
 R('R1', '1k', 'CURR_RAW', 'CURR')
 C('C7', '100n', 'CURR', 'GND')
 
-# ---- +9.6 V gate-drive rail (LMR51430, Vref 0.6 V, 100k / 10k||20k) -------
+# ---- +9.85 V gate-drive rail (net +10V) (LMR51430, Vref 0.6 V, 100k / 6.49k) --------
 add('U2', 'LMR51430YFDDCR', 'SOT23_6', LCSC['LMR51430YFDDCR'],
     {'1': 'GND', '2': 'SW_GD', '3': 'VBAT', '4': 'FB_GD', '5': 'VBAT',
      '6': 'BST_GD'}, 'LMR51430')
 C('C8', '100n', 'BST_GD', 'SW_GD')
-add('L1', '4.7uH', 'IND3030', LCSC['L_4.7u'], {'1': 'SW_GD', '2': '+9V6'}, 'L')
-R('R2', '100k', '+9V6', 'FB_GD')
-R('R3', '10k', 'FB_GD', 'GND')
-R('R4', '20k', 'FB_GD', 'GND')
-C('C9', '22u_25V', '+9V6', 'GND', 'C0805', LCSC['C_22u_25V'])
-C('C10', '22u_25V', '+9V6', 'GND', 'C0805', LCSC['C_22u_25V'])
-C('C11', '100n', '+9V6', 'GND')
+add('L1', '4.7uH', 'IND3030', LCSC['L_4.7u'], {'1': 'SW_GD', '2': '+10V'}, 'L')
+R('R2', '100k', '+10V', 'FB_GD')
+R('R3', '6.49k', 'FB_GD', 'GND')
+C('C9', '22u_25V', '+10V', 'GND', 'C0805', LCSC['C_22u_25V'])
+C('C10', '22u_25V', '+10V', 'GND', 'C0805', LCSC['C_22u_25V'])
+C('C11', '100n', '+10V', 'GND')
 
-# ---- +5 V BEC 2.5 A (LMR51430, 100k / 13.4k -> 5.08 V) -------------------
+# ---- +5 V BEC 2.5 A (LMR51430, 100k / 13.7k -> 4.98 V) -------------------
 add('U3', 'LMR51430YFDDCR', 'SOT23_6', LCSC['LMR51430YFDDCR'],
     {'1': 'GND', '2': 'SW_5V', '3': 'VBAT', '4': 'FB_5V', '5': 'VBAT',
      '6': 'BST_5V'}, 'LMR51430')
 C('C12', '100n', 'BST_5V', 'SW_5V')
 add('L2', '4.7uH', 'IND3030', LCSC['L_4.7u'], {'1': 'SW_5V', '2': '+5V_BUCK'},
     'L')
-R('R5', '100k', '+5V_BUCK', 'FB_5V')
-R('R6', '10k', 'FB_5V', 'FB_5Va')
-R('R7', '2.4k', 'FB_5Va', 'FB_5Vb')
-R('R8', '1k', 'FB_5Vb', 'GND')
+R('R4', '100k', '+5V_BUCK', 'FB_5V')
+R('R5', '13.7k', 'FB_5V', 'GND')
 C('C13', '22u_25V', '+5V_BUCK', 'GND', 'C0805', LCSC['C_22u_25V'])
 C('C14', '22u_25V', '+5V_BUCK', 'GND', 'C0805', LCSC['C_22u_25V'])
 C('C15', '100n', '+5V_BUCK', 'GND')
@@ -232,16 +232,16 @@ C('C22', '100n', '+3V3', 'GND')
 
 # ---- +3V3 for the four ESC MCUs, fed from the gate rail -------------------
 add('U5', 'TLV76733DRVR', 'WSON6', LCSC['TLV76733DRVR'],
-    {'1': '+3V3E', '2': '+3V3E', '3': 'GND', '4': '+9V6', '5': 'GND',
-     '6': '+9V6', '7': 'GND'}, 'LDO6')
+    {'1': '+3V3E', '2': '+3V3E', '3': 'GND', '4': '+10V', '5': 'GND',
+     '6': '+10V', '7': 'GND'}, 'LDO6')
 C('C23', '4.7u', '+3V3E', 'GND')
 C('C24', '100n', '+3V3E', 'GND')
 
 # power LEDs
 LED('D5', '+5V_LED', 'GND')
-R('R11', '2.4k', '+5V', '+5V_LED')
+R('R6', '2.4k', '+5V', '+5V_LED')
 LED('D6', '+3V3_LED', 'GND')
-R('R12', '2.4k', '+3V3', '+3V3_LED')
+R('R7', '2.4k', '+3V3', '+3V3_LED')
 
 
 # =========================================================================
@@ -324,8 +324,8 @@ for ref in ('C25', 'C26', 'C27', 'C28', 'C29'):
 C('C30', '4.7u', '+3V3', 'GND')
 C('C31', '4.7u', 'VCAP', 'GND')          # VCAP_1, F7 core regulator
 C('C32', '100n', 'NRST', 'GND')
-R('R13', '10k', 'BOOT0', 'GND')
-R('R14', '10R', '+3V3', '+3V3A')          # VDDA filter
+R('R8', '10k', 'BOOT0', 'GND')
+R('R9', '10R', '+3V3', '+3V3A')          # VDDA filter
 C('C33', '1u', '+3V3A', 'GND')
 C('C34', '100n', '+3V3A', 'GND')
 
@@ -337,26 +337,26 @@ C('C36', '20p', 'HSE_OUT', 'GND')
 
 # status LEDs (active low, MCU sinks)
 LED('D7', '+3V3', 'LED0_K')
-R('R15', '470R', 'LED0_K', 'LED0')
+R('R10', '510R', 'LED0_K', 'LED0')
 LED('D8', '+3V3', 'LED1_K')
-R('R16', '470R', 'LED1_K', 'LED1')
+R('R11', '510R', 'LED1_K', 'LED1')
 
 # battery voltage divider, 100k/10k -> 25.2 V maps to 2.29 V
-R('R17', '100k', 'VBAT', 'ADC_VBAT')
-R('R18', '10k', 'ADC_VBAT', 'GND')
+R('R12', '100k', 'VBAT', 'ADC_VBAT')
+R('R13', '10k', 'ADC_VBAT', 'GND')
 C('C37', '100n', 'ADC_VBAT', 'GND')
 # RSSI input, pulled down so a floating pad reads zero
-R('R19', '10k', 'ADC_RSSI', 'GND')
-R('R20', '1k', 'PAD_RSSI', 'ADC_RSSI')
+R('R14', '10k', 'ADC_RSSI', 'GND')
+R('R15', '1k', 'PAD_RSSI', 'ADC_RSSI')
 
 # beeper driver
 add('Q1', '2N7002', 'SOT23', LCSC['2N7002'],
     {'1': 'BEEP_G', '2': 'GND', '3': 'PAD_BZ-'}, 'NMOS')
-R('R21', '100R', 'BEEP_GATE', 'BEEP_G')
-R('R22', '100k', 'BEEP_G', 'GND')
+R('R16', '220R', 'BEEP_GATE', 'BEEP_G')
+R('R17', '100k', 'BEEP_G', 'GND')
 
 # LED strip output (WS2812 on 5 V, series resistor for ringing)
-R('R23', '100R', 'LED_STRIP', 'PAD_LED')
+R('R18', '220R', 'LED_STRIP', 'PAD_LED')
 
 
 # =========================================================================
@@ -371,22 +371,22 @@ add('U7', 'ICM-42688-P', 'IMU', LCSC['ICM-42688-P'],
      '12': 'GYRO_CS', '13': 'GYRO_SCK', '14': 'GYRO_MOSI'}, 'ICM42688')
 C('C38', '100n', '+3V3', 'GND')
 C('C39', '100n', '+3V3', 'GND')
-R('R24', '10k', '+3V3', 'GYRO_CS')
+R('R19', '10k', '+3V3', 'GYRO_CS')
 
 # CSB tied high selects I2C, SDO low selects address 0x76
 add('U8', 'BMP280', 'BARO', LCSC['BMP280'],
     {'1': 'GND', '2': '+3V3', '3': 'I2C_SDA', '4': 'I2C_SCL',
      '5': 'GND', '6': '+3V3', '7': 'GND', '8': '+3V3'}, 'BMP280')
 C('C40', '100n', '+3V3', 'GND')
-R('R25', '4.7k', '+3V3', 'I2C_SCL')
-R('R26', '4.7k', '+3V3', 'I2C_SDA')
+R('R20', '2.4k', '+3V3', 'I2C_SCL')
+R('R21', '2.4k', '+3V3', 'I2C_SDA')
 
 add('U9', 'W25Q128JVSIQ', 'SOIC8', LCSC['W25Q128JVSIQ'],
     {'1': 'FLASH_CS', '2': 'FLASH_MISO', '3': '+3V3', '4': 'GND',
      '5': 'FLASH_MOSI', '6': 'FLASH_SCK', '7': '+3V3', '8': '+3V3'},
     'W25Q')
 C('C41', '100n', '+3V3', 'GND')
-R('R27', '10k', '+3V3', 'FLASH_CS')
+R('R22', '10k', '+3V3', 'FLASH_CS')
 
 
 # =========================================================================
@@ -400,8 +400,8 @@ add('J1', 'TYPE-C-31-M-12', 'USBC', LCSC['TYPE-C-31-M-12'],
      'B1': 'GND', 'B4': 'VBUS', 'B5': 'CC2', 'B6': 'USB_DP',
      'B7': 'USB_DM', 'B9': 'VBUS', 'B12': 'GND',
      'S1': 'GND'}, 'USBC')
-R('R28', '5.1k', 'CC1', 'GND')
-R('R29', '5.1k', 'CC2', 'GND')
+R('R23', '5.1k', 'CC1', 'GND')
+R('R24', '5.1k', 'CC2', 'GND')
 C('C42', '100n', 'VBUS', 'GND')
 C('C43', '4.7u', 'VBUS', 'GND')
 # pins 1/6 are the two pads of I/O1 and 3/4 the two pads of I/O2, so each
@@ -500,7 +500,7 @@ def esc_channel(n, refbase, signal):
 
     add(r(1), 'NSG2065Q', 'QFN24', LCSC['NSG2065Q'], {
         '1':  p('AL'), '2': p('BL'), '3': p('CL'),
-        '4':  '+9V6',
+        '4':  '+10V',
         '5':  p('ND5'),
         '6':  'GND',
         '7':  p('ND7'), '8': p('ND8'),
@@ -517,20 +517,25 @@ def esc_channel(n, refbase, signal):
     fets = (('AH', 'VBAT', A, 'GAH'), ('AL', A, 'GND', 'GAL'),
             ('BH', 'VBAT', B, 'GBH'), ('BL', B, 'GND', 'GBL'),
             ('CH', 'VBAT', Cc, 'GCH'), ('CL', Cc, 'GND', 'GCL'))
+    # PowerDI3333-8: pads 1-3 source, pad 4 gate, pad 5 drain
     for name, drain, source, gate in fets:
         add('Q%s%d' % (name, n), 'DOY180N03T', 'PDI3333', LCSC['DOY180N03T'],
-            {'1': source, '2': p(gate), '3': drain}, 'NMOS3')
+            {'1': source, '2': source, '3': source, '4': p(gate),
+             '5': drain}, 'NMOS3')
 
     # gate resistors
     for gd, gs in (('GHA', 'GAH'), ('GLA', 'GAL'), ('GHB', 'GBH'),
                    ('GLB', 'GBL'), ('GHC', 'GCH'), ('GLC', 'GCL')):
-        R('R%s%d' % (gs, n), '22R', p(gd), p(gs))
+        R('R%s%d' % (gs, n), '15R', p(gd), p(gs))
 
     # bootstrap capacitors
-    C('C%s%d' % ('BSA', n), '100n', A, p('BOOTA'))
-    C('C%s%d' % ('BSB', n), '100n', B, p('BOOTB'))
-    C('C%s%d' % ('BSC', n), '100n', Cc, p('BOOTC'))
-    C('C%s%d' % ('VCC', n), '100n', '+9V6', 'GND')
+    C('C%s%d' % ('BSA', n), '100n', A, p('BOOTA'), 'C0402',
+      LCSC['C_100n_16V'])
+    C('C%s%d' % ('BSB', n), '100n', B, p('BOOTB'), 'C0402',
+      LCSC['C_100n_16V'])
+    C('C%s%d' % ('BSC', n), '100n', Cc, p('BOOTC'), 'C0402',
+      LCSC['C_100n_16V'])
+    C('C%s%d' % ('VCC', n), '100n', '+10V', 'GND')
     C('C%s%d' % ('VDD', n), '100n', '+3V3E', 'GND')
     C('C%s%d' % ('VDA', n), '100n', p('VDDA'), 'GND')
     C('C%s%d' % ('RST', n), '100n', p('NRST'), 'GND')
@@ -548,8 +553,8 @@ def esc_channel(n, refbase, signal):
 
     # motor phase pads
     for k, (tag, net) in enumerate((('A', A), ('B', B), ('C', Cc))):
-        add('J%d' % (10 + 3 * (n - 1) + k), 'M%d%s' % (n, tag), 'PAD_L', '',
-            {'1': net}, 'PAD')
+        add('J%d' % (10 + 3 * (n - 1) + k), 'M%d%s' % (n, tag), 'PAD_MOT',
+            '', {'1': net}, 'PAD')
 
     # SWD test pads per channel
     add('TP%d' % (5 + 2 * n), 'SWDIO%d' % n, 'PAD_S', '', {'1': p('SWDIO')},

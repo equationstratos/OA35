@@ -143,6 +143,7 @@ def main():
     made = [nsg2065q(), icm42688(), inductor(), mounting_hole(),
             wire_pad('Pad_1.6x1.2mm', 1.6, 1.2),
             wire_pad('Pad_2.2x1.6mm', 2.2, 1.6),
+            wire_pad('Pad_2.8x2.0mm', 2.8, 2.0),
             wire_pad('Pad_4.0x3.0mm', 4.0, 3.0)]
     print('wrote %d footprints to %s' % (len(made), os.path.normpath(OUT)))
     for m in made:

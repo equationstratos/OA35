@@ -426,3 +426,12 @@ js/lib/materials.js        carbone sergé 2x2 généré au runtime
 js/parts/01-bottom-plate.js
 vendor/three/              Three.js r160 (embarqué)
 ```
+
+## Matériel : OA35-AIO
+
+Le dossier [`hw/oa35-aio/`](hw/oa35-aio/) contient une carte tout-en-un
+libre — contrôleur de vol STM32F722 et quatre ESC AM32 sur 36 × 36 mm,
+entretoises 25,5 × 25,5 mm — équivalente à l'AIO Sub250 RedFox A3 F722 qui
+équipe l'OasisFly35. Schéma, circuit imprimé, nomenclature et fichiers de
+fabrication sont générés depuis un unique fichier de description, et le jeu
+complet pour JLCPCB est dans `hw/oa35-aio/production/`.

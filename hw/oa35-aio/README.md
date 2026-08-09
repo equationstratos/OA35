@@ -1,0 +1,141 @@
+# OA35-AIO — carte tout-en-un F722 + 4 ESC AM32
+
+Équivalent libre de l'AIO **Sub250 RedFox A3 F722** (la carte qui équipe le
+**Sub250 OasisFly35**) : contrôleur de vol STM32F722 et quatre ESC AM32
+indépendants sur une seule carte, entretoises **25,5 × 25,5 mm**, prête à
+commander chez JLCPCB.
+
+Tout le projet est **généré depuis un seul fichier**, `tools/design.py`, qui
+contient chaque composant et chaque liaison broche‑à‑net. Le schéma, le
+routage, la nomenclature et le fichier de placement en découlent, donc ils ne
+peuvent pas diverger entre eux.
+
+## Caractéristiques
+
+| | OA35-AIO | RedFox A3 (référence) |
+|---|---|---|
+| MCU vol | STM32F722RET6 (LQFP‑64) | STM32F722 |
+| Centrale inertielle | ICM‑42688‑P (SPI1) | ICM‑42688‑P |
+| Baromètre | BMP280 (I2C1) | oui |
+| Boîte noire | W25Q128JVSIQ, 16 Mo (SPI3) | 16 Mo |
+| ESC | 4 × AT32F421G8U7 + NSG2065Q + 6 MOSFET, **AM32** | BLHeli_32, 45 A |
+| Tension d'entrée | **3S – 6S** (11,1 – 25,2 V) | 2S – 6S |
+| BEC | 5 V / 2,5 A (LMR51430) | 5 V / 2,5 A |
+| Mesure de courant | shunt 0,2 mΩ + INA186A3, 20 mV/A | oui |
+| UART | 4 (UART1, 2, 4, 6) sur pastilles | 4 |
+| Vidéo | connecteur JST‑SH 6 points pour VTX numérique | connecteur DJI 6 points |
+| USB | USB‑C sur la carte | carte adaptateur séparée |
+| Carte | 36 × 36 mm, 6 couches, 1,6 mm | ~33,5 × 33,5 mm |
+| Fixation | 25,5 × 25,5 mm, 4 trous ⌀3,0 mm (M2 + silentblocs) | 25,5 × 25,5 mm |
+
+### Ce qui diffère volontairement de l'original
+
+- **36 × 36 mm au lieu de ~33,5 mm.** La densité de l'original suppose des
+  passifs 0201 partout et un routage manuel très serré. 36 mm laisse la place
+  de router proprement. Le motif de fixation est identique, donc la carte se
+  monte sur les mêmes entretoises, mais **vérifiez le dégagement latéral de
+  votre châssis** avant de commander.
+- **3S minimum au lieu de 2S.** Le rail de grille est un abaisseur qui sort
+  9,85 V ; il lui faut au moins ~11 V à l'entrée. À 2S il décrocherait.
+- **AM32 au lieu de BLHeli_32.** BLHeli_32 est fermé et n'est plus distribué ;
+  AM32 est libre et c'est la cible standard pour AT32F421.
+- **USB‑C sur la carte** plutôt qu'une carte adaptateur déportée.
+- **Pas de puce OSD analogique.** Comme la version HD de l'OasisFly35, l'OSD
+  passe par MSP DisplayPort sur l'UART du VTX numérique.
+
+## Construire le projet
+
+```sh
+./build.sh              # bibliothèque, schéma, placement, routage, export
+./build.sh noroute      # tout sauf le routage automatique
+```
+
+Il faut KiCad 7 (`kicad-cli` et le module python `pcbnew`), `java` et `xvfb`
+(pour freerouting). Chaque étape est indépendante :
+
+| Étape | Script | Produit |
+|---|---|---|
+| Empreintes propres au projet | `tools/gen_lib.py` | `lib/oa35.pretty/` |
+| Schéma hiérarchique | `tools/gen_sch.py` | `*.kicad_sch` |
+| Contrôle du netlist | `tools/check_netlist.py` | échoue si le schéma ne redonne pas `design.py` |
+| Placement | `tools/gen_pcb.py` | `oa35-aio.kicad_pcb` |
+| Routage | `tools/route.py` | pistes et vias |
+| Cuivre plein, sérigraphie, DRC | `tools/finish_pcb.py` | zones remplies, rapport DRC |
+| Fabrication | `tools/export.py` | `production/` |
+
+Le placement est mixte : les pièces dont la position compte (MOSFET, drivers,
+MCU, connecteurs, pastilles) sont posées à la main dans `tools/layout.py`,
+les ~150 passifs sont placés automatiquement à côté des broches auxquelles ils
+se raccordent, sur une grille d'occupation qui connaît le contour de la carte
+et les trous de fixation. Une vérification refuse tout chevauchement de
+pastilles et toute pièce qui sortirait de la carte.
+
+## Architecture
+
+**Dessus (F.Cu) — étage de puissance.** Quatre blocs identiques en moulinet,
+un par bord : six MOSFET DOY180N03T (30 V, PowerDI3333‑8) en trois demi‑ponts,
+le driver NSG2065Q, les résistances de grille et les condensateurs de
+bootstrap. Les pastilles moteur sont dans le coin vers lequel pointe le bloc.
+L'entrée batterie, le shunt et les écrêteurs sont à l'arrière.
+
+**Dessous (B.Cu) — contrôleur de vol.** Le STM32F722 au centre, les quatre
+micros d'ESC dans les coins à 45°, l'USB‑C sur le bord gauche, le connecteur
+VTX à l'avant, les deux abaisseurs et les régulateurs à droite, les pastilles
+de câblage tout autour.
+
+**Empilage (6 couches, 1,6 mm)**
+
+| Couche | Rôle |
+|---|---|
+| F.Cu | puissance ESC, coulées de phase |
+| In1.Cu | plan de masse |
+| In2.Cu | plan batterie |
+| In3.Cu | plan de masse |
+| In4.Cu | signaux contrôleur de vol + masse |
+| B.Cu | contrôleur de vol, signaux, pastilles |
+
+## Firmware
+
+- **Contrôleur de vol** : Betaflight, cible personnalisée. Le brochage complet
+  est dans [docs/BETAFLIGHT.md](docs/BETAFLIGHT.md), avec le fichier de
+  configuration à coller dans la CLI.
+- **ESC** : [AM32](https://github.com/am32-firmware/AM32), cible AT32F421, à
+  flasher canal par canal via les pastilles SWD `TP7`…`TP14` (deux par canal,
+  SWDIO et SWCLK ; la masse et le 3,3 V viennent des pastilles GND et 3V3).
+
+## Commander
+
+Voir [docs/COMMANDE-JLCPCB.md](docs/COMMANDE-JLCPCB.md). En résumé :
+`production/oa35-aio-gerber.zip` pour le PCB, `production/oa35-aio-bom.csv` et
+`production/oa35-aio-cpl.csv` pour l'assemblage, 6 couches, 1,6 mm, cuivre
+extérieur 2 oz si l'option est proposée.
+
+**À vérifier avant de payer** : les références LCSC ont été relevées sur les
+fiches LCSC/JLCPCB mais les stocks bougent ; passez la nomenclature dans le
+vérificateur de JLCPCB et contrôlez chaque orientation dans l'aperçu du
+placement. Le tableau de correction de rotation utilisé est dans
+`tools/export.py` et ne couvre que les boîtiers de cette carte.
+
+## Origine et licence
+
+L'étage ESC (topologie AT32F421 + NSG2065Q + six MOSFET par canal, ponts
+diviseurs de FCEM, bootstrap, shunt côté haut avec INA186) suit
+[OpenESC‑20x20](https://github.com/OpenDrone-hw/OpenESC-20x20) d'incutec /
+OpenDrone‑hw, sous **CERN‑OHL‑S‑2.0**. Ce projet est donc lui aussi publié
+sous CERN‑OHL‑S‑2.0 (voir [LICENSE](LICENSE)).
+
+## Limites connues
+
+Ce projet est complet et cohérent, mais **aucun exemplaire n'a été fabriqué ni
+testé**. Avant une série :
+
+- Faire un prototype et le caractériser (échauffement, courant continu réel).
+- L'empreinte de l'ICM‑42688‑P est reprise d'une carte en production ; celle
+  du NSG2065Q est construite d'après le boîtier QFN‑24 4 × 4 mm à pas 0,5 mm.
+  Les recouper avec les fiches techniques.
+- L'écrêteur SMF24A (24 V) est celui de la conception de référence ; à 6S
+  pleine charge (25,2 V) il travaille juste au-dessus de sa tension de veille.
+  Pour du 6S exclusif, préférer un SMF26A ou SMF28A.
+- Le courant annoncé pour l'étage de puissance doit être mesuré, pas déduit :
+  les MOSFET 30 V et le shunt donnent la borne haute, l'évacuation thermique
+  de la carte donne la vraie limite continue.
