@@ -710,11 +710,20 @@ def main(limit=None, rounds=6):
     print('%d nets are in pieces' % len(todo), flush=True)
     if limit:
         todo = todo[:limit]
-    long_enough = set(c for _n, c, span in todo if span > 3.0)
+    # Order matters, and the obvious order is wrong.  Reserving the escape
+    # vias first crowds the pads that the short local nets need -- gate
+    # resistor to gate pad is under a millimetre and has nowhere else to go --
+    # and the failures start at net 30 instead of net 60.  So: the local hops
+    # first, then the escapes for what is left, then the long haul.
+    LOCAL = 3.0
+    local = [t for t in todo if t[2] <= LOCAL]
+    done, lost, names = route_pass(board, sp, local, 'local')
+    print('local nets: %d joined, %d out of reach' % (done, lost), flush=True)
+
+    rest = [t for t in in_pieces(board) if t[2] > LOCAL]
     print('escape vias: %d placed'
-          % fanout(board, sp, long_enough), flush=True)
-    todo = in_pieces(board)
-    done, lost, names = route_pass(board, sp, todo, 'pass 1')
+          % fanout(board, sp, set(c for _n, c, _s in rest)), flush=True)
+    done, lost, names = route_pass(board, sp, in_pieces(board), 'pass 1')
     board.Save(PCB)
     print('pass 1: %d joined, %d out of reach' % (done, lost), flush=True)
 
