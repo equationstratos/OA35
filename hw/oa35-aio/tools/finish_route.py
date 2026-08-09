@@ -512,6 +512,90 @@ def anchor_cells(sp, items, group, net):
     return out
 
 
+def via_sites_near(sp, cx, cy, code, reach=1.8):
+    """Cells within reach of (cx, cy) that could hold a via, nearest first."""
+    ix0, iy0 = sp.to_i(cx), sp.to_i(cy)
+    span = int(reach / GRID)
+    out = []
+    for dy in range(-span, span + 1):
+        for dx in range(-span, span + 1):
+            d2 = dx * dx + dy * dy
+            if d2 > span * span:
+                continue
+            out.append((d2, ix0 + dx, iy0 + dy))
+    out.sort()
+    return out
+
+
+def fanout(board, sp, codes, reach=1.8):
+    """Give every surface pad its own escape via before anything is routed.
+
+    This is what a greedy router cannot recover from on its own: the first
+    hundred nets run their tracks past the pads of the last hundred, and by
+    the time those come up their pins are walled in -- not short of a route,
+    short of any way off the layer at all.  Half the board failed that way.
+    Reserving one via per pad up front costs a little copper and turns the
+    long-distance routing into a problem on the inner layers, where there is
+    room.
+
+    Tightest pads first, so the pins with one way out get it.
+    """
+    jobs = []
+    for fp in board.GetFootprints():
+        for pad in fp.Pads():
+            code = pad.GetNetCode()
+            if code not in codes:
+                continue
+            if pad.GetAttribute() in (pcbnew.PAD_ATTRIB_PTH,
+                                      pcbnew.PAD_ATTRIB_NPTH):
+                continue                      # already through the board
+            lis = [li for li in layer_indices(pad) if li in ROUTABLE]
+            if not lis:
+                continue
+            p = pad.GetPosition()
+            cx, cy = tomm(p.x) - ORIGIN[0], tomm(p.y) - ORIGIN[1]
+            ix, iy = sp.to_i(cx), sp.to_i(cy)
+            room = sum(1 for dx, dy, _ in STEPS
+                       if free(sp, lis[0], ix + dx, iy + dy, code))
+            jobs.append((room, cx, cy, lis[0], code))
+    jobs.sort()
+
+    placed = 0
+    for _room, cx, cy, li, code in jobs:
+        src = set()
+        ix0, iy0 = sp.to_i(cx), sp.to_i(cy)
+        for dy in range(-6, 7):
+            for dx in range(-6, 7):
+                k = (iy0 + dy) * N + ix0 + dx
+                if 0 <= ix0 + dx < N and 0 <= iy0 + dy < N \
+                        and sp.hard[li][k] and sp.owner[li][k] == code:
+                    src.add((li, ix0 + dx, iy0 + dy))
+        if not src:
+            continue
+        for _d2, ix, iy in via_sites_near(sp, cx, cy, code, reach):
+            if not (0 <= ix < N and 0 <= iy < N):
+                continue
+            if not free(sp, li, ix, iy, code) or not via_ok(sp, ix, iy, code):
+                continue
+            path = astar(sp, src, {(li, ix, iy)}, code, budget=4000)
+            if not path:
+                continue
+            commit(board, sp, path, code)
+            v = pcbnew.PCB_VIA(board)
+            v.SetPosition(pcbnew.VECTOR2I(mm(sp.to_mm(ix) + ORIGIN[0]),
+                                          mm(sp.to_mm(iy) + ORIGIN[1])))
+            v.SetWidth(mm(VIA_DIA))
+            v.SetDrill(mm(VIA_DRILL))
+            v.SetLayerPair(pcbnew.F_Cu, pcbnew.B_Cu)
+            v.SetNetCode(code)
+            board.Add(v)
+            sp.disc(sp.to_mm(ix), sp.to_mm(iy), VIA_DIA / 2.0 + INFLATE,
+                    code, range(len(LAYERS)))
+            placed += 1
+            break
+    return placed
+
+
 def in_pieces(board):
     """Every net that still needs copper, shortest span first."""
     nets = board.GetNetsByName()
@@ -626,6 +710,10 @@ def main(limit=None, rounds=6):
     print('%d nets are in pieces' % len(todo), flush=True)
     if limit:
         todo = todo[:limit]
+    long_enough = set(c for _n, c, span in todo if span > 3.0)
+    print('escape vias: %d placed'
+          % fanout(board, sp, long_enough), flush=True)
+    todo = in_pieces(board)
     done, lost, names = route_pass(board, sp, todo, 'pass 1')
     board.Save(PCB)
     print('pass 1: %d joined, %d out of reach' % (done, lost), flush=True)
