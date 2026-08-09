@@ -125,7 +125,14 @@ class Field(object):
             self.hist[li][k] += HISTORY_GROWTH * (self.count[li][k] - 1)
 
 
-def search(field, sources, targets, net, budget=120000):
+# Weighting the heuristic makes the search greedier: paths come out a few
+# percent longer, but it stops fanning out over half the board when the cost
+# field is bumpy, which is what made the long nets run out of budget and come
+# back unroutable.
+HEUR = 2.0
+
+
+def search(field, sources, targets, net, budget=300000):
     """Cheapest path under the current prices, not the shortest one."""
     if not sources or not targets:
         return None
@@ -144,7 +151,7 @@ def search(field, sources, targets, net, budget=120000):
         if s in tset:
             return [s]
         best[s] = 0.0
-        heapq.heappush(open_q, (hypot(s[1] - tx, s[2] - ty) * GRID,
+        heapq.heappush(open_q, (hypot(s[1] - tx, s[2] - ty) * GRID * HEUR,
                                 0.0, s, None))
     came = {}
     seen = 0
@@ -191,7 +198,7 @@ def search(field, sources, targets, net, budget=120000):
             if best.get(nxt, 1e18) <= ng:
                 continue
             best[nxt] = ng
-            heapq.heappush(open_q, (ng + hypot(jx - tx, jy - ty) * GRID,
+            heapq.heappush(open_q, (ng + hypot(jx - tx, jy - ty) * GRID * HEUR,
                                     ng, nxt, cur))
         k0 = iy * N + ix
         for lj in ROUTABLE:
@@ -211,7 +218,7 @@ def search(field, sources, targets, net, budget=120000):
             if not FR.via_ok(field.sp, ix, iy, net):
                 continue
             best[nxt] = ng
-            heapq.heappush(open_q, (ng + hypot(ix - tx, iy - ty) * GRID,
+            heapq.heappush(open_q, (ng + hypot(ix - tx, iy - ty) * GRID * HEUR,
                                     ng, nxt, cur))
     return None
 
