@@ -53,6 +53,25 @@ Côté gauche : `RSSI`, `SCL`, `SDA`, `+3V3`, `GND`, `VBAT`, `GND`.
 Arrière : `BAT+`, `BAT-` (fil de batterie **et** condensateur de découplage),
 et les douze pastilles moteur `M1A/B/C` … `M4A/B/C` dans les quatre coins.
 
+## Pastilles de test du contrôleur de vol
+
+Six pastilles sur la face du dessous, à gauche du micro :
+
+| Pastille | Signal |
+|---|---|
+| TP1 | SWDIO |
+| TP2 | SWCLK |
+| TP3 | NRST |
+| TP4 | BOOT0 |
+| TP5 | +3,3 V |
+| TP6 | GND |
+
+Pour entrer en DFU sur une carte dont le firmware ne répond plus : relier
+**TP4 à TP5** avec un fil court — les deux pastilles sont en diagonale, une
+goutte d'étain ne suffit pas — brancher l'USB, puis retirer le pont. Le
+STM32 démarre sur son bootloader USB et le configurateur Betaflight propose
+« DFU ».
+
 ## Betaflight
 
 Il n'existe pas de cible Betaflight pour cette carte ; partez d'une cible
