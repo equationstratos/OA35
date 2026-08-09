@@ -48,16 +48,65 @@ class Wrap(object):
     fill_zones = Board.fill_zones
 
 
-def phase_polys():
-    """One pour per motor phase, over the gap between the two FET rows."""
+def hull(points):
+    """Convex hull, monotone chain.  Small point counts, so simplicity wins."""
+    pts = sorted(set((round(x, 4), round(y, 4)) for x, y in points))
+    if len(pts) <= 2:
+        return pts
+
+    def cross(o, a, b):
+        return ((a[0] - o[0]) * (b[1] - o[1])
+                - (a[1] - o[1]) * (b[0] - o[0]))
+
+    lower = []
+    for p in pts:
+        while len(lower) >= 2 and cross(lower[-2], lower[-1], p) <= 0:
+            lower.pop()
+        lower.append(p)
+    upper = []
+    for p in reversed(pts):
+        while len(upper) >= 2 and cross(upper[-2], upper[-1], p) <= 0:
+            upper.pop()
+        upper.append(p)
+    return lower[:-1] + upper[:-1]
+
+
+def pad_corners(board, ref, inset=0.0):
+    fp = board.FindFootprintByReference(ref)
+    if fp is None:
+        return []
+    xs, ys = [], []
+    for pad in fp.Pads():
+        bb = pad.GetBoundingBox()
+        xs += [pcbnew.ToMM(bb.GetLeft()) - ORIGIN[0],
+               pcbnew.ToMM(bb.GetRight()) - ORIGIN[0]]
+        ys += [pcbnew.ToMM(bb.GetTop()) - ORIGIN[1],
+               pcbnew.ToMM(bb.GetBottom()) - ORIGIN[1]]
+    x0, x1 = min(xs) + inset, max(xs) - inset
+    y0, y1 = min(ys) + inset, max(ys) - inset
+    return [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+
+
+def phase_polys(board):
+    """One pour per motor phase: the gap between the two FET rows, widened
+    into a corridor that reaches the motor pad in the corner.
+
+    The motor current has to travel in copper, not in a routed trace, so the
+    pour is what actually carries it; the router's thin trace only
+    establishes the connection.
+    """
     out = []
+    phases = ('A', 'B', 'C')
     for ch, (ox, oy, ang) in sorted(LO.CHANNEL_FRAME.items()):
         f = Frame(ox, oy, ang)
-        for ph, lx in sorted(LO.FET_X.items()):
+        for k, ph in enumerate(phases):
+            lx = LO.FET_X[ph]
             y0, y1 = LO.FET_Y_LOW + 0.45, LO.FET_Y_HIGH - 0.45
             x0, x1 = lx - 1.35, lx + 1.35
-            poly = [f.xy(x0, y0), f.xy(x1, y0), f.xy(x1, y1), f.xy(x0, y1)]
-            out.append(('PH_%s_%d' % (ph, ch), poly))
+            pts = [f.xy(x0, y0), f.xy(x1, y0), f.xy(x1, y1), f.xy(x0, y1)]
+            pad = 'J%d' % (10 + 3 * (ch - 1) + k)
+            pts += pad_corners(board, pad, inset=0.1)
+            out.append(('PH_%s_%d' % (ph, ch), hull(pts)))
     return out
 
 
@@ -73,7 +122,7 @@ def add_pours(w):
     w.zone('VBAT_IN', ['F'],
            [(-0.4, 8.9), (12.3, 8.9), (12.3, 17.2), (-0.4, 17.2)],
            priority=20)
-    for net, p in phase_polys():
+    for net, p in phase_polys(w.b):
         w.zone(net, ['F'], p, priority=30)
 
 

@@ -24,9 +24,13 @@ PCB = os.path.join(ROOT, 'oa35-aio.kicad_pcb')
 JAR = os.path.join(HERE, 'freerouting.jar')
 WORK = os.path.join(ROOT, 'build')
 
-# net -> (trace width um, clearance um)
-WIDE = 800          # motor phases and the battery feed
-MID = 500           # supply rails
+# Trace widths handed to the router, in um.  The motor phases and the
+# battery rail carry their current in the copper pours that finish_pcb.py
+# adds afterwards, so what the router lays down only has to establish the
+# connection.  Asking it for 0.8 mm phases made the autoroute run past half
+# an hour without converging.
+WIDE = 400          # motor phases and the battery feed
+MID = 400           # supply rails
 THIN = 200          # signals
 
 
