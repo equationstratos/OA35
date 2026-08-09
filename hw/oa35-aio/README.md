@@ -19,6 +19,7 @@ peuvent pas diverger entre eux.
 | Baromètre | BMP280 (I2C1) | oui |
 | Boîte noire | W25Q128JVSIQ, 16 Mo (SPI3) | 16 Mo |
 | ESC | 4 × AT32F421G8U7 + NSG2065Q + 6 MOSFET, **AM32** | BLHeli_32, 45 A |
+| Courant par canal | non caractérisé — voir « Limites connues » | 45 A continu, 55 A crête |
 | Tension d'entrée | **3S – 6S** (11,1 – 25,2 V) | 2S – 6S |
 | BEC | 5 V / 2,5 A (LMR51430) | 5 V / 2,5 A |
 | Mesure de courant | shunt 0,2 mΩ + INA186A3, 20 mV/A | oui |
@@ -155,6 +156,10 @@ testé**. Avant une série :
 - L'écrêteur SMF24A (24 V) est celui de la conception de référence ; à 6S
   pleine charge (25,2 V) il travaille juste au-dessus de sa tension de veille.
   Pour du 6S exclusif, préférer un SMF26A ou SMF28A.
-- Le courant annoncé pour l'étage de puissance doit être mesuré, pas déduit :
-  les MOSFET 30 V et le shunt donnent la borne haute, l'évacuation thermique
-  de la carte donne la vraie limite continue.
+- **Aucun courant continu n'est annoncé, et c'est volontaire.** Les MOSFET
+  DOY180N03T (30 V) et le shunt de pleine échelle 165 A donnent une borne
+  haute théorique, mais la limite réelle est thermique et dépend du cuivre
+  extérieur commandé (1 oz ou 2 oz) et du flux d'air. La conception de
+  référence dont vient l'étage de puissance est donnée pour 30 A par canal
+  sur un format plus petit ; considérez cette carte comme du même ordre tant
+  qu'un prototype n'a pas été instrumenté.
