@@ -189,8 +189,24 @@ def occupy(grid, bd, fp, side):
                     x1 - LO.BOARD + CLR, y1 - LO.BOARD + CLR)
 
 
-def occupy_abs(grid, side, x0, y0, x1, y1):
-    grid.block_rect(side, x0 - CLR, y0 - CLR, x1 + CLR, y1 + CLR)
+def occupy_abs(grid, side, x0, y0, x1, y1, extra=0.0):
+    grid.block_rect(side, x0 - CLR - extra, y0 - CLR - extra,
+                    x1 + CLR + extra, y1 + CLR + extra)
+
+
+# Extra keep-out around the fine-pitch packages, on top of CLR.
+#
+# A 0.4 mm pitch QFN cannot be escaped between its own pads: a 0.13 mm trace
+# with 0.13 mm either side needs 0.39 mm and there is 0.15 mm.  Every pin has
+# to leave the package radially and then drop to an inner layer, which costs a
+# 0.45 mm via plus its clearance -- 0.71 mm of ring, staggered over two rows.
+# With decoupling packed at CLR the ring is 0.6 mm wide and the router simply
+# gives up on those pins.
+FANOUT = 0.75
+FANOUT_RING = dict(
+    [('U6', FANOUT), ('U7', FANOUT)]
+    + [('U%d0' % c, FANOUT) for c in range(2, 6)]
+    + [('U%d1' % c, FANOUT) for c in range(2, 6)])
 
 
 class Placer(object):
@@ -216,7 +232,8 @@ class Placer(object):
         self.fps[ref] = fp
         self.placed[ref] = (x, y, angle, bottom)
         x0, y0, x1, y1 = self.abs_extent(ref)
-        occupy_abs(self.grid, bottom, x0, y0, x1, y1)
+        occupy_abs(self.grid, bottom, x0, y0, x1, y1,
+                   FANOUT_RING.get(ref, 0.0))
         # a through-hole pad eats space on both sides, not just its own
         for box in self.through_boxes(ref):
             occupy_abs(self.grid, not bottom, *box)
@@ -289,7 +306,7 @@ class Placer(object):
         return ((sum(p[0] for p in pts) / len(pts),
                  sum(p[1] for p in pts) / len(pts)), side)
 
-    def auto(self, ref, prefer=None, side=None):
+    def auto(self, ref, prefer=None, side=None, flipped=False):
         part = design.PARTS[ref]
         a, vote = self.anchor(ref)
         hint = LO.NEAR.get(ref)
@@ -300,13 +317,18 @@ class Placer(object):
         if side is None:
             side = vote
         sides = [False, True] if side is None else [side]
+        # the footprint's size does not depend on where it lands, and asking
+        # for it inside the search meant re-measuring every pad of it once
+        # per candidate position
+        shapes = []
+        for angle in (0.0, 90.0):
+            w, h, cx, cy = self.size_of(part, angle)
+            shapes.append((angle, cx, cy, w / 2.0 + CLR, h / 2.0 + CLR))
         best = None
         for radius in range(0, 260):
             rr = radius * GRID * 2
             for (x, y) in ring(a[0], a[1], rr):
-                for angle in (0.0, 90.0):
-                    w, h, cx, cy = self.size_of(part, angle)
-                    hw, hh = w / 2.0 + CLR, h / 2.0 + CLR
+                for angle, cx, cy, hw, hh in shapes:
                     for bottom in sides:
                         px, py = x - cx, y - cy
                         if not self.grid.free(bottom, px - hw, py - hh,
@@ -317,11 +339,14 @@ class Placer(object):
                             best = (d, px, py, angle, bottom)
             if best is not None:
                 break
-        if best is None and side is not None:
-            # preferred side is full, take the other one
-            return self.auto(ref, prefer=a, side=not side)
+        if best is None and side is not None and not flipped:
+            # preferred side is full, take the other one -- once.  Handing the
+            # flipped side back without remembering that is an infinite
+            # recursion when the part fits on neither.
+            return self.auto(ref, prefer=a, side=not side, flipped=True)
         if best is None:
-            raise SystemExit('no room left for %s' % ref)
+            raise SystemExit('no room left for %s (%s, %s)'
+                             % (ref, part.fp, part.value))
         _, px, py, angle, bottom = best
         return self.put(ref, round(px, 3), round(py, 3), angle, bottom)
 
@@ -473,6 +498,19 @@ def main():
             n += sum(1 for o, _ in nets[net] if o in pl.placed)
         return n
 
+    def footprint_area(ref):
+        w, h, _, _ = pl.size_of(design.PARTS[ref], 0.0)
+        return round(w * h, 2)
+
+    def order_key(ref):
+        """Big parts first, then the best-connected ones.
+
+        Left purely to neighbour count, a lone SOT-23 is placed last and by
+        then the free copper is all 0.6 mm alleys between 0201s: 240 mm2
+        free on the top side and not one 3.5 x 3 mm hole in it.
+        """
+        return (footprint_area(ref), neighbours(ref))
+
     # anything a hint points at has to exist before the hint can be used
     for ref in sorted(r for r in rest if r in set(LO.NEAR.values())):
         rest.discard(ref)
@@ -484,7 +522,7 @@ def main():
             rest.discard(ref)
             pl.auto(ref, side=FORCED_SIDE.get(side_key(ref)))
     while rest:
-        ref = max(sorted(rest), key=neighbours)
+        ref = max(sorted(rest), key=order_key)
         rest.discard(ref)
         pl.auto(ref, side=FORCED_SIDE.get(side_key(ref)))
 

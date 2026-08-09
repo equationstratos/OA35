@@ -172,7 +172,15 @@ def _clear_here():
     board.Save(PCB)
 
 
-def main(passes=10, ses_only=False):
+def main(passes=10, ses_only=False, keep=False):
+    """One routing round.
+
+    With keep=True the tracks already on the board are exported into the DSN
+    as ordinary routed wires, so the round picks up where the last one left
+    off.  freerouting only reports progress once every pass it was asked for
+    is done, and a twenty-pass run takes over an hour with nothing on the
+    console; a chain of short rounds costs the same and can be watched.
+    """
     if not os.path.isdir(WORK):
         os.makedirs(WORK)
     dsn = os.path.join(WORK, 'oa35-aio.dsn')
@@ -183,7 +191,8 @@ def main(passes=10, ses_only=False):
                 os.remove(f)
 
     if not ses_only:
-        clear_tracks()
+        if not keep:
+            clear_tracks()
         board = pcbnew.LoadBoard(PCB)
         if not pcbnew.ExportSpecctraDSN(board, dsn):
             raise SystemExit('DSN export failed')
@@ -191,6 +200,8 @@ def main(passes=10, ses_only=False):
         print('classes:', check_classes(dsn))
         run_freerouting(dsn, ses, passes)
 
+    if keep:
+        clear_tracks()          # the session file carries the old wires too
     board = pcbnew.LoadBoard(PCB)
     ntrack, nvia = import_ses(board, ses)
     print('imported %d track segments, %d vias' % (ntrack, nvia))
@@ -198,8 +209,11 @@ def main(passes=10, ses_only=False):
 
     conn = board.GetConnectivity()
     conn.RecalculateRatsnest()
-    print("unconnected pads after routing: %d" % conn.GetUnconnectedCount(False))
-    return conn.GetUnconnectedCount(False)
+    un = conn.GetUnconnectedCount(False)
+    import finish_pcb
+    bare = finish_pcb.bare_nets(board)
+    print('unconnected pads: %d, nets with no copper: %d' % (un, len(bare)))
+    return un
 
 
 if __name__ == '__main__':
@@ -207,6 +221,15 @@ if __name__ == '__main__':
         _clear_here()
         sys.exit(0)
     only = '--import-only' in sys.argv
+    cont = '--continue' in sys.argv
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     n = int(args[0]) if args else 10
-    sys.exit(0 if main(n, ses_only=only) == 0 else 1)
+    rounds = int(args[1]) if len(args) > 1 else 1
+    rc = 0
+    for i in range(rounds):
+        if rounds > 1:
+            print('--- round %d/%d' % (i + 1, rounds), flush=True)
+        rc = main(n, ses_only=only, keep=cont or i > 0)
+        if rc == 0:
+            break
+    sys.exit(0 if rc == 0 else 1)
