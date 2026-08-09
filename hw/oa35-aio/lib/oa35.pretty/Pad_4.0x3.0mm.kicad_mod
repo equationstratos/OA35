@@ -1,0 +1,10 @@
+(footprint "Pad_4.0x3.0mm" (version 20221018) (generator oa35)
+  (layer "F.Cu")
+  (attr smd)
+  (fp_text reference "REF**" (at 0 -3.000) (layer "F.SilkS")
+    (effects (font (size 0.8 0.8) (thickness 0.12))))
+  (fp_text value "Pad_4.0x3.0mm" (at 0 3.000) (layer "F.Fab") hide
+    (effects (font (size 0.8 0.8) (thickness 0.12))))
+  (pad "1" smd rect (at 0.0000 0.0000 0) (size 4.0000 3.0000) (layers "F.Cu" "F.Mask"))
+  (fp_rect (start -2.150 -1.650) (end 2.150 1.650) (layer "F.CrtYd") (width 0.050) (fill none))
+)

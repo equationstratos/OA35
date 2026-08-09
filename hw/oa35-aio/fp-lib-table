@@ -1,0 +1,4 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "oa35")(type "KiCad")(uri "${KIPRJMOD}/lib/oa35.pretty")(options "")(descr "OA35-AIO project footprints"))
+)
