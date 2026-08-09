@@ -272,7 +272,7 @@
     (uuid "7cd8f024-b277-4641-8e0a-764d74c5bf4c")
     (property "Reference" "C43" (at 95.2500 80.5500 0) (effects (font (size 1.27 1.27)) (justify left)))
     (property "Value" "4.7u" (at 95.2500 87.0900 0) (effects (font (size 1.27 1.27)) (justify left)))
-    (property "Footprint" "Capacitor_SMD:C_0201_0603Metric" (at 97.7900 83.8200 0) (effects (font (size 1.27 1.27)) hide))
+    (property "Footprint" "Capacitor_SMD:C_0402_1005Metric" (at 97.7900 83.8200 0) (effects (font (size 1.27 1.27)) hide))
     (property "Datasheet" "" (at 97.7900 83.8200 0) (effects (font (size 1.27 1.27)) hide))
     (property "LCSC" "C23733" (at 97.7900 83.8200 0) (effects (font (size 1.27 1.27)) hide))
     (pin "1" (uuid "f9d6fd87-a035-4773-815b-294cda1ad796"))

@@ -139,7 +139,13 @@ def R(ref, val, a, b, fp=None):
     return add(ref, val, fp, LCSC['R_' + val], {'1': a, '2': b}, 'R')
 
 
-def C(ref, val, a, b, fp='C0201', lcsc=None):
+# values that have no 0201 part in the BOM: keep the footprint honest
+C0402_ONLY = ('20p', '1u', '4.7u', '100n_16V')
+
+
+def C(ref, val, a, b, fp=None, lcsc=None):
+    if fp is None:
+        fp = 'C0402' if val in C0402_ONLY else 'C0201'
     return add(ref, val, fp, lcsc or LCSC['C_' + val], {'1': a, '2': b}, 'C')
 
 

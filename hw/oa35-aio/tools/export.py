@@ -75,6 +75,7 @@ def bom():
         w.writerow(['Comment', 'Designator', 'Footprint', 'LCSC Part #',
                     'Quantity'])
         for (value, fp, lcsc), refs in groups.items():
+            value = value.replace('u_', 'uF ').replace('n_', 'nF ')
             refs.sort(key=lambda r: (r.rstrip('0123456789'),
                                      int(r.lstrip(
                                          'ABCDEFGHIJKLMNOPQRSTUVWXYZ') or 0)))
