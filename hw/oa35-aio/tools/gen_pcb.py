@@ -390,13 +390,12 @@ def board_poly(inset=0.35):
     return pts
 
 
-def add_planes(bd):
-    """Ground and battery planes, added before autorouting so the router
-    only has to drop vias for those nets."""
-    poly = board_poly()
-    bd.zone('GND', ['In1'], poly, priority=10)
-    bd.zone('GND', ['In3'], poly, priority=10)
-    bd.zone('VBAT', ['In2'], poly, priority=10)
+# No copper pours are laid down here.  Exporting the ground and battery
+# planes to the router looked like the obvious way to save it work, but
+# freerouting then treats those layers as unusable and gives up on most of
+# the board: with the planes present it routed 75 nets out of 279 in
+# seventeen minutes, without them it routes every net in about seven.  The
+# pours are added afterwards, by finish_pcb.py.
 
 
 # --------------------------------------------------------------------- main --
@@ -478,7 +477,6 @@ def main():
         rest.discard(ref)
         pl.auto(ref, side=FORCED_SIDE.get(side_key(ref)))
 
-    add_planes(bd)
     bd.save(OUT)
     print('placed %d footprints -> %s' % (len(pl.placed), OUT))
     # save first, then complain: a board that can be looked at is easier to

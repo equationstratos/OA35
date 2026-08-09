@@ -9,6 +9,7 @@ own output would duplicate the zones, so always rebuild from gen_pcb.py.
 
 import math
 import os
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -18,6 +19,7 @@ import design                                                    # noqa: E402
 import layout as LO                                              # noqa: E402
 from pcb import Board, Frame, LAYER, mm, vec, ORIGIN             # noqa: E402
 import gen_pcb                                                   # noqa: E402
+import stitch                                                    # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, '..'))
@@ -111,9 +113,13 @@ def phase_polys(board):
 
 
 def add_pours(w):
-    """The three planes are already there from gen_pcb.py, which needs them
-    before the DSN export; this adds the rest."""
+    """All the copper pours.  gen_pcb.py puts the three planes down before
+    the DSN export so the router knows about them; this pass rebuilds them
+    from scratch along with the rest, having stripped the old set first."""
     poly = gen_pcb.board_poly()
+    w.zone('GND', ['In1'], poly, priority=10)
+    w.zone('GND', ['In3'], poly, priority=10)
+    w.zone('VBAT', ['In2'], poly, priority=10)
     w.zone('GND', ['In4'], poly, priority=1)
     w.zone('GND', ['F'], poly, priority=1)
     w.zone('GND', ['B'], poly, priority=1)
@@ -255,8 +261,38 @@ def report(board):
     return un
 
 
-def main():
+def strip_generated():
+    """Drop the zones and board-level silk from a previous run.
+
+    Done in a separate process: pcbnew's python proxies stop behaving after
+    BOARD.Remove(), for the rest of the interpreter, not just for that board.
+    """
+    subprocess.check_call([sys.executable, os.path.abspath(__file__),
+                           '--strip'])
+
+
+def _strip_here():
     board = pcbnew.LoadBoard(PCB)
+    dws = board.Drawings()
+    doomed = [dws[i] for i in range(dws.size())
+              if dws[i].GetLayer() in (pcbnew.F_SilkS, pcbnew.B_SilkS,
+                                       pcbnew.Cmts_User)]
+    doomed += list(board.Zones())
+    if not doomed:
+        return
+    for item in doomed:
+        board.Remove(item)
+    board.Save(PCB)
+
+
+def main():
+    strip_generated()
+    board = pcbnew.LoadBoard(PCB)
+    per_pad, grid_vias = stitch.stitch(board, half=LO.BOARD / 2.0,
+                                       edge_clr=LO.EDGE_CLR + 0.3,
+                                       corner_r=LO.CORNER_R)
+    print('stitching vias: %d beside pads, %d in the pour grid'
+          % (per_pad, grid_vias))
     w = Wrap(board)
     add_pours(w)
     add_silk(w, board)
@@ -272,4 +308,7 @@ def main():
 
 
 if __name__ == '__main__':
+    if '--strip' in sys.argv:
+        _strip_here()
+        sys.exit(0)
     sys.exit(0 if main() == 0 else 1)
