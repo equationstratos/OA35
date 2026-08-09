@@ -103,10 +103,22 @@ du bord vers le centre : la rangée de MOSFET côté bas, la rangée côté haut
 condensateurs de bootstrap, puis le driver. Les quatre drivers se retrouvent
 donc en moulinet autour du centre.
 
-Le dessous porte le contrôleur de vol au centre, les quatre micros d'ESC dans
-les coins tournés à 45° pour dégager les trous de fixation, l'USB‑C à gauche,
-le connecteur VTX à l'avant, les deux abaisseurs à droite, et les pastilles de
-câblage sur les quatre bords.
+Le dessous porte le contrôleur de vol au centre et, chacun juste en face de la
+rangée de MOSFET de son propre canal, les quatre micros d'ESC : les quelque
+soixante liaisons micro ↔ driver ↔ étage de puissance restent ainsi dans un
+seul quadrant au lieu de traverser la carte.
+
+Les deux connecteurs se partagent les bords restants selon ce qu'ils coûtent à
+l'autre face. Les pastilles VTX sont purement CMS, donc elles occupent le bord
+gauche sans gêner l'étage de puissance du canal 4 qui se trouve juste au‑dessus
+d'elles ; l'USB‑C, dont les ergots de coque sont traversants, part sur le bord
+avant où il ne prive personne de cuivre. Les deux abaisseurs sont à droite,
+entre le microcontrôleur et le bord, et les pastilles de câblage sur les
+quatre bords.
+
+Les quatre trous de fixation (25,5 × 25,5 mm, Ø 3 mm) traversent la carte :
+`gen_pcb.py` les traite comme des obstacles sur les deux faces, ce qui est la
+seule façon d'éviter qu'un composant se retrouve à cheval sur un trou.
 
 Six couches : cuivre extérieur pour la puissance et les signaux, deux plans de
 masse pleins (In1, In3) qui encadrent le plan batterie (In2), et In4 en couche

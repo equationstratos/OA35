@@ -126,7 +126,7 @@ def add_pours(w):
     # copper around the battery input pads, so the clamps and the shunt sit
     # on plane rather than on a trace
     w.zone('VBAT_IN', ['F'],
-           [(-0.4, 8.9), (12.3, 8.9), (12.3, 17.2), (-0.4, 17.2)],
+           [(-0.5, 8.9), (11.7, 8.9), (11.7, 17.2), (-0.5, 17.2)],
            priority=20)
     for net, p in phase_polys(w.b):
         w.zone(net, ['F'], p, priority=30)
@@ -170,23 +170,26 @@ def add_silk(w, board):
 PRO_PATCH = {
     'net_settings': {
         'classes': [
-            {'bus_width': 12, 'clearance': 0.15, 'diff_pair_gap': 0.25,
+            # 0.13 mm everywhere the router was allowed to work: a class
+            # clearance wider than what the board was routed at would turn
+            # every trace between two QFN pins into a DRC error.
+            {'bus_width': 12, 'clearance': 0.13, 'diff_pair_gap': 0.25,
              'diff_pair_via_gap': 0.25, 'diff_pair_width': 0.2,
              'line_style': 0, 'microvia_diameter': 0.3,
              'microvia_drill': 0.1, 'name': 'Default',
              'pcb_color': 'rgba(0, 0, 0, 0.000)',
              'schematic_color': 'rgba(0, 0, 0, 0.000)',
-             'track_width': 0.2, 'via_diameter': 0.5, 'via_drill': 0.25,
+             'track_width': 0.13, 'via_diameter': 0.45, 'via_drill': 0.25,
              'wire_width': 6},
-            {'bus_width': 12, 'clearance': 0.15, 'diff_pair_gap': 0.25,
+            {'bus_width': 12, 'clearance': 0.13, 'diff_pair_gap': 0.25,
              'diff_pair_via_gap': 0.25, 'diff_pair_width': 0.2,
              'line_style': 0, 'microvia_diameter': 0.3,
              'microvia_drill': 0.1, 'name': 'supply',
              'pcb_color': 'rgba(0, 0, 0, 0.000)',
              'schematic_color': 'rgba(0, 0, 0, 0.000)',
-             'track_width': 0.5, 'via_diameter': 0.5, 'via_drill': 0.25,
+             'track_width': 0.4, 'via_diameter': 0.45, 'via_drill': 0.25,
              'wire_width': 6},
-            {'bus_width': 12, 'clearance': 0.15, 'diff_pair_gap': 0.25,
+            {'bus_width': 12, 'clearance': 0.13, 'diff_pair_gap': 0.25,
              'diff_pair_via_gap': 0.25, 'diff_pair_width': 0.2,
              'line_style': 0, 'microvia_diameter': 0.3,
              'microvia_drill': 0.1, 'name': 'phase',
