@@ -52,6 +52,21 @@ class Frame(object):
     def ang(self, a):
         return (self.angle + (-a if self.flip else a)) % 360
 
+    def inv(self, X, Y):
+        """Board coordinates back to local ones.
+
+        Needed because a footprint's pads do not land where the local layout
+        says they will: positions here rotate in the mathematical sense while
+        KiCad's SetOrientationDegrees turns the other way, so a frame at 0 or
+        180 degrees comes out mirrored end to end against one at 90 or 270.
+        Rather than reason about that, read where a pad actually is.
+        """
+        a = math.radians(self.angle)
+        dx, dy = X - self.ox, Y - self.oy
+        x = dx * math.cos(a) + dy * math.sin(a)
+        y = -dx * math.sin(a) + dy * math.cos(a)
+        return (-x if self.flip else x, y)
+
 
 class Board(object):
     def __init__(self, libdirs):

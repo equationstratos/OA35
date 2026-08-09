@@ -62,8 +62,12 @@ def stackup_and_rules(bd):
     nc.SetViaDiameter(mm(0.45))
     nc.SetViaDrill(mm(0.25))
     bd.b.SetCopperLayerCount(6)
+    # In1 ground, In2 battery, In3 and In4 signal.  Two inner signal layers,
+    # not one: with a single one the maze router runs out of room a third of
+    # the way through the board.  In3 and In4 still get a ground pour around
+    # whatever is routed on them.
     for lid, name in ((pcbnew.In1_Cu, 'GND1'), (pcbnew.In2_Cu, 'PWR'),
-                      (pcbnew.In3_Cu, 'GND2'), (pcbnew.In4_Cu, 'SIG')):
+                      (pcbnew.In3_Cu, 'SIG1'), (pcbnew.In4_Cu, 'SIG2')):
         bd.b.SetLayerName(lid, name)
 
 
@@ -203,6 +207,10 @@ def occupy_abs(grid, side, x0, y0, x1, y1, extra=0.0):
 # With decoupling packed at CLR the ring is 0.6 mm wide and the router simply
 # gives up on those pins.
 FANOUT = 0.75
+# The gate drivers were left out of this once, on the theory that 0.5 mm
+# pitch escapes easily.  It does not: with the ring gone, a driver pin could
+# reach 0.8 mm2 of free copper and not one spot with room for a via, so its
+# net could not be routed by anything.  They are back in.
 FANOUT_RING = dict(
     [('U6', FANOUT), ('U7', FANOUT)]
     + [('U%d0' % c, FANOUT) for c in range(2, 6)]
@@ -402,6 +410,47 @@ def side_key(ref):
     return None
 
 
+def local_pad(pl, frame, ref, number):
+    for pad in pl.fps[ref].Pads():
+        if pad.GetNumber() == number:
+            p = pad.GetPosition()
+            return frame.inv(pcbnew.ToMM(p.x) - 150.0,
+                             pcbnew.ToMM(p.y) - 100.0)
+    return None
+
+
+def face_drain_inwards(pl, frame, ref):
+    """Turn a MOSFET so its drain tab looks towards the middle of the board.
+
+    A footprint does not land the same way round in every channel: positions
+    rotate in the mathematical sense, KiCad's orientation turns the other way,
+    and the two agree only for half of the frames.  Left alone, channels 2 and
+    3 came out with the transistors end for end -- drain towards the board
+    edge, gate pad buried under the array -- which is a power-stage defect,
+    not just a routing nuisance.  So check where the pads actually are.
+    """
+    fp = pl.fps[ref]
+    drain = local_pad(pl, frame, ref, '5')
+    source = local_pad(pl, frame, ref, '1')
+    if drain is None or source is None or drain[1] > source[1]:
+        return False
+    fp.SetOrientationDegrees((fp.GetOrientationDegrees() + 180.0) % 360)
+    x, y, ang, bottom = pl.placed[ref]
+    pl.placed[ref] = (x, y, (ang + 180.0) % 360, bottom)
+    return True
+
+
+def gate_pad_x(pl, frame, fet_ref, gate_net):
+    """Where the MOSFET's gate pad really is, along the channel's local x."""
+    for pad in pl.fps[fet_ref].Pads():
+        if pad.GetNetname() != gate_net:
+            continue
+        p = pad.GetPosition()
+        lx, _ = frame.inv(pcbnew.ToMM(p.x) - 150.0, pcbnew.ToMM(p.y) - 100.0)
+        return lx
+    raise SystemExit('%s has no pad on %s' % (fet_ref, gate_net))
+
+
 def ring(cx, cy, r):
     if r <= 0:
         return [(cx, cy)]
@@ -457,9 +506,42 @@ def main():
                 x, y = f.xy(lx, ly)
                 pl.put('Q%s%s%d' % (ph, side, ch), x, y,
                        f.ang(LO.FET_ANGLE))
+        for ph in sorted(LO.FET_X):
+            for side in ('L', 'H'):
+                face_drain_inwards(pl, f, 'Q%s%s%d' % (ph, side, ch))
+
         dx, dy, da = LO.DRIVER_LOCAL
         x, y = f.xy(dx, dy)
-        pl.put('U%d1' % (ch + 1), x, y, f.ang(da))
+        drv = 'U%d1' % (ch + 1)
+        pl.put(drv, x, y, f.ang(da))
+        # and the driver the same way: its low-side gate outputs belong on the
+        # side facing the MOSFETs, not on the far side of the package
+        gla = local_pad(pl, f, drv, '11')
+        centre = local_pad(pl, f, drv, '25')
+        if gla and centre and gla[1] > centre[1]:
+            fp = pl.fps[drv]
+            fp.SetOrientationDegrees((fp.GetOrientationDegrees() + 180.0) % 360)
+            px, py, pa, pb = pl.placed[drv]
+            pl.placed[drv] = (px, py, (pa + 180.0) % 360, pb)
+
+        # the gate network, in the three free bands of the channel.  Each gate
+        # resistor lines up with the gate pad as it actually landed, read back
+        # from the placed MOSFET: assuming a fixed offset put the resistors on
+        # the wrong side of the transistor in channels 2 and 3, and their gate
+        # nets came out 4.23 mm long against 0.95 mm in the other two.
+        for ph, lx in sorted(LO.FET_X.items()):
+            for side, band in (('L', LO.GATE_R_LOW_Y),
+                               ('H', LO.GATE_R_HIGH_Y)):
+                gx = gate_pad_x(pl, f, 'Q%s%s%d' % (ph, side, ch),
+                                'G%s%s_%d' % (ph, side, ch))
+                x, y = f.xy(gx, band)
+                pl.put('RG%s%s%d' % (ph, side, ch), x, y,
+                       f.ang(90.0 if side == 'L' else 0.0))
+            x, y = f.xy(lx, LO.BOOTSTRAP_Y)
+            pl.put('CBS%s%d' % (ph, ch), x, y, f.ang(0.0))
+        vx, vy, va = LO.VCC_CAP_LOCAL
+        x, y = f.xy(vx, vy)
+        pl.put('CVCC%d' % ch, x, y, f.ang(va))
 
         # motor pads, rotated into this channel's corner.  The rotation is
         # the channel frame's own angle relative to channel 1, otherwise

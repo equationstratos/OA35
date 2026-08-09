@@ -118,8 +118,9 @@ def add_pours(w):
     from scratch along with the rest, having stripped the old set first."""
     poly = gen_pcb.board_poly()
     w.zone('GND', ['In1'], poly, priority=10)
-    w.zone('GND', ['In3'], poly, priority=10)
     w.zone('VBAT', ['In2'], poly, priority=10)
+    # In3 and In4 carry signals now, so their ground is a fill around them
+    w.zone('GND', ['In3'], poly, priority=1)
     w.zone('GND', ['In4'], poly, priority=1)
     w.zone('GND', ['F'], poly, priority=1)
     w.zone('GND', ['B'], poly, priority=1)

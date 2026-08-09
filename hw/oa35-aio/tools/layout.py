@@ -41,6 +41,25 @@ FET_ANGLE = 90.0
 
 DRIVER_LOCAL = (0.0, 12.7, 0.0)
 
+# The gate network, in channel coordinates.
+#
+# Left to the automatic placement these end up outside the channel entirely --
+# a gate resistor 9.8 mm from both pads it joins, a driver decoupling cap
+# 12 mm from the pin it decouples -- because the power block leaves no free
+# ring for them and the search spirals until it finds one somewhere else.
+# There are exactly three free bands in a channel, and the gate network fits
+# in them:
+#
+#   y -2.5 .. 0.4    outside the low MOSFET row, towards the board edge
+#   y  3.9 .. 5.3    between the two rows, above the low drain tabs
+#   y  8.7 .. 10.3   between the high row and the driver
+#
+GATE_PAD_DX = -0.97           # gate pad offset within a MOSFET
+GATE_R_LOW_Y = -0.9           # low-side gate resistors, outer band
+GATE_R_HIGH_Y = 4.6           # high-side gate resistors, between the rows
+BOOTSTRAP_Y = 9.5             # bootstrap capacitors, under the driver
+VCC_CAP_LOCAL = (4.0, 12.45, 90.0)     # driver rail decoupling, clear of its fanout ring
+
 # motor pads for channel 1, in board coordinates; other channels are these
 # points rotated by -90 degrees per channel
 MOTOR_PADS = [(16.3, 10.4, 90.0), (16.3, 13.6, 90.0), (13.6, 16.3, 0.0)]

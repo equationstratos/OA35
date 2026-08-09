@@ -9,6 +9,7 @@ handed to pcbnew's importer, which only works inside the GUI.
 
 import os
 import re
+import signal
 import subprocess
 import sys
 import threading
@@ -110,9 +111,21 @@ def run_freerouting(dsn, ses, passes=10, limit=900):
     log = os.path.join(WORK, 'freerouting.log')
     tail = []
     deadline = time.time() + limit
+    # start_new_session puts xvfb-run and the java it spawns in one process
+    # group.  Killing only the wrapper leaves java running, reparented to
+    # init, still holding the write end of the pipe -- so the read below
+    # never sees EOF and the watchdog silently achieves nothing.
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                         stderr=subprocess.STDOUT, text=True, bufsize=1)
-    watchdog = threading.Timer(limit, p.kill)
+                         stderr=subprocess.STDOUT, text=True, bufsize=1,
+                         start_new_session=True)
+
+    def kill_group():
+        try:
+            os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+        except OSError:
+            pass
+
+    watchdog = threading.Timer(limit, kill_group)
     watchdog.daemon = True
     watchdog.start()
     try:
@@ -130,6 +143,7 @@ def run_freerouting(dsn, ses, passes=10, limit=900):
         p.wait(timeout=60)
     finally:
         watchdog.cancel()
+        kill_group()            # nothing of this run outlives it
     if not os.path.exists(ses):
         if time.time() >= deadline:
             raise RouterStuck('the router did not finish within %d s' % limit)
