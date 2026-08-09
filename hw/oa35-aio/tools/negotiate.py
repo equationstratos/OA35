@@ -110,21 +110,19 @@ class Field(object):
         if self.count[li][k]:
             self.count[li][k] -= 1
 
-    def overused(self):
-        n = 0
+    def hot_cells(self):
+        """The cells more than one net is claiming."""
+        out = set()
         for li in ROUTABLE:
-            c = self.count[li]
-            for k in range(N * N):
-                if c[k] > 1:
-                    n += 1
-        return n
+            for k, v in enumerate(self.count[li]):
+                if v > 1:
+                    out.add((li, k % N, k // N))
+        return out
 
-    def bump_history(self):
-        for li in ROUTABLE:
-            c, h = self.count[li], self.hist[li]
-            for k in range(N * N):
-                if c[k] > 1:
-                    h[k] += HISTORY_GROWTH * (c[k] - 1)
+    def bump_history(self, hot):
+        for (li, ix, iy) in hot:
+            k = iy * N + ix
+            self.hist[li][k] += HISTORY_GROWTH * (self.count[li][k] - 1)
 
 
 def search(field, sources, targets, net, budget=300000):
@@ -252,31 +250,44 @@ def main(iterations=24, seconds=0):
             jobs.append((name, code, terms))
     print('%d nets to route' % len(jobs), flush=True)
 
-    routes = {}
+    routes = {}                 # code -> (claimed cells, paths)
+    by_code = dict((code, (name, terms)) for name, code, terms in jobs)
+    dirty = [code for _n, code, _t in jobs]
     for it in range(1, iterations + 1):
-        for code, cells in routes.items():
-            for (li, ix, iy) in cells:
-                field.drop(li, ix, iy)
-        routes = {}
+        # Only the nets sitting on contested ground are rerouted.  Rerouting
+        # all two hundred every time costs twenty minutes an iteration and
+        # buys nothing for the nets that are already out of everyone's way.
+        for code in dirty:
+            cells = routes.pop(code, (None, None))[0]
+            if cells:
+                for (li, ix, iy) in cells:
+                    field.drop(li, ix, iy)
         unroutable = []
-        for name, code, terms in jobs:
+        for code in dirty:
+            name, terms = by_code[code]
             cells, paths = route_net(field, terms, code)
             if cells is None:
                 unroutable.append(name)
                 continue
-            routes[code] = cells
+            routes[code] = (cells, paths)
             for (li, ix, iy) in cells:
                 field.add(li, ix, iy)
-        shared = field.overused()
-        print('iteration %2d  present %.2f  shared cells %6d  '
+
+        hot = field.hot_cells()
+        shared = len(hot)
+        print('iteration %2d  present %.2f  rerouted %3d  shared cells %6d  '
               'unroutable %d  (%.0f min)'
-              % (it, field.present, shared, len(unroutable),
+              % (it, field.present, len(dirty), shared, len(unroutable),
                  (time.time() - t0) / 60.0), flush=True)
         if shared == 0 and not unroutable:
             print('legal after %d iterations' % it, flush=True)
             break
-        field.bump_history()
+        field.bump_history(hot)
         field.present *= PRESENT_GROWTH
+        dirty = [code for code, (cells, _p) in routes.items()
+                 if cells & hot]
+        dirty += [c for c in by_code
+                  if c not in routes and c not in dirty]
         if seconds and time.time() - t0 > seconds:
             print('time limit reached', flush=True)
             break
@@ -286,10 +297,10 @@ def main(iterations=24, seconds=0):
     sp2 = FR.paint(board)
     written = 0
     for name, code, terms in jobs:
-        cells, paths = route_net(field, terms, code)
-        if paths is None:
+        entry = routes.get(code)
+        if not entry or not entry[1]:
             continue
-        for path in paths:
+        for path in entry[1]:
             FR.commit(board, sp2, path, code)
         written += 1
     board.Save(PCB)
