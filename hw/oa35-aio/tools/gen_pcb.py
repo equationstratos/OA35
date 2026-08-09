@@ -331,12 +331,18 @@ class Placer(object):
         boxes = []
         lim = HALF - LO.EDGE_CLR + 0.001
         for ref, (x, y, ang, bottom) in self.placed.items():
-            if design.PARTS[ref].sym == 'HOLE':
-                continue
+            hole = design.PARTS[ref].sym == 'HOLE'
             x0, y0, x1, y1 = self.abs_extent(ref)
             if min(x0, y0) < -lim or max(x1, y1) > lim:
                 errs.append('%s sticks out of the board: %.2f..%.2f, '
                             '%.2f..%.2f' % (ref, x0, x1, y0, y1))
+            # a mounting hole goes through the board, so it is an obstacle on
+            # both sides; skipping it here is how a MOSFET array ended up
+            # sitting on top of one
+            if hole:
+                boxes.append((ref, False, x0, y0, x1, y1))
+                boxes.append((ref, True, x0, y0, x1, y1))
+                continue
             boxes.append((ref, bottom, x0, y0, x1, y1))
             for box in self.through_boxes(ref):
                 boxes.append((ref, not bottom) + box)

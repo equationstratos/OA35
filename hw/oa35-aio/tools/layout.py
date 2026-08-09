@@ -27,10 +27,7 @@ CHANNEL_FRAME = {
     1: (15.0, 5.0, 90.0),
     2: (5.0, -15.0, 0.0),
     3: (-5.0, 15.0, 180.0),
-    # channel 4 is pushed 4.4 mm forward so the USB-C shell posts, which are
-    # through-hole and therefore eat space on the top side too, clear its
-    # MOSFET array
-    4: (-15.0, -9.4, 270.0),
+    4: (-15.0, -5.0, 270.0),
 }
 CHANNEL_HALF_W = 4.1          # local |x| the block may occupy
 CHANNEL_DEPTH = 15.2          # local y the block may occupy
@@ -50,35 +47,43 @@ MOTOR_PADS = [(16.3, 10.4, 90.0), (16.3, 13.6, 90.0), (13.6, 16.3, 0.0)]
 
 # --------------------------------------------------------------- top side --
 TOP = {
-    'J3': (4.2, 15.3, 0.0),      # BAT+ / capacitor
-    'J4': (9.4, 15.3, 0.0),      # BAT-
+    'J3': (3.6, 15.3, 0.0),      # BAT+ / capacitor
+    'J4': (8.8, 15.3, 0.0),      # BAT-, clear of the rear-right mounting hole
     'RS1': (6.8, 11.2, 0.0),     # 0.2 mOhm shunt
-    'U1': (1.6, 12.9, 0.0),      # INA186, right at the shunt
+    'U1': (1.0, 12.4, 0.0),      # INA186, right at the shunt
 }
 
 # ------------------------------------------------------------ bottom side --
 BOTTOM = {
     'U6': (0.0, 0.0, 0.0),           # STM32F722RET6
     'U7': (0.0, 9.4, 0.0),           # ICM-42688-P
-    'U8': (4.6, -8.6, 0.0),          # BMP280
-    'U9': (0.0, 14.6, 0.0),          # W25Q128 blackbox
-    'J1': (-14.35, 0.0, 90.0),       # USB-C, front face flush with the edge
-    'J2': (0.0, -14.4, 0.0),         # HD VTX, front edge
-    'U2': (9.9, 3.2, 0.0),           # 9.85 V buck
-    'L1': (13.7, 3.2, 90.0),
-    'U3': (9.9, -3.2, 0.0),          # 5 V buck
-    'L2': (13.7, -3.2, 90.0),
-    'U20': (10.0, 9.2, 45.0),        # ESC 1 micro
-    'U30': (10.0, -9.2, 315.0),      # ESC 2 micro
-    'U40': (-10.0, 9.2, 135.0),      # ESC 3 micro
-    'U50': (-10.0, -9.2, 225.0),     # ESC 4 micro
-    'U10': (-8.0, 0.0, 90.0),        # USB ESD array, between connector and MCU
+    'U8': (-3.2, -8.2, 0.0),         # BMP280
+    'U9': (1.0, 14.9, 0.0),          # W25Q128 blackbox
+    # USB-C sits on the front edge, left of centre: the left edge belongs to
+    # channel 4, and the connector's shell posts are through-hole, so putting
+    # it there would eat the top side as well.
+    'J1': (-4.18, -11.43, 180.0),
+    # the HD VTX pads are surface mount only, so they can share the left edge
+    # with channel 4's power stage on the other side of the board
+    'J2': (-14.7, 1.4, 90.0),
+    'U2': (9.5, 0.0, 0.0),           # 9.85 V buck
+    'L1': (13.6, 0.0, 90.0),
+    'U3': (9.5, -4.2, 0.0),          # 5 V BEC
+    'L2': (13.6, -4.2, 90.0),
+    # each ESC micro sits directly under its own channel's MOSFET array, so
+    # the sixty-odd nets between micro, gate driver and power stage stay
+    # inside one quadrant instead of crossing the middle of the board
+    'U20': (10.4, 5.0, 90.0),        # ESC 1 micro
+    'U30': (5.0, -10.4, 0.0),        # ESC 2 micro
+    'U40': (-5.0, 9.8, 180.0),       # ESC 3 micro
+    'U50': (-10.4, -5.7, 270.0),     # ESC 4 micro
+    'U10': (-11.5, -9.7, 0.0),       # USB ESD array, beside the connector
 }
 
 # IO pads: a row along the front edge, then down both sides
 PADS = [
     ('P1', -15.2, -16.6, 0.0), ('P2', -12.6, -16.6, 0.0),
-    ('P3', -10.0, -16.6, 0.0), ('P4', -7.4, -16.6, 0.0),
+    ('P3', -8.0, 16.6, 0.0), ('P4', -5.4, 16.6, 0.0),
     ('P5', 7.4, -16.6, 0.0), ('P6', 10.0, -16.6, 0.0),
     ('P7', 12.6, -16.6, 0.0), ('P8', 15.2, -16.6, 0.0),
     ('P9', 16.6, -12.4, 90.0), ('P10', 16.6, -9.8, 90.0),
@@ -93,15 +98,16 @@ PADS = [
 
 # SWD test pads
 TEST_PADS = {
-    # flight controller SWD / boot, bottom side next to the MCU
-    'TP1': (-6.0, 8.0, 0.0), 'TP2': (-4.0, 8.0, 0.0),
-    'TP3': (-6.0, 9.6, 0.0), 'TP4': (-4.0, 9.6, 0.0),
-    'TP5': (-6.0, 11.2, 0.0), 'TP6': (-4.0, 11.2, 0.0),
+    # flight controller SWD / boot, in the free band between the MCU and the
+    # VTX pads
+    'TP1': (-9.4, 3.9, 90.0), 'TP2': (-7.6, 3.9, 90.0),
+    'TP3': (-9.4, 1.7, 90.0), 'TP4': (-7.6, 1.7, 90.0),
+    'TP5': (-9.4, -0.5, 90.0), 'TP6': (-7.6, -0.5, 90.0),
     # ESC SWD, two pads next to each ESC micro
-    'TP7': (14.8, 7.4, 0.0), 'TP8': (14.8, 5.6, 0.0),
-    'TP9': (14.8, -7.4, 0.0), 'TP10': (14.8, -5.6, 0.0),
-    'TP11': (-14.8, 7.4, 0.0), 'TP12': (-14.8, 5.6, 0.0),
-    'TP13': (-14.8, -7.4, 0.0), 'TP14': (-14.8, -5.6, 0.0),
+    'TP7': (14.5, 4.6, 0.0), 'TP8': (14.5, 3.0, 0.0),
+    'TP9': (9.0, -12.0, 0.0), 'TP10': (9.0, -13.6, 0.0),
+    'TP11': (-9.0, 12.0, 0.0), 'TP12': (-9.0, 13.6, 0.0),
+    'TP13': (-14.5, -6.4, 0.0), 'TP14': (-14.5, -8.0, 0.0),
 }
 
 # Silkscreen labels for the wire pads: ref -> text
