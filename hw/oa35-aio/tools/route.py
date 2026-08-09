@@ -85,17 +85,26 @@ def rewrite_classes(path):
 
 
 def run_freerouting(dsn, ses, passes=10):
+    """Run the router, echoing its progress as it goes.
+
+    Buffering the whole run and printing at the end makes a twenty minute
+    autoroute look like a hang, so the interesting lines are streamed.
+    """
     cmd = ['xvfb-run', '-a', 'java', '-jar', JAR,
            '-de', dsn, '-do', ses, '-mp', str(passes)]
-    print('  ' + ' '.join(cmd))
-    p = subprocess.run(cmd, capture_output=True, text=True, timeout=7200)
-    for line in (p.stdout + p.stderr).splitlines():
-        if ('Auto-routing' in line or 'optimization' in line
-                or 'Saving' in line or 'unrouted' in line.lower()):
-            print('  ' + line.split('] ')[-1])
+    print('  ' + ' '.join(cmd), flush=True)
+    tail = []
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT, text=True, bufsize=1)
+    for line in p.stdout:
+        tail.append(line)
+        del tail[:-200]
+        if any(k in line for k in ('Auto-routing', 'optimization', 'Saving',
+                                   'pass', 'unrouted', 'Routing')):
+            print('  ' + line.rstrip().split('] ')[-1], flush=True)
+    p.wait(timeout=7200)
     if not os.path.exists(ses):
-        print(p.stdout[-3000:])
-        print(p.stderr[-3000:])
+        print(''.join(tail))
         raise SystemExit('freerouting produced no session file')
 
 
