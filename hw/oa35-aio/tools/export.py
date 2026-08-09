@@ -26,18 +26,16 @@ GERBER = os.path.join(OUT, 'gerber')
 LAYERS = ('F.Cu,In1.Cu,In2.Cu,In3.Cu,In4.Cu,B.Cu,'
           'F.Paste,B.Paste,F.SilkS,B.SilkS,F.Mask,B.Mask,Edge.Cuts')
 
-# JLCPCB reads some packages with a different zero-rotation than KiCad.
-# Correction is added to the KiCad angle.  Verify every part in JLCPCB's
-# preview before confirming the order -- this table covers what this board
-# uses, not the whole library.
+# JLCPCB reads some packages with a different zero-rotation than KiCad; the
+# correction below is added to the KiCad angle.  Only well-established
+# corrections are applied.  Anything uncertain is left at KiCad's own angle:
+# a wrong correction is worse than none, because the preview would look right
+# while the part went down backwards.  Add entries here after checking the
+# JLCPCB placement preview.
 ROTATION_FIX = {
     'SOT-23': 180,
     'SOT-23-6': 180,
     'SOT-363_SC-70-6': 180,
-    'SOIC-8_5.23x5.23mm_P1.27mm': 270,
-    'D_SOD-123F': 0,
-    'D_SOD-882': 0,
-    'LQFP-64_10x10mm_P0.5mm': 0,
 }
 
 

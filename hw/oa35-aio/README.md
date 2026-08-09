@@ -70,13 +70,32 @@ se raccordent, sur une grille d'occupation qui connaît le contour de la carte
 et les trous de fixation. Une vérification refuse tout chevauchement de
 pastilles et toute pièce qui sortirait de la carte.
 
+## Ce que la construction vérifie toute seule
+
+`./build.sh` échoue si l'une de ces conditions n'est pas tenue :
+
+- le schéma relu par `kicad-cli` ne redonne pas exactement le netlist de
+  `design.py` (composants, empreintes, codes LCSC, appartenance des nets) ;
+- une empreinte sort de la carte, ou deux empreintes se recouvrent, y compris
+  une pastille traversante contre une pièce de l'autre face ;
+- il reste des pastilles non connectées après routage.
+
+Le rapport DRC complet est écrit dans `build/drc.rpt`. Deux règles y sont
+volontairement abaissées, parce qu'elles décrivent une convention de dessin et
+non une contrainte de fabrication : le chevauchement des *courtyards* (cette
+carte est plus dense que le nominal IPC, comme tous les AIO de ce format) et
+la sérigraphie sur cuivre (le fabricant la détoure). Tout le reste — isolement,
+perçages, largeurs, connexions — reste en erreur bloquante.
+
 ## Architecture
 
 **Dessus (F.Cu) — étage de puissance.** Quatre blocs identiques en moulinet,
 un par bord : six MOSFET DOY180N03T (30 V, PowerDI3333‑8) en trois demi‑ponts,
 le driver NSG2065Q, les résistances de grille et les condensateurs de
 bootstrap. Les pastilles moteur sont dans le coin vers lequel pointe le bloc.
-L'entrée batterie, le shunt et les écrêteurs sont à l'arrière.
+L'entrée batterie, le shunt et les écrêteurs sont à l'arrière. Le bloc du
+canal 4 est décalé de 4,4 mm vers l'avant : les pattes de maintien de l'USB‑C
+sont traversantes et mordent donc aussi sur la face du dessus.
 
 **Dessous (B.Cu) — contrôleur de vol.** Le STM32F722 au centre, les quatre
 micros d'ESC dans les coins à 45°, l'USB‑C sur le bord gauche, le connecteur
