@@ -35,7 +35,7 @@ CHANNEL_DEPTH = 15.2          # local y the block may occupy
 # FET array, local coordinates.  The footprint is turned so the drain tab
 # faces local +y (the battery bus) and the sources face local -y.
 FET_X = {'A': 2.78, 'B': 0.0, 'C': -2.78}
-FET_Y_LOW = 2.25
+FET_Y_LOW = 1.5
 FET_Y_HIGH = 7.0
 FET_ANGLE = 90.0
 
@@ -54,8 +54,17 @@ DRIVER_LOCAL = (0.0, 12.7, 0.0)
 #   y  3.9 .. 5.3    between the two rows, above the low drain tabs
 #   y  8.7 .. 10.3   between the high row and the driver
 #
+# The ESC micro sits in the channel frame too, and it has to stay clear of
+# the band between the two MOSFET rows.  Under it, that band has no exit: the
+# high-side gate pad faces into the band, the only way out is a via, and a via
+# cannot land on the micro's own pads on the other face.  With the micro there
+# the nine high-side gate nets are unroutable on an empty board, never mind a
+# full one.
+MICRO_LOCAL_Y = 0.6
+ESC_SWD_LOCAL = ((3.8, 0.6), (3.8, 2.2))
+
 GATE_PAD_DX = -0.97           # gate pad offset within a MOSFET
-GATE_R_LOW_Y = -0.9           # low-side gate resistors, outer band
+GATE_R_LOW_Y = -1.4           # low-side gate resistors, outer band
 GATE_R_HIGH_Y = 4.6           # high-side gate resistors, between the rows
 BOOTSTRAP_Y = 9.5             # bootstrap capacitors, under the driver
 VCC_CAP_LOCAL = (4.0, 12.45, 90.0)     # driver rail decoupling, clear of its fanout ring
@@ -77,41 +86,36 @@ BOTTOM = {
     'U6': (0.0, 0.0, 0.0),           # STM32F722RET6
     'U7': (0.0, 9.4, 0.0),           # ICM-42688-P
     'U8': (-3.2, -8.2, 0.0),         # BMP280
-    'U9': (1.0, 14.9, 0.0),          # W25Q128 blackbox
+    'U9': (2.6, 14.9, 0.0),          # W25Q128 blackbox
     # USB-C sits on the front edge, left of centre: the left edge belongs to
     # channel 4, and the connector's shell posts are through-hole, so putting
     # it there would eat the top side as well.
     'J1': (-4.18, -11.43, 180.0),
     # the HD VTX pads are surface mount only, so they can share the left edge
     # with channel 4's power stage on the other side of the board
-    'J2': (-14.7, 1.4, 90.0),
+    'J2': (-14.7, 2.4, 90.0),
     'U2': (9.5, 0.0, 0.0),           # 9.85 V buck
     'L1': (13.6, 0.0, 90.0),
     'U3': (9.5, -4.2, 0.0),          # 5 V BEC
     'L2': (13.6, -4.2, 90.0),
-    # each ESC micro sits directly under its own channel's MOSFET array, so
-    # the sixty-odd nets between micro, gate driver and power stage stay
-    # inside one quadrant instead of crossing the middle of the board
-    'U20': (10.4, 5.0, 90.0),        # ESC 1 micro
-    'U30': (5.0, -10.4, 0.0),        # ESC 2 micro
-    'U40': (-5.0, 9.8, 180.0),       # ESC 3 micro
-    'U50': (-10.4, -5.7, 270.0),     # ESC 4 micro
-    'U10': (-11.5, -9.7, 0.0),       # USB ESD array, beside the connector
+    # the four ESC micros are placed in their channel frames, see
+    # MICRO_LOCAL_Y above
+    'U10': (-8.6, -8.0, 0.0),        # USB ESD array, beside the connector
 }
 
 # IO pads: a row along the front edge, then down both sides
 PADS = [
     ('P1', -15.2, -16.6, 0.0), ('P2', -12.6, -16.6, 0.0),
-    ('P3', -8.0, 16.6, 0.0), ('P4', -5.4, 16.6, 0.0),
-    ('P5', 7.4, -16.6, 0.0), ('P6', 10.0, -16.6, 0.0),
-    ('P7', 12.6, -16.6, 0.0), ('P8', 15.2, -16.6, 0.0),
+    ('P3', 8.4, 16.6, 0.0), ('P4', 10.8, 16.6, 0.0),
+    ('P5', 8.6, -16.6, 0.0), ('P6', 11.2, -16.6, 0.0),
+    ('P7', 13.8, -16.6, 0.0), ('P8', 16.4, -16.6, 0.0),
     ('P9', 16.6, -12.4, 90.0), ('P10', 16.6, -9.8, 90.0),
     ('P11', 16.6, -7.2, 90.0), ('P12', 16.6, -4.6, 90.0),
-    ('P13', 16.6, 7.2, 90.0), ('P14', 16.6, 9.8, 90.0),
-    ('P15', 16.6, 12.4, 90.0),
-    ('P16', -16.6, -12.4, 90.0), ('P17', -16.6, -9.8, 90.0),
-    ('P18', -16.6, -7.2, 90.0), ('P19', -16.6, 7.2, 90.0),
-    ('P20', -16.6, 9.8, 90.0), ('P21', -16.6, 12.4, 90.0),
+    ('P13', 16.6, 9.4, 90.0), ('P14', 16.6, 12.0, 90.0),
+    ('P15', 16.6, 14.6, 90.0),
+    ('P16', -16.6, -14.2, 90.0), ('P17', -16.6, -11.6, 90.0),
+    ('P18', -16.6, -9.0, 90.0), ('P19', -16.6, 8.4, 90.0),
+    ('P20', -16.6, 11.0, 90.0), ('P21', -16.6, 13.6, 90.0),
     ('P22', -13.2, 16.6, 0.0),
 ]
 
@@ -123,10 +127,7 @@ TEST_PADS = {
     'TP3': (-9.4, 1.7, 90.0), 'TP4': (-7.6, 1.7, 90.0),
     'TP5': (-9.4, -0.5, 90.0), 'TP6': (-7.6, -0.5, 90.0),
     # ESC SWD, two pads next to each ESC micro
-    'TP7': (14.5, 4.6, 0.0), 'TP8': (14.5, 3.0, 0.0),
-    'TP9': (9.0, -12.0, 0.0), 'TP10': (9.0, -13.6, 0.0),
-    'TP11': (-9.0, 12.0, 0.0), 'TP12': (-9.0, 13.6, 0.0),
-    'TP13': (-14.5, -6.4, 0.0), 'TP14': (-14.5, -8.0, 0.0),
+    # TP7..TP14 follow their own channel, see ESC_SWD_LOCAL
 }
 
 # Silkscreen labels for the wire pads: ref -> text

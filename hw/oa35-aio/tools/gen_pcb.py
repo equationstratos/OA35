@@ -543,6 +543,13 @@ def main():
         x, y = f.xy(vx, vy)
         pl.put('CVCC%d' % ch, x, y, f.ang(va))
 
+        # the channel's micro and its SWD pads, on the other face
+        x, y = f.xy(0.0, LO.MICRO_LOCAL_Y)
+        pl.put('U%d0' % (ch + 1), x, y, f.ang(0.0), bottom=True)
+        for k, (sx, sy) in enumerate(LO.ESC_SWD_LOCAL):
+            x, y = f.xy(sx, sy)
+            pl.put('TP%d' % (5 + 2 * ch + k), x, y, f.ang(90.0), bottom=True)
+
         # motor pads, rotated into this channel's corner.  The rotation is
         # the channel frame's own angle relative to channel 1, otherwise
         # channels 3 and 4 land in each other's corners.
