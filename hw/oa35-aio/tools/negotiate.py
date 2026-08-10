@@ -49,8 +49,14 @@ PCB = FR.PCB
 # first on a cell; it starts gentle so the first iterations find natural
 # routes, and doubles until sharing is unaffordable.
 PRESENT_START = 0.5
-PRESENT_GROWTH = 1.8
-HISTORY_GROWTH = 1.0            # added per iteration per overused cell
+# Tripling, not the textbook 1.5-2x.  At 1.8 the shared-cell count fell 4%
+# an iteration and slowing, with each iteration costing longer than the last:
+# forty of them would have run overnight without arriving.  Tripling makes a
+# shared cell cost a thousand times a free one by the eighth iteration, which
+# is the point where what is left sharing is sharing because it has no
+# alternative -- and that is the number worth knowing.
+PRESENT_GROWTH = 3.0
+HISTORY_GROWTH = 4.0            # added per iteration per overused cell
 BASE = GRID                     # cost of one straight step, mm
 
 # A net does not occupy its centre line, it occupies a disc around it: two
