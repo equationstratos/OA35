@@ -316,8 +316,12 @@ Le cover ne bouge pas d'un habillage à l'autre — même place, même sens. Deu
 choses s'y opposaient : les deux exports fournis n'ont pas leur longueur sur le
 même axe (un quart de tour de recalage remet les habillages dans le repère du
 cover 01), et le rangement automatique de l'établi espace les pièces selon leur
-taille, ce qui décalait un habillage plus long. La position est donc figée au
-changement ; le ↺ de la ligne de déplacement rend la place automatique.
+taille, ce qui décalait un habillage plus long.
+
+La pièce garde donc sa place à l'instant du changement, mais **son plan n'est
+pas modifié** : elle reste libre, et suit l'assemblage et le désassemblage
+comme n'importe quelle autre. Marquer sa position « placée à la main » la
+figerait partout, y compris en vue assemblée.
 
 | Habillage | Ce qu'il change | Matière |
 |-----------|-----------------|---------|

@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-10c · habillages : meme repere, meme place, plus rapides';
+const BUILD = '2026-08-10d · covers liberes : ils suivent l assemblage';
 $('build-stamp').textContent = BUILD;
 
 /* Les trois groupes de visserie — sachet du plan de travail, visserie posée,
@@ -867,6 +867,32 @@ function layoutParts() {
  * ------------------------------------------------------------------ */
 
 let placements = asm.loadPlacements();
+
+/**
+ * Nettoyage unique des plans écrits par la version du 10/08/2026.
+ *
+ * Changer l'habillage d'un cover y enregistrait sa position en « placée à la
+ * main », pour qu'elle ne saute pas d'un créneau d'établi à l'autre. Ce
+ * drapeau fige une pièce PARTOUT, y compris en vue assemblée : le cover ne
+ * suivait plus l'animation d'assemblage, et le plan restait dans le navigateur
+ * même une fois le code corrigé.
+ *
+ * Seules les pièces à habillage sont concernées, et seulement si leur plan
+ * porte ce drapeau. Le geste est celui du bouton ↺ de la barre : la pièce
+ * repart à sa position automatique.
+ */
+const PLAN_FIX_KEY = 'tinyhoop-mk1:plan-fix-habillages';
+try {
+  if (!localStorage.getItem(PLAN_FIX_KEY)) {
+    const styled = new Set(PARTS.filter((m) => m.meta.styles).map((m) => m.meta.id));
+    let cleaned = 0;
+    for (const id of styled) {
+      if (placements[id] && placements[id].manual) { delete placements[id]; cleaned += 1; }
+    }
+    if (cleaned) asm.savePlacements(placements);
+    localStorage.setItem(PLAN_FIX_KEY, '1');
+  }
+} catch { /* pas de stockage : rien à réparer */ }
 
 /* ------------------------------------------------------------------ *
  * Pièces masquées
@@ -2174,15 +2200,19 @@ async function setPartStyle(entry, styleId) {
     pos: entry.holder.position.clone(),
     rot: entry.holder.rotation.clone(),
   };
+  // `mountPart` rend un porteur neuf, à l'origine : on lui remet la position
+  // et l'orientation que la pièce avait, pour qu'un changement de motif ne la
+  // fasse pas sauter d'un créneau d'établi à l'autre.
+  //
+  // SANS enregistrer ce placement, et surtout sans le marquer « à la main » :
+  // ce drapeau fige une pièce partout, y compris en vue assemblée, et le cover
+  // ne suivait alors plus l'animation d'assemblage. On ne touche donc pas au
+  // plan enregistré — la pièce garde sa place ici et retrouve la sienne au
+  // prochain rangement, assemblage compris.
   mountPart(entry, entry.mod.isCustom ? null : appliedTrace());
   entry.holder.position.copy(before.pos);
   entry.holder.rotation.copy(before.rot);
   entry.holder.updateMatrixWorld(true);
-  // la position est figée telle quelle : le rangement automatique espace les
-  // pièces selon leur taille, et un habillage plus long décalait la pièce de
-  // quelques centimètres alors qu'on venait seulement de changer son motif.
-  // Le ↺ de la ligne de déplacement rend la place automatique.
-  storePlacement(entry, { manual: true });
   applyHidden();
   applyColors();
   applySelectionLook();
