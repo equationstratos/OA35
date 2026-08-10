@@ -123,6 +123,34 @@ de câblage tout autour.
   flasher canal par canal via les pastilles SWD `TP7`…`TP14` (deux par canal,
   SWDIO et SWCLK ; la masse et le 3,3 V viennent des pastilles GND et 3V3).
 
+## État : carte placée, non routée
+
+`oa35-aio.kicad_pcb` contient les 281 empreintes placées et vérifiées, les six
+couches, les règles (piste et dégagement 0,13 mm, via 0,45/0,25 — capacité
+standard de JLCPCB) et le contour. **Il ne contient aucune piste.** Le routage
+est laissé ouvert : ouvrez la carte dans KiCad, ou passez-la au routeur de
+votre choix.
+
+Ce qui est vérifié à ce stade : le schéma et la netlist concordent exactement
+(281 composants, 200 nets), aucune empreinte n'en chevauche une autre, aucune
+ne mord sur un trou de fixation, et chaque référence LCSC est cohérente avec
+son boîtier.
+
+Les outils de routage écrits pour ce projet restent dans `tools/` et sont
+utilisables tels quels :
+
+| outil | ce qu'il fait |
+|---|---|
+| `route.py` | export Specctra DSN → freerouting → réimport des pistes |
+| `finish_route.py` | routeur A* maison, obstacles durs, légal par construction |
+| `negotiate.py` | routeur par congestion négociée (PathFinder) |
+| `legalise.py` | rejoue les nets qui violent un dégagement |
+
+Aucun n'a mené la carte au bout : freerouting plafonne à 122 nets sur 200, le
+routeur légal à 111, et le routeur négocié connecte les 200 mais laisse
+environ 500 dégagements insuffisants. Les mesures et les impasses sont
+détaillées dans [docs/ROUTAGE.md](docs/ROUTAGE.md).
+
 ## Commander
 
 Voir [docs/COMMANDE-JLCPCB.md](docs/COMMANDE-JLCPCB.md). En résumé :

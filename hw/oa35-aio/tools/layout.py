@@ -87,10 +87,10 @@ BOTTOM = {
     'U7': (0.0, 9.4, 0.0),           # ICM-42688-P
     'U8': (-3.2, -8.2, 0.0),         # BMP280
     'U9': (2.6, 14.9, 0.0),          # W25Q128 blackbox
-    # USB-C sits on the front edge, left of centre: the left edge belongs to
-    # channel 4, and the connector's shell posts are through-hole, so putting
-    # it there would eat the top side as well.
-    'J1': (-4.18, -11.43, 180.0),
+    # USB goes out on a JST-SH socket to an external Type-C module, as the
+    # reference product does.  Surface mount only, so unlike the Type-C
+    # receptacle it replaced it costs nothing on the opposite face.
+    'J1': (-4.5, -13.8, 0.0),
     # the HD VTX pads are surface mount only, so they can share the left edge
     # with channel 4's power stage on the other side of the board
     'J2': (-14.7, 2.4, 90.0),
@@ -160,7 +160,7 @@ NEAR = {
     'C40': 'U8', 'R20': 'U8', 'R21': 'U8',
     'C41': 'U9', 'R22': 'U9',
     # USB
-    'C42': 'J1', 'C43': 'J1', 'R23': 'J1', 'R24': 'J1', 'U10': 'J1',
+    'C42': 'J1', 'C43': 'J1', 'U10': 'J1',
 }
 for _ch in (1, 2, 3, 4):
     NEAR['CVCC%d' % _ch] = 'U%d1' % (_ch + 1)

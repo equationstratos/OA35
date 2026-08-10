@@ -419,14 +419,21 @@ R('R22', '10k', '+3V3', 'FLASH_CS')
 # =========================================================================
 block('USB')
 
-add('J1', 'TYPE-C-31-M-12', 'USBC', LCSC['TYPE-C-31-M-12'],
-    {'A1': 'GND', 'A4': 'VBUS', 'A5': 'CC1', 'A6': 'USB_DP',
-     'A7': 'USB_DM', 'A9': 'VBUS', 'A12': 'GND',
-     'B1': 'GND', 'B4': 'VBUS', 'B5': 'CC2', 'B6': 'USB_DP',
-     'B7': 'USB_DM', 'B9': 'VBUS', 'B12': 'GND',
-     'S1': 'GND'}, 'USBC')
-R('R23', '5.1k', 'CC1', 'GND')
-R('R24', '5.1k', 'CC2', 'GND')
+# USB leaves the board on a JST-SH socket, to an external Type-C module, the
+# way the RedFox A3 does it.  A Type-C receptacle on the board costs 9.6 x
+# 6.6 mm and its shell posts are through-hole, so it blocks both faces at the
+# middle of the front edge -- the single most expensive piece of real estate
+# on a 36 mm board, and the reference product does without it.
+#
+# Six ways, not the reference's five: SM06B-SRSS-TB is the part already used
+# for the video connector and its LCSC number is verified, whereas the 5-way
+# SM05B could not be checked from here (lcsc.com is blocked by the egress
+# proxy) and an unverified part number is how an order goes wrong.  The extra
+# way is a second ground.  See docs/ALTERNATIVES.md.
+add('J1', 'SM06B-SRSS-TB', 'SH6', LCSC['SM06B-SRSS-TB'],
+    {'1': 'GND', '2': 'USB_DP', '3': 'USB_DM', '4': 'VBUS',
+     '5': 'BOOT0', '6': 'GND', 'MP1': 'GND', 'MP2': 'GND'}, 'CONN6',
+    desc='USB: GND / D+ / D- / 5V / BOOT / GND, to an external Type-C module')
 C('C42', '100n', 'VBUS', 'GND')
 C('C43', '4.7u', 'VBUS', 'GND')
 # pins 1/6 are the two pads of I/O1 and 3/4 the two pads of I/O2, so each
