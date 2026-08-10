@@ -307,6 +307,33 @@ def route_net(field, terms, net):
     return keep, (centre, paths)
 
 
+def dump(jobs, routes, note=''):
+    """Write the routing as it stands to the board file.
+
+    Called every iteration, not just at the end: the run has been killed
+    mid-flight more than once, and writing only on completion threw away
+    hours of work each time.  The board on disk is always the best routing
+    so far.
+    """
+    board = pcbnew.LoadBoard(PCB)
+    dead = [t for t in board.GetTracks()]
+    if dead:
+        return None             # never write over a board that has copper
+    sp = FR.paint(board)
+    written = 0
+    for name, code, terms in jobs:
+        entry = routes.get(code)
+        if not entry or not entry[1][1]:
+            continue
+        for path in entry[1][1]:
+            FR.commit(board, sp, path, code)
+        written += 1
+    board.Save(PCB)
+    conn = board.GetConnectivity()
+    conn.RecalculateRatsnest()
+    return written, conn.GetUnconnectedCount(False)
+
+
 def main(iterations=24, seconds=0):
     t0 = time.time()
     board = pcbnew.LoadBoard(PCB)
@@ -367,6 +394,17 @@ def main(iterations=24, seconds=0):
         if shared == 0 and not unroutable:
             print('legal after %d iterations' % it, flush=True)
             break
+        import shutil
+        snap = PCB + '.snapshot'
+        base = PCB + '.placed'
+        if not os.path.exists(base):
+            shutil.copyfile(PCB, base)
+        shutil.copyfile(base, PCB)
+        got = dump(jobs, routes)
+        if got:
+            shutil.copyfile(PCB, snap)
+            print('   saved: %d nets written, %d unconnected pads'
+                  % got, flush=True)
         field.bump_history(hot)
         field.present *= PRESENT_GROWTH
         dirty = [code for code, (_cells, rest) in routes.items()

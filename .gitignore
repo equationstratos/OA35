@@ -2,3 +2,5 @@ node_modules/
 *.log
 __pycache__/
 *.pyc
+*.kicad_pcb.placed
+*.kicad_pcb.snapshot
