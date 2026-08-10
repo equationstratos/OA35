@@ -785,3 +785,17 @@ main.side-collapsed #sidebar {
 .part.compact .card-fold { transform: rotate(-90deg); }
 .part.compact > *:not(.part-head) { display: none; }
 .part.compact { padding-bottom: 4px; }
+
+/* Liseré : la pastille de couleur s'aligne sur les cases à cocher voisines,
+   le sélecteur natif étant nettement plus haut qu'une case. */
+.opt.liseret input[type="color"] {
+  width: 26px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+.opt.liseret input[type="color"]::-webkit-color-swatch-wrapper { padding: 1px; }
+.opt.liseret input[type="color"]::-webkit-color-swatch { border: none; border-radius: 2px; }

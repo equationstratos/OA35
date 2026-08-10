@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-10f · les caches suivent leur joue a l assemblage';
+const BUILD = '2026-08-10g · liseret de chanfrein, couleur reglable';
 $('build-stamp').textContent = BUILD;
 
 /* Les trois groupes de visserie — sachet du plan de travail, visserie posée,
@@ -1995,7 +1995,37 @@ let selectedId = null;
 
 const SELECT_EMISSIVE = 0x14384f;
 
+/**
+ * LE LISERÉ.
+ *
+ * Sur la pièce réelle, le chanfrein d'usinage accroche la lumière et dessine
+ * un filet clair tout autour du contour — c'est ce qu'on voit sur les joues du
+ * support caméra. Le calque d'arêtes du visualiseur rend le même service ; il
+ * lui manquait seulement d'être réglable, et il était bleu.
+ *
+ * Blanc cassé par défaut, comme sur la pièce. La couleur et l'intensité sont
+ * conservées d'une session à l'autre. La pièce SÉLECTIONNÉE garde son liseré
+ * orange, quelle que soit la couleur choisie : sans ça, régler le liseré sur
+ * une teinte proche de l'orange effacerait la sélection.
+ */
+const EDGE_KEY = 'tinyhoop-mk1:liseret';
+
+function loadEdgeLook() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(EDGE_KEY) || 'null');
+    if (raw && typeof raw.color === 'string') return raw;
+  } catch { /* réglage illisible : on reprend le défaut */ }
+  return { color: '#e9eef5', opacity: 0.85 };
+}
+
+const edgeLook = loadEdgeLook();
+
+function saveEdgeLook() {
+  try { localStorage.setItem(EDGE_KEY, JSON.stringify(edgeLook)); } catch { /* ignore */ }
+}
+
 function applySelectionLook() {
+  const liseret = new THREE.Color(edgeLook.color);
   entries.forEach((e) => {
     if (!e.object) return;
     const on = e.mod.meta.id === selectedId;
@@ -2005,8 +2035,9 @@ function applySelectionLook() {
       body.material.emissive.setHex(on ? SELECT_EMISSIVE : 0x000000);
     }
     if (edges) {
-      edges.material.color.setHex(on ? 0xffb454 : 0x6cc7ff);
-      edges.material.opacity = on ? 1 : 0.55;
+      if (on) edges.material.color.setHex(0xffb454);
+      else edges.material.color.copy(liseret);
+      edges.material.opacity = on ? 1 : edgeLook.opacity;
     }
   });
   document.querySelectorAll('#part-list .part').forEach((li) => {
@@ -2997,6 +3028,9 @@ function applyDisplayOptions() {
       o.material.needsUpdate = true;
     }
   });
+  // le liseré se rejoue ici : c'est le point de passage commun à tous les
+  // remontages, une pièce neuve arriverait sinon avec la couleur d'usine
+  applySelectionLook();
   invalidate();
 }
 
@@ -3005,6 +3039,21 @@ function applyDisplayOptions() {
 controls.addEventListener('start', () => { camMotion = null; });
 
 $('opt-edges').addEventListener('change', applyDisplayOptions);
+
+$('opt-edge-color').value = edgeLook.color;
+$('opt-edge-opacity').value = String(Math.round(edgeLook.opacity * 100));
+$('edge-op-val').textContent = `${Math.round(edgeLook.opacity * 100)} %`;
+$('opt-edge-color').addEventListener('input', (e) => {
+  edgeLook.color = e.target.value;
+  saveEdgeLook();
+  applySelectionLook();
+});
+$('opt-edge-opacity').addEventListener('input', (e) => {
+  edgeLook.opacity = Number(e.target.value) / 100;
+  $('edge-op-val').textContent = `${e.target.value} %`;
+  saveEdgeLook();
+  applySelectionLook();
+});
 $('opt-wire').addEventListener('change', applyDisplayOptions);
 $('opt-isolate').addEventListener('change', () => applyIsolation(selectedId));
 

@@ -203,6 +203,17 @@ L'empattement servira de contrôle une fois les bras modélisés : c'est la
 diagonale d'axe moteur à axe moteur, et en dead cat les quatre moteurs forment
 un rectangle, pas un carré.
 
+### Le liseré
+
+Sur la pièce réelle, le chanfrein d'usinage accroche la lumière et dessine un
+filet clair tout autour du contour — très visible sur les joues du support
+caméra. Le visualiseur rend le même effet avec son calque d'arêtes.
+
+Menu **Affichage** : **Couleur du liseré** et **Intensité du liseré**. Le
+réglage est conservé d'une session à l'autre. La pièce sélectionnée garde son
+liseré orange quelle que soit la couleur choisie, sinon régler le liseré sur
+une teinte proche effacerait la sélection.
+
 ## Ce qui est modélisé
 
 | # | Pièce | Matière | Cotes |

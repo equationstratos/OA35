@@ -33,6 +33,12 @@
       <div class="menu-pop">
     <section>
       <label class="opt"><input type="checkbox" id="opt-edges" checked> Arêtes surlignées</label>
+      <label class="opt liseret" title="Sur la pièce réelle, c'est le chanfrein d'usinage qui accroche la lumière et dessine un filet clair tout autour du contour.">
+        <input type="color" id="opt-edge-color" value="#e9eef5"> Couleur du liseré
+      </label>
+      <label class="slider">Intensité du liseré <span id="edge-op-val">85 %</span>
+        <input type="range" id="opt-edge-opacity" min="15" max="100" step="5" value="85">
+      </label>
       <label class="opt"><input type="checkbox" id="opt-grid" checked> Grille au sol</label>
       <label class="opt"><input type="checkbox" id="opt-rotate"> Rotation auto</label>
       <label class="opt"><input type="checkbox" id="opt-layout" checked> Pièces côte à côte</label>
