@@ -75,16 +75,27 @@ export const ACCESSORIES = await Promise.all([
   // `mirrored` pour le droit, comme la joue qu'il habille : les deux joues
   // sortent du même fichier, la seconde en miroir. Le cache suit la même
   // convention — sans quoi il ne se clipserait que d'un côté.
+  //
+  // `rides` : le cache n'a pas de place à lui dans le châssis, il est là où
+  // est sa joue. Le décalage vient de ce que les deux fichiers sont recentrés
+  // chacun sur SON encombrement, alors qu'ils partagent le même repère à la
+  // source. Joue : 41,59 × 7,37 × 29,69, donc recentrage (−20,795 ; −3,685 ; 0).
+  // Cache : x 0,09..33,51, y −0,95..4,00, z 4,71..26,39, donc (−16,80 ; −1,525 ;
+  // −4,71). L'écart en repère fichier vaut (−3,995 ; −2,16 ; 4,71) ; la bascule
+  // Z haut → Y haut le donne en (x, z, −y), soit (−3,995 ; 4,71 ; 2,16).
+  // Le côté droit est le miroir en X : seul le premier terme change de signe.
   meshPart({
     url: 'assets/parts-3d/oa35-cache-vis-camera.stl',
     id: 'cache-vis-cam-g', index: 22, name: 'Cache vis caméra gauche',
     material: PRINTED, source: 'dessiné sur le lamage de OA35-camera-mount.STL',
+    rides: { host: 'camera-mount', offset: [-3.995, 4.71, 2.16] },
   }),
   meshPart({
     url: 'assets/parts-3d/oa35-cache-vis-camera.stl',
     id: 'cache-vis-cam-d', index: 23, name: 'Cache vis caméra droit',
     material: PRINTED, source: 'miroir du cache gauche (même fichier STL)',
     mirrored: true,
+    rides: { host: 'camera-mount-mirror', offset: [3.995, 4.71, 2.16] },
   }),
 
   // Patins de bras : un par bras, donc quatre exemplaires du même fichier.

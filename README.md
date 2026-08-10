@@ -373,6 +373,12 @@ Le maillage est fermé — chaque arête sert exactement deux fois — et l'éca
 modèle est de **0,010 mm au maximum**, mesuré sommet par sommet après
 allègement. C'est le fichier tel qu'il sort du bouton **⬇ STL** de la fiche.
 
+Le cache **suit sa joue** : il n'a pas de place à lui dans le châssis, donc en
+vue assemblée il se pose dessus au lieu de rester sur l'établi. Il voyage avec
+elle à l'assemblage comme au désassemblage. Sur l'établi il garde son propre
+créneau, c'est là qu'on le regarde seul ; et si tu le déplaces aux curseurs,
+ta position l'emporte.
+
 ## Visserie
 
 La visserie est le seul élément qui n'a pas à être photographié : elle est

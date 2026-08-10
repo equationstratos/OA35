@@ -40,7 +40,7 @@ import { printedMaterial } from '../lib/materials.js';
 export async function meshPart({
   url, id, index, name, material, source,
   mirrored = false, zUp = true, upsideDown = false, spin = 0,
-  reuseAnchors = null,
+  reuseAnchors = null, rides = null,
 }) {
   let geometry = null;
   let error = null;
@@ -138,6 +138,9 @@ export async function meshPart({
       isMesh: true,
       missingAsset: error ? `${url} : ${error.message}` : null,
       source,
+      // pièce portée par une autre : elle n'a pas de place à elle dans le
+      // build assemblé, elle est là où est celle qu'elle habille
+      rides,
       dims: {
         // « thickness » sert de demi-épaisseur pour poser une pièce au-dessus
         // ou en dessous d'une autre : c'est la HAUTEUR dans la scène qu'il

@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-10e · cache de vis camera, gauche et droit';
+const BUILD = '2026-08-10f · les caches suivent leur joue a l assemblage';
 $('build-stamp').textContent = BUILD;
 
 /* Les trois groupes de visserie — sachet du plan de travail, visserie posée,
@@ -852,6 +852,30 @@ function layoutParts() {
       );
     }
   });
+
+  // PIÈCES PORTÉES. Un cache clipsé n'a pas de place à lui dans le châssis :
+  // il est là où est la pièce qu'il habille, et nulle part ailleurs. Faute de
+  // contrainte d'assemblage il restait donc sur l'établi pendant que le build
+  // se montait, et ne bougeait ni à l'assemblage ni au désassemblage.
+  //
+  // Il suit maintenant son hôte en vue assemblée, décalage compris — le
+  // décalage est celui des deux fichiers d'origine, chacun ayant été recentré
+  // sur son propre encombrement. Sur l'établi il garde sa place à lui : c'est
+  // là qu'on le regarde seul.
+  if (!sideBySide) {
+    const ride = new THREE.Vector3();
+    entries.forEach((e) => {
+      const r = e.mod.meta.rides;
+      if (!e.holder || !r) return;
+      const stored = placements[e.mod.meta.id];
+      if (stored && stored.manual) return;      // posée à la main : on respecte
+      const host = entries.find((h) => h.mod.meta.id === r.host);
+      if (!host || !host.holder) return;
+      ride.set(r.offset[0], r.offset[1], r.offset[2]).applyEuler(host.holder.rotation);
+      e.holder.position.copy(host.holder.position).add(ride);
+      e.holder.rotation.copy(host.holder.rotation);
+    });
+  }
 
   entries.forEach((e) => { if (e.holder) e.holder.updateMatrixWorld(true); });
   setMarkersVisible(!sideBySide);
