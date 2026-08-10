@@ -624,7 +624,7 @@ def in_pieces(board):
     return out
 
 
-def route_one(board, sp, code):
+def route_one(board, sp, code, budget=400000):
     """Join the pieces of one net.  True if it came out whole."""
     items = net_items(board, code)
     groups = components(items)
@@ -635,7 +635,7 @@ def route_one(board, sp, code):
             tgt = anchor_cells(sp, items, g, code)
             if not tgt:
                 continue
-            path = astar(sp, src, tgt, code)
+            path = astar(sp, src, tgt, code, budget)
             if path and (best is None or len(path) < len(best)):
                 best = path
         if best is None:

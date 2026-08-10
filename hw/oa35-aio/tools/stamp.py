@@ -58,6 +58,13 @@ def span(board, name):
             + max(p[1] for p in pts) - min(p[1] for p in pts))
 
 
+# A net that cannot be routed quickly in a given order will not be routed in
+# it at all, and the failures are what cost the time: with the full 400000
+# node budget, sixteen failures make a single ordering take twenty minutes,
+# and twelve orderings four hours.
+TRY_BUDGET = 40000
+
+
 def try_order(board_path, ch, order):
     """Route one channel in a given net order, on a throwaway board.
 
@@ -69,7 +76,8 @@ def try_order(board_path, ch, order):
     nets = board.GetNetsByName()
     lost = []
     for name in order:
-        if not FR.route_one(board, sp, nets[name].GetNetCode()):
+        if not FR.route_one(board, sp, nets[name].GetNetCode(),
+                            TRY_BUDGET):
             lost.append(name)
     keep = set(order)
     out = []
