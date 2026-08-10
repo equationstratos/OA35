@@ -296,6 +296,7 @@ def main(iterations=24, seconds=0):
     print('%d nets to route' % len(jobs), flush=True)
 
     routes = {}                 # code -> (claimed cells, paths)
+    kept = {}                   # last route each net had, legal or not
     by_code = dict((code, (name, terms)) for name, code, terms in jobs)
     dirty = [code for _n, code, _t in jobs]
     for it in range(1, iterations + 1):
@@ -312,9 +313,17 @@ def main(iterations=24, seconds=0):
             name, terms = by_code[code]
             cells, paths = route_net(field, terms, code)
             if cells is None:
-                unroutable.append(name)
-                continue
+                # In PathFinder a net always has a route, even an illegal
+                # one.  Dropping it instead frees the cells it was claiming,
+                # which flatters the shared-cell count and takes the net out
+                # of the negotiation entirely -- so the count stalls while
+                # the failures climb.  Keep the last route it had.
+                cells, paths = kept.get(code, (None, None))
+                if cells is None:
+                    unroutable.append(name)
+                    continue
             routes[code] = (cells, paths)
+            kept[code] = (cells, paths)
             for (li, ix, iy) in cells:
                 field.add(li, ix, iy)
 
