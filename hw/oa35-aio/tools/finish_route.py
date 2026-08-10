@@ -26,7 +26,9 @@ import layout as LO                                              # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, '..'))
-PCB = os.path.join(ROOT, 'oa35-aio.kicad_pcb')
+# Routing experiments must not touch the board in the repository, which is
+# deliberately kept free of tracks.  Point OA35_PCB at a copy to work on one.
+PCB = os.environ.get('OA35_PCB') or os.path.join(ROOT, 'oa35-aio.kicad_pcb')
 
 ORIGIN = (150.0, 100.0)
 GRID = 0.05
