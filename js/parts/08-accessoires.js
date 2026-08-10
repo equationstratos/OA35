@@ -67,6 +67,26 @@ export const ACCESSORIES = await Promise.all([
     mirrored: true,
   }),
 
+  // Cache de vis de la caméra : il vient s'encastrer dans le lamage du DOS de
+  // la joue support, à fleur de sa jante, et se verrouille par deux crochets
+  // qui traversent l'ouverture d'objectif et reprennent la face avant. Un par
+  // joue, donc un par côté.
+  //
+  // `mirrored` pour le droit, comme la joue qu'il habille : les deux joues
+  // sortent du même fichier, la seconde en miroir. Le cache suit la même
+  // convention — sans quoi il ne se clipserait que d'un côté.
+  meshPart({
+    url: 'assets/parts-3d/oa35-cache-vis-camera.stl',
+    id: 'cache-vis-cam-g', index: 22, name: 'Cache vis caméra gauche',
+    material: PRINTED, source: 'dessiné sur le lamage de OA35-camera-mount.STL',
+  }),
+  meshPart({
+    url: 'assets/parts-3d/oa35-cache-vis-camera.stl',
+    id: 'cache-vis-cam-d', index: 23, name: 'Cache vis caméra droit',
+    material: PRINTED, source: 'miroir du cache gauche (même fichier STL)',
+    mirrored: true,
+  }),
+
   // Patins de bras : un par bras, donc quatre exemplaires du même fichier.
   // Pas de miroir — l'empreinte est carrée (17,7 x 17,7 mm) et la pièce est
   // symétrique, la même s'utilise aux quatre coins.

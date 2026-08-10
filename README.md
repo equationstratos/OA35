@@ -351,6 +351,28 @@ reliefs, eux, ne percent rien : c'est la face externe (celle qui ne porte pas
 les nervures) qui est déplacée vers l'extérieur par un champ de hauteur.
 L'épaisseur locale ne peut qu'augmenter.
 
+### Le cache de vis caméra
+
+Pièces 22 et 23, une par joue. Le dos de la joue support caméra porte un
+**lamage de 2 mm de fond sur 425 mm²** : le cache le remplit à fleur de la
+jante, sans rien ajouter hors-tout.
+
+| | |
+|---|---|
+| Encombrement | 33,4 × 4,9 × 21,7 mm |
+| Volume | 0,890 cm³ — 1,10 g en PLA |
+| Jeu latéral | 0,15 mm |
+
+Il ne tient pas par simple emboîtement : **deux crochets traversent l'ouverture
+d'objectif et reprennent 0,55 mm sur la face avant**, avec une fente de 3,6 mm
+entre eux pour qu'ils fléchissent à la pose. Un dégagement Ø5,6 sur 1,1 mm est
+creusé au-dessus du perçage Ø4,5, pour que le cache vienne à fleur même si une
+tête de vis dépasse du fond de poche.
+
+Le maillage est fermé — chaque arête sert exactement deux fois — et l'écart au
+modèle est de **0,010 mm au maximum**, mesuré sommet par sommet après
+allègement. C'est le fichier tel qu'il sort du bouton **⬇ STL** de la fiche.
+
 ## Visserie
 
 La visserie est le seul élément qui n'a pas à être photographié : elle est
@@ -476,5 +498,6 @@ js/lib/materials.js        carbone sergé 2x2 généré au runtime
 js/parts/01-bottom-plate.js
 js/parts/09-side-guard.js  covers latéraux gauche/droit et leurs habillages
 assets/parts-3d/side-guard/  les sept habillages dérivés du side guard
+assets/parts-3d/oa35-cache-vis-camera.stl  cache de vis, encastré au dos de la joue
 vendor/three/              Three.js r160 (embarqué)
 ```
