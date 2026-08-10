@@ -29,16 +29,10 @@ export const ACCESSORIES = await Promise.all([
   // un flanc sans l'autre. Les coques ont été séparées à la source (fichiers
   // `cover-0x-gauche.stl` / `-droite.stl`, obtenus par découpe en composantes
   // connexes, aucune modification de géométrie) et chacune est une pièce.
-  meshPart({
-    url: 'assets/parts-3d/cover-01-gauche.stl',
-    id: 'cover-01-g', index: 10, name: 'Cover 01 gauche',
-    material: PRINTED, source: 'coque gauche de oasisfly35DC-Cover-01.stl',
-  }),
-  meshPart({
-    url: 'assets/parts-3d/cover-01-droite.stl',
-    id: 'cover-01-d', index: 11, name: 'Cover 01 droit',
-    material: PRINTED, source: 'coque droite de oasisfly35DC-Cover-01.stl',
-  }),
+  //
+  // Le COVER 01 n'est plus monté ici : il est passé dans 09-side-guard.js, qui
+  // fournit les deux mêmes pièces — mêmes identifiants, mêmes numéros — avec
+  // le choix de leur habillage. Le remonter ici en ferait un doublon.
   meshPart({
     url: 'assets/parts-3d/cover-02-gauche.stl',
     id: 'cover-02-g', index: 20, name: 'Cover 02 gauche',

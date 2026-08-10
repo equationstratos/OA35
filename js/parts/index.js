@@ -21,8 +21,10 @@ export const PARTS = [
   bottomPlate, middlePlate, clampPlate, topPlate,
   armLong.gauche, armLong.droit,
   armShort.gauche, armShort.droit,
-  ...ACCESSORIES,
+  // les covers latéraux viennent en tête des accessoires, à la place qu'ils
+  // occupaient quand 08-accessoires.js les montait encore
   sideGuard.gauche, sideGuard.droit,
+  ...ACCESSORIES,
 ];
 
 /** Emplacements réservés — remplis au fur et à mesure des pièces envoyées. */

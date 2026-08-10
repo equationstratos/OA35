@@ -128,8 +128,11 @@ export async function meshPart({
  * bien qu'un aller-retour entre deux habillages est instantané.
  *
  * @param {object} o
- * @param {Array<{id:string,name:string,url:string,note:string}>} o.styles
- *        le premier de la liste est celui affiché au démarrage
+ * @param {Array<{id:string,name:string,url:string,note:string,mirrored?:boolean}>} o.styles
+ *        le premier de la liste est celui affiché au démarrage. Un style peut
+ *        forcer son propre miroir : le fichier d'origine du côté droit est
+ *        déjà une coque droite, alors que les habillages sont tous dérivés du
+ *        flanc gauche et doivent, eux, être retournés.
  */
 export async function styledMeshPart({
   styles, id, index, name, material,
@@ -144,7 +147,11 @@ export async function styledMeshPart({
     if (!style) throw new Error(`style inconnu : ${styleId}`);
     const part = await meshPart({
       url: style.url, id, index, name, material, source: style.note,
-      mirrored, zUp, upsideDown,
+      // `?? ` et non `||` : un style qui demande explicitement `false` doit
+      // pouvoir annuler le miroir de la pièce, pas se le voir réappliquer.
+      mirrored: style.mirrored ?? mirrored,
+      zUp,
+      upsideDown,
     });
     loaded.set(styleId, part);
     return part;

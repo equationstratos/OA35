@@ -303,15 +303,19 @@ Une pièce pas encore assemblée reste à sa place sur l'établi plutôt que d'a
 
 ### Changer l'habillage d'un cover
 
-Le **side guard** (flanc de protection latéral, pièces 30 et 31) existe en huit
-habillages. Clique sur le cover — dans la vue 3D ou sur sa fiche — et une ligne
-**Habillage** s'ajoute en haut de la barre d'actions. Le fichier est chargé au
-moment où tu le demandes, pas au démarrage ; la pièce garde sa place, sa
-rotation et sa teinte, et chaque côté choisit le sien.
+Les **covers latéraux** (pièces 10 et 11) existent en neuf habillages. Clique
+sur le cover — dans la vue 3D ou sur sa fiche — et une ligne **Habillage**
+s'ajoute en haut de la barre d'actions. Le fichier est chargé au moment où tu
+le demandes, pas au démarrage ; la pièce garde sa place, sa rotation et sa
+teinte, et chaque côté choisit le sien.
+
+Ce ne sont pas des pièces en plus : ce sont les deux mêmes covers qu'avant, à
+qui on donne le choix de leur habillage. Le build compte toujours vingt pièces.
 
 | Habillage | Ce qu'il change | Matière |
 |-----------|-----------------|---------|
-| **Origine** | fichier fourni, non modifié | 2,746 cm³ |
+| **Cover 01** | coque fournie, version courte (71,9 mm) — montée par défaut | 2,30 cm³ |
+| **Side guard** | coque fournie, version longue (104,7 mm), avec la queue et l'ouïe ovale | 2,746 cm³ |
 | **Nid d'abeille** | percé, 13 alvéoles de 5,2 mm entre plats, cloisons 1,7 mm | −17,5 % |
 | **Persiennes** | percé, 8 fentes obliques de 2,7 mm à 62° | −17,3 % |
 | **Treillis** | percé, 18 triangles alternés, cloisons 2,2 mm | −12,1 % |
@@ -320,11 +324,15 @@ rotation et sa teinte, et chaque côté choisit le sien.
 | **Circuit** | relief plein, routage de circuit imprimé, pistes de 0,9 mm | +0,1 % |
 | **Carbone tressé** | relief plein, tissage à ±45° sur toute la joue, 0,46 mm | +2,5 % |
 
-Les huit partagent au micron près l'encombrement du fichier d'origine
-(104,66 × 17,62 × 29,87 mm), son épaisseur de paroi (1,55 mm) et toutes ses
-surfaces de montage : le motif s'arrête à 0,9 mm des bords, et ni les ergots,
-ni les épaulements, ni le perçage ovale arrière ne sont touchés. Un habillage
-se substitue donc à un autre sans rien changer au reste du châssis.
+Les deux premiers sont les fichiers fournis. Les sept autres dérivent du side
+guard et partagent au micron près son encombrement (104,66 × 17,62 × 29,87 mm),
+son épaisseur de paroi (1,55 mm) et toutes ses surfaces de montage : le motif
+s'arrête à 0,9 mm des bords, et ni les ergots, ni les épaulements, ni le
+perçage ovale arrière ne sont touchés. Un habillage se substitue donc à un
+autre sans rien changer au reste du châssis.
+
+Les pourcentages de matière sont donnés par rapport au side guard, pas au
+cover 01 : les sept motifs en dérivent tous.
 
 Les percés ouvrent la joue **là seulement où la coque est une paroi simple** de
 0,9 à 2,6 mm — nervures et zones épaisses sont exclues par construction. Les
@@ -455,7 +463,7 @@ js/lib/patterns.js         motifs de perçage normalisés, calage de l'échelle
 js/lib/geom.js             pixels -> mm, congés, symétrie, extrusion
 js/lib/materials.js        carbone sergé 2x2 généré au runtime
 js/parts/01-bottom-plate.js
-js/parts/09-side-guard.js  side guard gauche/droit et ses huit habillages
+js/parts/09-side-guard.js  covers latéraux gauche/droit et leurs habillages
 assets/parts-3d/side-guard/  les sept habillages dérivés du side guard
 vendor/three/              Three.js r160 (embarqué)
 ```
