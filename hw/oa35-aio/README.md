@@ -136,6 +136,11 @@ Ce qui est vérifié à ce stade : le schéma et la netlist concordent exactemen
 ne mord sur un trou de fixation, et chaque référence LCSC est cohérente avec
 son boîtier.
 
+**Pour router vous-même**, voir [docs/ROUTER-SOI-MEME.md](docs/ROUTER-SOI-MEME.md).
+Le plus court : `oa35-aio.dsn` est fourni prêt à router — ouvrez-le dans
+freerouting sur votre machine, cliquez *Autoroute*, enregistrez la session,
+puis `./route.sh import`. Ou en une commande ici : `./route.sh`.
+
 Les outils de routage écrits pour ce projet restent dans `tools/` et sont
 utilisables tels quels :
 
