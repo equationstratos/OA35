@@ -777,18 +777,54 @@ def main(limit=None, rounds=6, escapes=False):
     return len(left)
 
 
+def clear_line(sp, li, a, b, net):
+    """Could a straight track run from cell a to cell b?"""
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    steps = max(abs(dx), abs(dy))
+    if steps == 0:
+        return True
+    for i in range(steps + 1):
+        u = i / float(steps)
+        ix = int(round(a[0] + dx * u))
+        iy = int(round(a[1] + dy * u))
+        if not free(sp, li, ix, iy, net):
+            return False
+    return True
+
+
+def straighten(sp, run, net):
+    """Replace the staircase with the longest straight runs that still fit.
+
+    An eight-way search on a 0.05 mm grid draws a line at any angle other
+    than a multiple of 45 degrees as an alternation of tiny steps, and
+    emitting one track per step gives the zigzags that make the board look
+    hand-drawn by somebody in a hurry.  Worse, a staircase sweeps a wider
+    ribbon than the straight line it approximates, so it takes more of the
+    board out of use than it needs -- it was part of why the board looked
+    congested.
+
+    Greedy line of sight: from each vertex, go as far along the path as a
+    straight track can legally reach, and start again from there.
+    """
+    li = run[0][0]
+    cells = [(c[1], c[2]) for c in run]
+    out = [0]
+    i = 0
+    while i < len(cells) - 1:
+        j = len(cells) - 1
+        while j > i + 1 and not clear_line(sp, li, cells[i], cells[j], net):
+            j -= 1
+        out.append(j)
+        i = j
+    return [(li, cells[k][0], cells[k][1]) for k in out]
+
+
 def emit_run(board, sp, run, net):
     """One straight track per collinear stretch of a same-layer run."""
     if len(run) < 2:
         return
     li = run[0][0]
-    pts = [run[0]]
-    for i in range(1, len(run) - 1):
-        ax, ay = run[i][1] - run[i - 1][1], run[i][2] - run[i - 1][2]
-        bx, by = run[i + 1][1] - run[i][1], run[i + 1][2] - run[i][2]
-        if (ax, ay) != (bx, by):
-            pts.append(run[i])
-    pts.append(run[-1])
+    pts = straighten(sp, run, net)
     for a, b in zip(pts, pts[1:]):
         x0, y0 = sp.to_mm(a[1]), sp.to_mm(a[2])
         x1, y1 = sp.to_mm(b[1]), sp.to_mm(b[2])
