@@ -132,7 +132,7 @@ class Field(object):
 HEUR = 2.0
 
 
-def search(field, sources, targets, net, budget=300000):
+def search(field, sources, targets, net, budget=300000, weight=None):
     """Cheapest path under the current prices, not the shortest one."""
     if not sources or not targets:
         return None
@@ -144,6 +144,7 @@ def search(field, sources, targets, net, budget=300000):
     shuts, owners = field.sp.shut, field.sp.owner
     present = field.present
     STEPS = FR.STEPS
+    w = HEUR if weight is None else weight
 
     open_q = []
     best = {}
@@ -151,7 +152,7 @@ def search(field, sources, targets, net, budget=300000):
         if s in tset:
             return [s]
         best[s] = 0.0
-        heapq.heappush(open_q, (hypot(s[1] - tx, s[2] - ty) * GRID * HEUR,
+        heapq.heappush(open_q, (hypot(s[1] - tx, s[2] - ty) * GRID * w,
                                 0.0, s, None))
     came = {}
     seen = 0
@@ -198,7 +199,7 @@ def search(field, sources, targets, net, budget=300000):
             if best.get(nxt, 1e18) <= ng:
                 continue
             best[nxt] = ng
-            heapq.heappush(open_q, (ng + hypot(jx - tx, jy - ty) * GRID * HEUR,
+            heapq.heappush(open_q, (ng + hypot(jx - tx, jy - ty) * GRID * w,
                                     ng, nxt, cur))
         k0 = iy * N + ix
         for lj in ROUTABLE:
@@ -218,7 +219,7 @@ def search(field, sources, targets, net, budget=300000):
             if not FR.via_ok(field.sp, ix, iy, net):
                 continue
             best[nxt] = ng
-            heapq.heappush(open_q, (ng + hypot(ix - tx, iy - ty) * GRID * HEUR,
+            heapq.heappush(open_q, (ng + hypot(ix - tx, iy - ty) * GRID * w,
                                     ng, nxt, cur))
     return None
 
@@ -251,13 +252,22 @@ def claimed(paths):
 
 
 def route_net(field, terms, net):
-    """Connect the terminals of one net.  Returns the cells it claims."""
+    """Connect the terminals of one net.  Returns the cells it claims.
+
+    A search that runs out of budget is retried greedier rather than given
+    up on.  As the price of sharing climbs the cost field gets bumpy, A*
+    fans out further, and nets that were routable at iteration 1 start
+    coming back unroutable at iteration 5 -- which is the search giving up,
+    not the board being full.
+    """
     if len(terms) < 2:
         return set(), []
     tree = set(terms[0])
     paths = []
     for t in terms[1:]:
         path = search(field, tree, t, net)
+        if path is None:
+            path = search(field, tree, t, net, weight=HEUR * 3.0)
         if path is None:
             return None, None
         paths.append(path)
