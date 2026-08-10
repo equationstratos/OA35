@@ -440,6 +440,39 @@ def face_drain_inwards(pl, frame, ref):
     return True
 
 
+def match_channel_one(pl, frames, refs, num, tol=0.02):
+    """Turn a part so it lands where channel 1's equivalent landed.
+
+    Channel 1 is the reference; every other channel's copy of the same part
+    must have the named pad at the same place in its own frame, or the four
+    power stages are not really identical.  They were not: the MOSFETs and
+    the drivers matched after face_drain_inwards(), but the ESC micros came
+    out turned by 180 degrees in channels 2 and 3, and every two-pad passive
+    was mirrored -- which is what a fixed orientation gives you when the
+    position rotates one way and KiCad's orientation the other.
+
+    Returns the number of parts it had to turn.
+    """
+    ref1 = refs[1]
+    want = local_pad(pl, frames[1], ref1, num)
+    if want is None:
+        return 0
+    turned = 0
+    for ch in (2, 3, 4):
+        ref = refs[ch]
+        got = local_pad(pl, frames[ch], ref, num)
+        if got is None:
+            continue
+        if math.hypot(want[0] - got[0], want[1] - got[1]) <= tol:
+            continue
+        fp = pl.fps[ref]
+        fp.SetOrientationDegrees((fp.GetOrientationDegrees() + 180.0) % 360)
+        x, y, ang, bottom = pl.placed[ref]
+        pl.placed[ref] = (x, y, (ang + 180.0) % 360, bottom)
+        turned += 1
+    return turned
+
+
 def gate_pad_x(pl, frame, fet_ref, gate_net):
     """Where the MOSFET's gate pad really is, along the channel's local x."""
     for pad in pl.fps[fet_ref].Pads():
@@ -561,6 +594,27 @@ def main():
             Y = px * sa + py * ca
             pl.put('J%d' % (10 + 3 * (ch - 1) + k), round(X, 3), round(Y, 3),
                    (pa + rotdeg) % 360)
+
+    # Make the four channels genuinely identical, pad for pad, in their own
+    # frames.  Two thirds of the nets on this board live inside one channel;
+    # if the channels match, a routing done once can be stamped four times.
+    frames = dict((ch, Frame(ox, oy, ang))
+                  for ch, (ox, oy, ang) in LO.CHANNEL_FRAME.items())
+    families = [(dict((c, 'U%d0' % (c + 1)) for c in (1, 2, 3, 4)), '20'),
+                (dict((c, 'U%d1' % (c + 1)) for c in (1, 2, 3, 4)), '19'),
+                (dict((c, 'CVCC%d' % c) for c in (1, 2, 3, 4)), '1')]
+    for ph in sorted(LO.FET_X):
+        for side in ('L', 'H'):
+            families.append((dict((c, 'Q%s%s%d' % (ph, side, c))
+                                  for c in (1, 2, 3, 4)), '4'))
+            families.append((dict((c, 'RG%s%s%d' % (ph, side, c))
+                                  for c in (1, 2, 3, 4)), '1'))
+        families.append((dict((c, 'CBS%s%d' % (ph, c))
+                              for c in (1, 2, 3, 4)), '1'))
+    turned = sum(match_channel_one(pl, frames, refs, num)
+                 for refs, num in families)
+    if turned:
+        print('  turned %d parts to match channel 1' % turned)
 
     for ref, (x, y, a) in sorted(LO.TOP.items()):
         pl.put(ref, x, y, a)
