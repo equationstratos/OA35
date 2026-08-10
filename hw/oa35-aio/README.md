@@ -2,12 +2,14 @@
 
 Équivalent libre de l'AIO **Sub250 RedFox A3 F722** (la carte qui équipe le
 **Sub250 OasisFly35**) : contrôleur de vol STM32F722 et quatre ESC AM32
-indépendants sur une seule carte, entretoises **25,5 × 25,5 mm**, prête à
-commander chez JLCPCB.
+indépendants sur une seule carte, entretoises **25,5 × 25,5 mm**.
+
+**État : placée, pas encore routée.** Voir « État » plus bas et
+[docs/ROUTER-SOI-MEME.md](docs/ROUTER-SOI-MEME.md).
 
 Tout le projet est **généré depuis un seul fichier**, `tools/design.py`, qui
 contient chaque composant et chaque liaison broche‑à‑net. Le schéma, le
-routage, la nomenclature et le fichier de placement en découlent, donc ils ne
+placement, la nomenclature et le fichier de pose en découlent, donc ils ne
 peuvent pas diverger entre eux.
 
 ## Caractéristiques
@@ -25,7 +27,7 @@ peuvent pas diverger entre eux.
 | Mesure de courant | shunt 0,2 mΩ + INA186A3, 20 mV/A | oui |
 | UART | 4 (UART1, 2, 4, 6) sur pastilles | 4 |
 | Vidéo | connecteur JST‑SH 6 points pour VTX numérique | connecteur DJI 6 points |
-| USB | USB‑C sur la carte | carte adaptateur séparée |
+| USB | JST‑SH 6 pts vers module Type‑C déporté | JST‑SH 5 pts vers module Type‑C déporté |
 | Carte | 36 × 36 mm, 6 couches, 1,6 mm | ~33,5 × 33,5 mm |
 | Fixation | 25,5 × 25,5 mm, 4 trous ⌀3,0 mm (M2 + silentblocs) | 25,5 × 25,5 mm |
 
@@ -40,15 +42,19 @@ peuvent pas diverger entre eux.
   9,85 V ; il lui faut au moins ~11 V à l'entrée. À 2S il décrocherait.
 - **AM32 au lieu de BLHeli_32.** BLHeli_32 est fermé et n'est plus distribué ;
   AM32 est libre et c'est la cible standard pour AT32F421.
-- **USB‑C sur la carte** plutôt qu'une carte adaptateur déportée.
+- **Connecteur USB à six voies au lieu de cinq.** Le SM06B‑SRSS‑TB est déjà
+  utilisé pour la vidéo et sa référence LCSC est vérifiée ; la version 5 voies
+  n'a pas pu l'être depuis cet environnement (lcsc.com bloqué par le proxy), et
+  une référence non vérifiée est une commande ratée. La voie en trop est une
+  seconde masse. Le câble n'est donc pas celui d'origine.
 - **Pas de puce OSD analogique.** Comme la version HD de l'OasisFly35, l'OSD
   passe par MSP DisplayPort sur l'UART du VTX numérique.
 
 ## Construire le projet
 
 ```sh
-./build.sh              # bibliothèque, schéma, placement, routage, export
-./build.sh noroute      # tout sauf le routage automatique
+./build.sh noroute      # bibliothèque, schéma, placement — la carte livrée
+./route.sh              # tenter le routage automatique
 ```
 
 Il faut KiCad 7 (`kicad-cli` et le module python `pcbnew`), `java` et `xvfb`
@@ -94,14 +100,20 @@ perçages, largeurs, connexions — reste en erreur bloquante.
 un par bord : six MOSFET DOY180N03T (30 V, PowerDI3333‑8) en trois demi‑ponts,
 le driver NSG2065Q, les résistances de grille et les condensateurs de
 bootstrap. Les pastilles moteur sont dans le coin vers lequel pointe le bloc.
-L'entrée batterie, le shunt et les écrêteurs sont à l'arrière. Le bloc du
-canal 4 est décalé de 4,4 mm vers l'avant : les pattes de maintien de l'USB‑C
-sont traversantes et mordent donc aussi sur la face du dessus.
+L'entrée batterie, le shunt et les écrêteurs sont à l'arrière.
 
-**Dessous (B.Cu) — contrôleur de vol.** Le STM32F722 au centre, les quatre
-micros d'ESC dans les coins à 45°, l'USB‑C sur le bord gauche, le connecteur
-VTX à l'avant, les deux abaisseurs et les régulateurs à droite, les pastilles
-de câblage tout autour.
+Chaque canal a exactement trois bandes libres, et tout son réseau de grille y
+tient : résistances basses vers le bord, résistances hautes entre les deux
+rangées de MOSFET, condensateurs de bootstrap sous le driver. L'écart entre
+les rangées est dimensionné pour qu'une via y passe — c'est le seul accès à la
+pastille de grille du transistor haut.
+
+**Dessous (B.Cu) — contrôleur de vol.** Le STM32F722 au centre, la centrale
+inertielle et la boîte noire à l'arrière, le baromètre à l'avant, les deux
+abaisseurs à droite, le connecteur USB sur le bord avant, le connecteur VTX
+sur le bord gauche, et les pastilles de câblage tout autour. Chaque micro
+d'ESC est dans le repère de son propre canal, en face de sa rangée de MOSFET
+mais dégagé de la bande qui leur sert de passage.
 
 **Empilage (6 couches, 1,6 mm)**
 
@@ -110,8 +122,8 @@ de câblage tout autour.
 | F.Cu | puissance ESC, coulées de phase |
 | In1.Cu | plan de masse |
 | In2.Cu | plan batterie |
-| In3.Cu | plan de masse |
-| In4.Cu | signaux contrôleur de vol + masse |
+| In3.Cu | signaux (`SIG1`) |
+| In4.Cu | signaux (`SIG2`) |
 | B.Cu | contrôleur de vol, signaux, pastilles |
 
 ## Firmware
