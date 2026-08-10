@@ -54,7 +54,9 @@ def gerbers():
     run('kicad-cli', 'pcb', 'export', 'gerbers', '--output', GERBER,
         '--layers', LAYERS, '--no-protel-ext', '--subtract-soldermask',
         '--use-drill-file-origin', PCB)
-    run('kicad-cli', 'pcb', 'export', 'drill', '--output', GERBER,
+    # the drill exporter insists on a trailing separator, and says only
+    # "Output must be a directory" when it does not get one
+    run('kicad-cli', 'pcb', 'export', 'drill', '--output', GERBER + os.sep,
         '--format', 'excellon', '--drill-origin', 'absolute',
         '--excellon-separate-th', '--excellon-units', 'mm',
         '--generate-map', '--map-format', 'gerberx2', PCB)
