@@ -42,12 +42,25 @@ const DIR = 'assets/parts-3d/side-guard';
 const MATERIAL = 'Plastique imprimé';
 
 /**
+ * Les deux exports ne sont PAS dans le même repère, et c'est ce qui se voyait
+ * le plus vite : le cover 01 porte sa longueur sur Y et tourne sa face externe
+ * vers −X, le side guard porte la sienne sur X et regarde vers −Y. Passer de
+ * l'un à l'autre faisait donc pivoter la pièce d'un quart de tour sur place.
+ *
+ * D'où le quart de tour de recalage sur les sept habillages et sur le side
+ * guard : −90° autour de la verticale amène leur longueur sur Y et leur face
+ * externe vers −X, exactement comme le cover 01. Le repère commun sert aussi
+ * au bouton Miroir, qui travaille toujours en X : une fois l'épaisseur ramenée
+ * sur X, il donne bien un symétrique gauche/droite.
+ *
  * Les deux fichiers d'origine existent DÉJÀ par côté (coques gauche et droite
  * séparées à la source), alors que les sept habillages sont tous dérivés du
  * flanc gauche. D'où le miroir par style plutôt que par pièce : sans lui, le
  * cover droit se retrouvait soit avec un habillage à l'envers, soit avec une
  * origine retournée.
  */
+const RECALAGE = -Math.PI / 2;
+
 function stylesFor(side) {
   const mirror = side === 'droite';
   return [
@@ -63,6 +76,7 @@ function stylesFor(side) {
       name: 'Side guard',
       url: 'assets/parts-3d/OasisFly35 DC Side guard .stl',
       mirrored: mirror,
+      spin: RECALAGE,
       note: 'coque fournie, version longue — 104,7 mm, 2,746 cm³, 3,40 g en PLA',
     },
     {
@@ -70,6 +84,8 @@ function stylesFor(side) {
       name: 'Nid d’abeille',
       url: `${DIR}/side-guard-nid-abeille.stl`,
       mirrored: mirror,
+      spin: RECALAGE,
+      anchorsFrom: 'side-guard',
       note: 'percé — 13 alvéoles de 5,2 mm entre plats, cloisons 1,7 mm, −17,5 % de matière',
     },
     {
@@ -77,6 +93,8 @@ function stylesFor(side) {
       name: 'Persiennes',
       url: `${DIR}/side-guard-persiennes.stl`,
       mirrored: mirror,
+      spin: RECALAGE,
+      anchorsFrom: 'side-guard',
       note: 'percé — 8 fentes obliques de 2,7 mm à 62°, −17,3 % de matière',
     },
     {
@@ -84,6 +102,8 @@ function stylesFor(side) {
       name: 'Treillis',
       url: `${DIR}/side-guard-treillis.stl`,
       mirrored: mirror,
+      spin: RECALAGE,
+      anchorsFrom: 'side-guard',
       note: 'percé — 18 triangles alternés, cloisons 2,2 mm, −12,1 % de matière',
     },
     {
@@ -91,6 +111,8 @@ function stylesFor(side) {
       name: 'Skull',
       url: `${DIR}/side-guard-skull.stl`,
       mirrored: mirror,
+      spin: RECALAGE,
+      anchorsFrom: 'side-guard',
       note: 'relief plein — crâne de face, 0,66 mm de saillie, orbites et dents gravées',
     },
     {
@@ -98,6 +120,8 @@ function stylesFor(side) {
       name: 'Shark',
       url: `${DIR}/side-guard-shark.stl`,
       mirrored: mirror,
+      spin: RECALAGE,
+      anchorsFrom: 'side-guard',
       note: 'relief plein — requin de profil sur 44 mm, 0,62 mm de saillie, branchies gravées',
     },
     {
@@ -105,6 +129,8 @@ function stylesFor(side) {
       name: 'Circuit',
       url: `${DIR}/side-guard-circuit.stl`,
       mirrored: mirror,
+      spin: RECALAGE,
+      anchorsFrom: 'side-guard',
       note: 'relief plein — routage de circuit imprimé, pistes de 0,9 mm, 0,52 mm de saillie',
     },
     {
@@ -112,6 +138,8 @@ function stylesFor(side) {
       name: 'Carbone tressé',
       url: `${DIR}/side-guard-carbone.stl`,
       mirrored: mirror,
+      spin: RECALAGE,
+      anchorsFrom: 'side-guard',
       note: 'relief plein — tissage à ±45° couvrant toute la joue, 0,46 mm de saillie',
     },
   ];

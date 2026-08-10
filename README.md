@@ -312,6 +312,13 @@ teinte, et chaque côté choisit le sien.
 Ce ne sont pas des pièces en plus : ce sont les deux mêmes covers qu'avant, à
 qui on donne le choix de leur habillage. Le build compte toujours vingt pièces.
 
+Le cover ne bouge pas d'un habillage à l'autre — même place, même sens. Deux
+choses s'y opposaient : les deux exports fournis n'ont pas leur longueur sur le
+même axe (un quart de tour de recalage remet les habillages dans le repère du
+cover 01), et le rangement automatique de l'établi espace les pièces selon leur
+taille, ce qui décalait un habillage plus long. La position est donc figée au
+changement ; le ↺ de la ligne de déplacement rend la place automatique.
+
 | Habillage | Ce qu'il change | Matière |
 |-----------|-----------------|---------|
 | **Cover 01** | coque fournie, version courte (71,9 mm) — montée par défaut | 2,30 cm³ |

@@ -640,6 +640,18 @@ ul { list-style: none; margin: 0; padding: 0; }
 }
 .part-toolbar .row.styles .row-label { width: auto; margin-right: 2px; }
 .part-toolbar .row.styles button { padding: 4px 9px; font-size: 11.5px; }
+/* L'habillage en cours de téléchargement se signale : il reste plusieurs
+   secondes sur le fil, et un bouton simplement grisé ne dit pas lequel. */
+.part-toolbar .row.styles button.loading {
+  border-color: var(--accent);
+  color: var(--accent);
+  opacity: 1;
+  animation: style-loading 1s ease-in-out infinite;
+}
+@keyframes style-loading { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) {
+  .part-toolbar .row.styles button.loading { animation: none; }
+}
 
 .part.selected {
   border-color: var(--warm);

@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-10b · habillages portes par les covers 01';
+const BUILD = '2026-08-10c · habillages : meme repere, meme place, plus rapides';
 $('build-stamp').textContent = BUILD;
 
 /* Les trois groupes de visserie — sachet du plan de travail, visserie posée,
@@ -2145,16 +2145,21 @@ function renderPartToolbar() {
  * plusieurs mégaoctets : les boutons sont neutralisés le temps du chargement,
  * sinon deux clics rapides lancent deux montages qui se croisent.
  *
- * Le remontage passe par `remountAll()` : la scène se reconstruit depuis les
- * placements enregistrés, donc la pièce retrouve exactement sa position, sa
- * rotation et sa teinte — remonter la seule pièce concernée la ramènerait à
- * sa place d'établi par défaut.
+ * SEULE la pièce concernée est remontée. Reconstruire toute la scène coûtait
+ * plusieurs secondes — chaque pièce refait son maillage d'arêtes et son relevé
+ * de perçages — alors que dix-neuf d'entre elles n'ont pas bougé.
  */
 async function setPartStyle(entry, styleId) {
   if (!styleId || entry.mod.meta.styleId === styleId) return;
   const bar = $('part-toolbar');
-  bar.querySelectorAll('.row.styles button').forEach((b) => { b.disabled = true; });
   const style = entry.mod.meta.styles.find((s) => s.id === styleId);
+  bar.querySelectorAll('.row.styles button').forEach((b) => {
+    b.disabled = true;
+    b.classList.toggle('loading', b.dataset.style === styleId);
+  });
+  // Le fichier pèse plusieurs mégaoctets : sans un mot tout de suite, le clic
+  // paraît sans effet le temps du téléchargement.
+  updateAsmHint(`Chargement de l'habillage ${style ? style.name : styleId}…`);
   try {
     await entry.mod.setStyle(styleId);
   } catch (err) {
@@ -2162,7 +2167,28 @@ async function setPartStyle(entry, styleId) {
     renderPartToolbar();
     return;
   }
-  remountAll();
+  // Le rangement automatique de l'établi espace les pièces selon leur taille :
+  // un habillage plus long décalait la pièce de quelques centimètres, alors
+  // qu'on vient seulement de changer son motif. On lui rend sa place exacte.
+  const before = {
+    pos: entry.holder.position.clone(),
+    rot: entry.holder.rotation.clone(),
+  };
+  mountPart(entry, entry.mod.isCustom ? null : appliedTrace());
+  entry.holder.position.copy(before.pos);
+  entry.holder.rotation.copy(before.rot);
+  entry.holder.updateMatrixWorld(true);
+  // la position est figée telle quelle : le rangement automatique espace les
+  // pièces selon leur taille, et un habillage plus long décalait la pièce de
+  // quelques centimètres alors qu'on venait seulement de changer son motif.
+  // Le ↺ de la ligne de déplacement rend la place automatique.
+  storePlacement(entry, { manual: true });
+  applyHidden();
+  applyColors();
+  applySelectionLook();
+  renderPartList();
+  renderPartToolbar();
+  invalidate();
   updateAsmHint(`« ${entry.mod.meta.name} » : habillage ${style.name} — ${style.note}.`, 'ok');
 }
 

@@ -32,13 +32,21 @@ import { printedMaterial } from '../lib/materials.js';
  *        son fichier : sa face de fixation est celle que le fichier pose sur
  *        le plateau d'impression. On retourne le maillage une bonne fois,
  *        pour que « bas » veuille dire la même chose ici que sur le drone.
+ * @param {number} [o.spin] quart de tour autour de la verticale DU FICHIER, en
+ *        radians, appliqué avant tout le reste. Deux exports de la même pièce
+ *        n'ont pas forcément sa longueur sur le même axe : sans ce recalage,
+ *        remplacer l'un par l'autre fait pivoter la pièce d'un quart de tour.
  */
 export async function meshPart({
   url, id, index, name, material, source,
-  mirrored = false, zUp = true, upsideDown = false,
+  mirrored = false, zUp = true, upsideDown = false, spin = 0,
+  reuseAnchors = null,
 }) {
   let geometry = null;
   let error = null;
+  // recentrage appliqué au maillage : publié plus bas, c'est lui qui permet de
+  // rejouer les ancres d'un autre habillage de la même pièce
+  let shift = [0, 0, 0];
   try {
     geometry = await loadSTL(url);
   } catch (e) {
@@ -54,6 +62,13 @@ export async function meshPart({
     // bras au lieu du sol.
     if (upsideDown) geometry.rotateX(Math.PI);
 
+    // Recalage d'axes AVANT le recentrage, pour que l'encombrement mesuré plus
+    // bas soit celui de la pièce une fois tournée — et avant le miroir de
+    // `build()`, qui se fait toujours en X : c'est ce quart de tour qui amène
+    // l'épaisseur sur X, donc qui fait du miroir un vrai symétrique
+    // gauche/droite au lieu d'une inversion avant/arrière.
+    if (spin) geometry.rotateZ(spin);
+
     // Recentre la pièce sur son propre encombrement, base posée sur le plan.
     // Les fichiers exportés d'une CAO gardent l'origine du repère de
     // modélisation, qui peut être n'importe où : sans ça, la position
@@ -66,7 +81,7 @@ export async function meshPart({
     // centrés — se tromper d'axe enterre la pièce ou la fait flotter.
     const b = meshBounds(geometry);
     const up = zUp ? 2 : 1;
-    const shift = [0, 1, 2].map((k) => (k === up
+    shift = [0, 1, 2].map((k) => (k === up
       ? -b.min[k]
       : -(b.min[k] + b.max[k]) / 2));
     geometry.translate(shift[0], shift[1], shift[2]);
@@ -76,12 +91,33 @@ export async function meshPart({
     ? meshBounds(geometry)
     : { min: [0, 0, 0], max: [0, 0, 0], size: [0, 0, 0] };
 
-  // La détection des features circulaires coûte quelques centaines de ms :
-  // faite une fois ici, pas à chaque reconstruction de la pièce (le bouton
-  // Miroir en déclenche une). Le miroir se déduit des ancres d'origine.
-  const anchors = geometry ? meshAnchors(geometry) : [];
+  // La détection des features circulaires coûte quelques centaines de ms sur
+  // une pièce ordinaire — et près de cinq secondes sur un maillage de cent
+  // cinquante mille triangles. Faite une fois ici, pas à chaque reconstruction
+  // de la pièce (le bouton Miroir en déclenche une). Le miroir se déduit des
+  // ancres d'origine.
+  //
+  // `reuseAnchors` sert aux habillages d'une même pièce : leurs surfaces de
+  // montage sont identiques au fichier près, seul le recentrage diffère —
+  // d'une fraction de millimètre, le relief épaississant la coque. On décale
+  // donc les ancres de la différence des recentrages au lieu de refaire toute
+  // la détection. Exact, tant que l'habillage réutilisé partage le même quart
+  // de tour et le même miroir.
+  let anchors = [];
+  if (geometry) {
+    if (reuseAnchors) {
+      const d = [0, 1, 2].map((k) => shift[k] - reuseAnchors.shift[k]);
+      anchors = reuseAnchors.anchors.map((a) => ({
+        ...a, x: a.x + d[0], y: a.y + d[1], z: a.z + d[2],
+      }));
+    } else {
+      anchors = meshAnchors(geometry);
+    }
+  }
 
   return {
+    /** recentrage et ancres, pour qu'un autre habillage puisse les rejouer */
+    frame: { shift, anchors },
     build(flip = false) {
       // le miroir demandé par la pièce et celui du bouton se composent
       const wantMirror = mirrored !== flip;
@@ -128,11 +164,13 @@ export async function meshPart({
  * bien qu'un aller-retour entre deux habillages est instantané.
  *
  * @param {object} o
- * @param {Array<{id:string,name:string,url:string,note:string,mirrored?:boolean}>} o.styles
+ * @param {Array<{id:string,name:string,url:string,note:string,mirrored?:boolean,
+ *          spin?:number,anchorsFrom?:string}>} o.styles
  *        le premier de la liste est celui affiché au démarrage. Un style peut
  *        forcer son propre miroir : le fichier d'origine du côté droit est
  *        déjà une coque droite, alors que les habillages sont tous dérivés du
- *        flanc gauche et doivent, eux, être retournés.
+ *        flanc gauche et doivent, eux, être retournés. `anchorsFrom` nomme la
+ *        coque nue d'où l'habillage tient ses repères d'accrochage.
  */
 export async function styledMeshPart({
   styles, id, index, name, material,
@@ -141,18 +179,40 @@ export async function styledMeshPart({
   const loaded = new Map();
   let currentId = styles[0].id;
 
+  // Ancres déjà détectées, rangées par famille d'habillages : deux habillages
+  // ne partagent leurs surfaces de montage que s'ils partagent aussi le quart
+  // de tour et le miroir qui les amènent dans le même repère.
+  const frames = new Map();
+
   async function ensure(styleId) {
     if (loaded.has(styleId)) return loaded.get(styleId);
     const style = styles.find((s) => s.id === styleId);
     if (!style) throw new Error(`style inconnu : ${styleId}`);
+    // `?? ` et non `||` : un style qui demande explicitement `false` doit
+    // pouvoir annuler le miroir de la pièce, pas se le voir réappliquer.
+    const wantMirror = style.mirrored ?? mirrored;
+    const wantSpin = style.spin ?? 0;
+    const family = `${wantSpin}|${wantMirror}`;
+
+    // Les repères d'accrochage se relèvent sur la COQUE NUE, jamais sur un
+    // habillage : le détecteur de features circulaires prend les orbites d'un
+    // crâne ou les alvéoles d'un nid d'abeille pour des perçages, et la pièce
+    // se couvrirait de cibles qui ne se vissent nulle part. Un habillage
+    // déclare donc de quelle coque il tient ses repères ; elle est chargée en
+    // premier, une seule fois pour toute la famille.
+    if (!frames.has(family) && style.anchorsFrom) {
+      await ensure(style.anchorsFrom);
+    }
+
     const part = await meshPart({
       url: style.url, id, index, name, material, source: style.note,
-      // `?? ` et non `||` : un style qui demande explicitement `false` doit
-      // pouvoir annuler le miroir de la pièce, pas se le voir réappliquer.
-      mirrored: style.mirrored ?? mirrored,
+      mirrored: wantMirror,
+      spin: wantSpin,
+      reuseAnchors: frames.get(family) ?? null,
       zUp,
       upsideDown,
     });
+    if (!part.meta.missingAsset && !frames.has(family)) frames.set(family, part.frame);
     loaded.set(styleId, part);
     return part;
   }
