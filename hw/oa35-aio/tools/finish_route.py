@@ -198,7 +198,7 @@ def layer_indices(item):
     return out
 
 
-def paint(board, ignore_tracks=False):
+def paint(board, ignore_tracks=False, skip=None):
     """Everything already on the board, as obstacles.
 
     Two passes, and the order matters: the real copper first, then the
@@ -208,11 +208,11 @@ def paint(board, ignore_tracks=False):
     """
     sp = Space()
     for hard in (True, False):
-        _paint_pass(board, sp, hard, ignore_tracks)
+        _paint_pass(board, sp, hard, ignore_tracks, skip)
     return sp
 
 
-def _paint_pass(board, sp, hard, ignore_tracks=False):
+def _paint_pass(board, sp, hard, ignore_tracks=False, skip=None):
     grow = 0.0 if hard else INFLATE
     for fp in board.GetFootprints():
         for pad in fp.Pads():
@@ -233,6 +233,8 @@ def _paint_pass(board, sp, hard, ignore_tracks=False):
                    grow, net, lis, hard)
     for t in board.GetTracks():
         net = t.GetNetCode()
+        if skip is not None and net == skip:
+            continue                    # this net is being redone
         if ignore_tracks and t.Type() != pcbnew.PCB_VIA_T:
             continue
         if t.Type() == pcbnew.PCB_VIA_T:
