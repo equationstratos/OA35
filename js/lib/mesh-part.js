@@ -15,7 +15,7 @@
  */
 
 import * as THREE from 'three';
-import { outlineMaterial } from './materials.js';
+import { outlineMaterial, chamferMaterial } from './materials.js';
 import { findCylinders } from './cylinders.js';
 
 /** Rayon minimal d'une cible de clic, en mm : un M2 est trop petit à viser. */
@@ -110,7 +110,7 @@ export function meshAnchors(geometry) {
  * @param {object[]} [anchors] features circulaires, pour les repères cliquables
  * @returns {THREE.Group}
  */
-export function meshPartObject(geometry, material, anchors) {
+export function meshPartObject(geometry, material, anchors, chamfer = false) {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = 'body'; // même convention que les plaques : sélection, export et
   // calque photo reconnaissent une pièce à ce nom
@@ -120,9 +120,19 @@ export function meshPartObject(geometry, material, anchors) {
   const group = new THREE.Group();
   group.add(mesh);
 
-  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 35), outlineMaterial());
+  // Le maillage d'arêtes coûte cher à construire : les deux calques, le
+  // surlignage et le chanfrein, se le partagent au lieu d'en faire un chacun.
+  const wire = new THREE.EdgesGeometry(geometry, 35);
+
+  const edges = new THREE.LineSegments(wire, outlineMaterial());
   edges.name = 'edges';
   group.add(edges);
+
+  if (chamfer) {
+    const bevel = new THREE.LineSegments(wire, chamferMaterial());
+    bevel.name = 'chamfer';
+    group.add(bevel);
+  }
 
   if (anchors && anchors.length) group.add(anchorMarkers(anchors));
 

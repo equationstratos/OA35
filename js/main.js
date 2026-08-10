@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-10g · liseret de chanfrein, couleur reglable';
+const BUILD = '2026-08-10h · chanfrein des joues camera, independant des aretes';
 $('build-stamp').textContent = BUILD;
 
 /* Les trois groupes de visserie — sachet du plan de travail, visserie posée,
@@ -1996,26 +1996,27 @@ let selectedId = null;
 const SELECT_EMISSIVE = 0x14384f;
 
 /**
- * LE LISERÉ.
+ * LE CHANFREIN.
  *
- * Sur la pièce réelle, le chanfrein d'usinage accroche la lumière et dessine
- * un filet clair tout autour du contour — c'est ce qu'on voit sur les joues du
- * support caméra. Le calque d'arêtes du visualiseur rend le même service ; il
- * lui manquait seulement d'être réglable, et il était bleu.
+ * À ne pas confondre avec les arêtes surlignées, qui sont un calque de lecture
+ * qu'on allume et qu'on éteint, et qui restent bleues. Le chanfrein, lui, est
+ * une caractéristique de la PIÈCE : l'angle d'usinage accroche la lumière et
+ * dessine un filet clair tout autour du contour et des ouvertures. Il ne
+ * s'éteint donc pas avec le surlignage — décocher une aide à la lecture ne
+ * doit pas effacer une arête réellement chanfreinée.
  *
- * Blanc cassé par défaut, comme sur la pièce. La couleur et l'intensité sont
- * conservées d'une session à l'autre. La pièce SÉLECTIONNÉE garde son liseré
- * orange, quelle que soit la couleur choisie : sans ça, régler le liseré sur
- * une teinte proche de l'orange effacerait la sélection.
+ * Seules les pièces qui le déclarent en portent un ; aujourd'hui les deux
+ * joues du support caméra. Couleur et intensité sont conservées d'une session
+ * à l'autre.
  */
-const EDGE_KEY = 'tinyhoop-mk1:liseret';
+const EDGE_KEY = 'tinyhoop-mk1:chanfrein';
 
 function loadEdgeLook() {
   try {
     const raw = JSON.parse(localStorage.getItem(EDGE_KEY) || 'null');
     if (raw && typeof raw.color === 'string') return raw;
   } catch { /* réglage illisible : on reprend le défaut */ }
-  return { color: '#e9eef5', opacity: 0.85 };
+  return { color: '#e9eef5', opacity: 0.9 };
 }
 
 const edgeLook = loadEdgeLook();
@@ -2025,19 +2026,23 @@ function saveEdgeLook() {
 }
 
 function applySelectionLook() {
-  const liseret = new THREE.Color(edgeLook.color);
+  const chanfrein = new THREE.Color(edgeLook.color);
   entries.forEach((e) => {
     if (!e.object) return;
     const on = e.mod.meta.id === selectedId;
     const body = e.object.getObjectByName('body');
     const edges = e.object.getObjectByName('edges');
+    const bevel = e.object.getObjectByName('chamfer');
     if (body && body.material.emissive) {
       body.material.emissive.setHex(on ? SELECT_EMISSIVE : 0x000000);
     }
     if (edges) {
-      if (on) edges.material.color.setHex(0xffb454);
-      else edges.material.color.copy(liseret);
-      edges.material.opacity = on ? 1 : edgeLook.opacity;
+      edges.material.color.setHex(on ? 0xffb454 : 0x6cc7ff);
+      edges.material.opacity = on ? 1 : 0.55;
+    }
+    if (bevel) {
+      bevel.material.color.copy(chanfrein);
+      bevel.material.opacity = edgeLook.opacity;
     }
   });
   document.querySelectorAll('#part-list .part').forEach((li) => {
@@ -3021,6 +3026,10 @@ function applyDisplayOptions() {
   const ghost = $('opt-photo').checked && !!photoPlane;
   buildRoot.traverse((o) => {
     if (o.name === 'edges') o.visible = showEdges;
+    // le chanfrein ne suit PAS la case : il appartient à la pièce, pas au
+    // calque de lecture. Il ne s'efface qu'en mode fil, où la pièce n'est
+    // plus qu'un maillage et où un filet de contour n'a plus de sens.
+    if (o.name === 'chamfer') o.visible = !fil;
     if (o.name === 'body' && o.material) {
       o.material.wireframe = fil;
       o.material.transparent = ghost;
@@ -3028,7 +3037,7 @@ function applyDisplayOptions() {
       o.material.needsUpdate = true;
     }
   });
-  // le liseré se rejoue ici : c'est le point de passage commun à tous les
+  // le chanfrein se rejoue ici : c'est le point de passage commun à tous les
   // remontages, une pièce neuve arriverait sinon avec la couleur d'usine
   applySelectionLook();
   invalidate();

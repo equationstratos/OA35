@@ -32,6 +32,8 @@ import { printedMaterial } from '../lib/materials.js';
  *        son fichier : sa face de fixation est celle que le fichier pose sur
  *        le plateau d'impression. On retourne le maillage une bonne fois,
  *        pour que « bas » veuille dire la même chose ici que sur le drone.
+ * @param {boolean} [o.chamfer] la pièce porte un chanfrein d'usinage visible :
+ *        un filet clair suit ses arêtes vives, indépendamment du surlignage
  * @param {number} [o.spin] quart de tour autour de la verticale DU FICHIER, en
  *        radians, appliqué avant tout le reste. Deux exports de la même pièce
  *        n'ont pas forcément sa longueur sur le même axe : sans ce recalage,
@@ -40,7 +42,7 @@ import { printedMaterial } from '../lib/materials.js';
 export async function meshPart({
   url, id, index, name, material, source,
   mirrored = false, zUp = true, upsideDown = false, spin = 0,
-  reuseAnchors = null, rides = null,
+  reuseAnchors = null, rides = null, chamfer = false,
 }) {
   let geometry = null;
   let error = null;
@@ -125,7 +127,7 @@ export async function meshPart({
       const a = wantMirror
         ? anchors.map((c) => ({ ...c, x: -c.x }))
         : anchors;
-      const group = meshPartObject(geo, printedMaterial(), a);
+      const group = meshPartObject(geo, printedMaterial(), a, chamfer);
       if (zUp) group.rotation.x = -Math.PI / 2;
       return group;
     },

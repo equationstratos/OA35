@@ -57,6 +57,10 @@ export const ACCESSORIES = await Promise.all([
     url: 'assets/FRAME/OA35-camera-mount.STL',
     id: 'camera-mount', index: 14, name: 'Support caméra',
     material: PRINTED, source: 'fichier STL fourni',
+    // les joues du support sont chanfreinées : sur la pièce réelle, l'angle
+    // d'usinage accroche la lumière et dessine un filet clair tout autour du
+    // contour et des ouvertures
+    chamfer: true,
   }),
   // le support caméra va par paire, une joue de chaque côté : même fichier,
   // miroir en X, comme les deux flancs
@@ -65,6 +69,7 @@ export const ACCESSORIES = await Promise.all([
     id: 'camera-mount-mirror', index: 15, name: 'Support caméra (miroir)',
     material: PRINTED, source: 'miroir du support caméra (même fichier STL)',
     mirrored: true,
+    chamfer: true,
   }),
 
   // Cache de vis de la caméra : il vient s'encastrer dans le lamage du DOS de

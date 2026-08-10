@@ -203,16 +203,27 @@ L'empattement servira de contrôle une fois les bras modélisés : c'est la
 diagonale d'axe moteur à axe moteur, et en dead cat les quatre moteurs forment
 un rectangle, pas un carré.
 
-### Le liseré
+### Le chanfrein
 
-Sur la pièce réelle, le chanfrein d'usinage accroche la lumière et dessine un
-filet clair tout autour du contour — très visible sur les joues du support
-caméra. Le visualiseur rend le même effet avec son calque d'arêtes.
+Sur la pièce réelle, l'angle d'usinage des joues du support caméra accroche la
+lumière et dessine un filet clair tout autour du contour et des ouvertures.
+Le visualiseur le rend, et **ce n'est pas le même objet que les arêtes
+surlignées** :
 
-Menu **Affichage** : **Couleur du liseré** et **Intensité du liseré**. Le
-réglage est conservé d'une session à l'autre. La pièce sélectionnée garde son
-liseré orange quelle que soit la couleur choisie, sinon régler le liseré sur
-une teinte proche effacerait la sélection.
+| | |
+|---|---|
+| **Arêtes surlignées** | calque de lecture, bleu, sur toutes les pièces. La case du menu Affichage l'allume et l'éteint. |
+| **Chanfrein** | caractéristique de la pièce. Seules celles qui le déclarent en portent un — aujourd'hui les deux joues caméra. **Il reste visible quand la case est décochée.** |
+
+Décocher une aide à la lecture ne doit pas effacer une arête réellement
+chanfreinée : c'est toute la différence entre les deux.
+
+Menu **Affichage** : **Couleur du chanfrein** et **Intensité du chanfrein**,
+conservées d'une session à l'autre. Il ne s'efface qu'en mode fil, où la pièce
+n'est plus qu'un maillage et où un filet de contour n'aurait plus de sens.
+
+Pour en donner un à une autre pièce, il suffit de lui passer `chamfer: true`
+dans son module.
 
 ## Ce qui est modélisé
 

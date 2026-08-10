@@ -141,3 +141,19 @@ export function tintMaterial(material, kind, hex) {
 export function outlineMaterial() {
   return new THREE.LineBasicMaterial({ color: 0x6cc7ff, transparent: true, opacity: 0.55 });
 }
+
+/**
+ * LE CHANFREIN.
+ *
+ * Ce n'est pas le surlignage d'arêtes, qui est un calque de lecture qu'on
+ * allume et qu'on éteint. C'est une caractéristique de la PIÈCE : l'angle
+ * d'usinage de ses arêtes accroche la lumière et dessine un filet clair tout
+ * autour du contour et des ouvertures — sur les joues du support caméra, il
+ * est aussi net sur la vraie pièce que sur le rendu.
+ *
+ * Il reste donc visible quand le surlignage est décoché : éteindre une aide à
+ * la lecture ne doit pas effacer une arête réellement chanfreinée.
+ */
+export function chamferMaterial() {
+  return new THREE.LineBasicMaterial({ color: 0xe9eef5, transparent: true, opacity: 0.9 });
+}
