@@ -76,8 +76,18 @@ def _disc(radius_mm):
     return tuple(out)
 
 
-TRACK_DISC = _disc((FR.TRACK_W + FR.CLEAR) / 2.0 + FR.MARGIN)
-VIA_DISC = _disc((FR.VIA_DIA + FR.CLEAR) / 2.0 + FR.MARGIN)
+# What a net forbids to others, as a radius around its centre line.  Two
+# track centres must be a track width plus a clearance apart, so that whole
+# distance is what a net keeps for itself -- not half of it.
+#
+# Claiming only half was the bug that made the negotiation useless: a net paid
+# for congestion on the cells its centre line crossed, but conflicts start as
+# soon as another centre line comes within 0.26 mm.  Everything between 0.14
+# and 0.28 mm was illegal and free at the same time, which is most conflicts,
+# and the shared-cell count sat flat at 74000 while the price of sharing was
+# multiplied by nine.
+TRACK_KEEP = _disc(FR.TRACK_W + FR.CLEAR + FR.MARGIN)
+VIA_KEEP = _disc(FR.VIA_DIA / 2.0 + FR.CLEAR + FR.TRACK_W / 2.0 + FR.MARGIN)
 
 
 class Field(object):
@@ -116,13 +126,19 @@ class Field(object):
         if self.count[li][k]:
             self.count[li][k] -= 1
 
-    def hot_cells(self):
-        """The cells more than one net is claiming."""
+    def hot_cells(self, centres):
+        """Where copper actually sits on ground another net has claimed.
+
+        Counting every claimed cell instead answers a different and useless
+        question: two nets a legal 0.3 mm apart have overlapping claims and
+        are perfectly fine.  What matters is a net's own centre line landing
+        inside somebody else's clearance.
+        """
         out = set()
-        for li in ROUTABLE:
-            for k, v in enumerate(self.count[li]):
-                if v > 1:
-                    out.add((li, k % N, k // N))
+        for cells in centres:
+            for (li, ix, iy) in cells:
+                if self.count[li][iy * N + ix] > 1:
+                    out.add((li, ix, iy))
         return out
 
     def bump_history(self, hot):
@@ -242,19 +258,27 @@ def terminals(board, sp, code):
 
 
 def claimed(paths):
-    """Every cell a net's routing takes out of circulation."""
-    out = set()
+    """(cells this net forbids to others, cells its copper actually runs on).
+
+    The two are different and both are needed: the first is what other nets
+    have to pay to enter, the second is where this net is illegal if someone
+    entered anyway.
+    """
+    keep = set()
+    centre = set()
     for path in paths:
         prev_layer = None
         for (li, ix, iy) in path:
-            for dx, dy in TRACK_DISC:
-                out.add((li, ix + dx, iy + dy))
+            centre.add((li, ix, iy))
+            for dx, dy in TRACK_KEEP:
+                keep.add((li, ix + dx, iy + dy))
             if prev_layer is not None and prev_layer != li:
                 for lj in ROUTABLE:
-                    for dx, dy in VIA_DISC:
-                        out.add((lj, ix + dx, iy + dy))
+                    centre.add((lj, ix, iy))
+                    for dx, dy in VIA_KEEP:
+                        keep.add((lj, ix + dx, iy + dy))
             prev_layer = li
-    return out
+    return keep, centre
 
 
 def route_net(field, terms, net):
@@ -279,7 +303,8 @@ def route_net(field, terms, net):
         paths.append(path)
         tree.update(path)
         tree.update(t)
-    return claimed(paths), paths
+    keep, centre = claimed(paths)
+    return keep, (centre, paths)
 
 
 def main(iterations=24, seconds=0):
@@ -317,23 +342,23 @@ def main(iterations=24, seconds=0):
         unroutable = []
         for code in dirty:
             name, terms = by_code[code]
-            cells, paths = route_net(field, terms, code)
+            cells, rest = route_net(field, terms, code)
             if cells is None:
                 # In PathFinder a net always has a route, even an illegal
                 # one.  Dropping it instead frees the cells it was claiming,
                 # which flatters the shared-cell count and takes the net out
                 # of the negotiation entirely -- so the count stalls while
                 # the failures climb.  Keep the last route it had.
-                cells, paths = kept.get(code, (None, None))
+                cells, rest = kept.get(code, (None, None))
                 if cells is None:
                     unroutable.append(name)
                     continue
-            routes[code] = (cells, paths)
-            kept[code] = (cells, paths)
+            routes[code] = (cells, rest)
+            kept[code] = (cells, rest)
             for (li, ix, iy) in cells:
                 field.add(li, ix, iy)
 
-        hot = field.hot_cells()
+        hot = field.hot_cells([r[1][0] for r in routes.values()])
         shared = len(hot)
         print('iteration %2d  present %.2f  rerouted %3d  shared cells %6d  '
               'unroutable %d  (%.0f min)'
@@ -344,8 +369,8 @@ def main(iterations=24, seconds=0):
             break
         field.bump_history(hot)
         field.present *= PRESENT_GROWTH
-        dirty = [code for code, (cells, _p) in routes.items()
-                 if cells & hot]
+        dirty = [code for code, (_cells, rest) in routes.items()
+                 if rest[0] & hot]
         dirty += [c for c in by_code
                   if c not in routes and c not in dirty]
         if seconds and time.time() - t0 > seconds:
@@ -358,9 +383,9 @@ def main(iterations=24, seconds=0):
     written = 0
     for name, code, terms in jobs:
         entry = routes.get(code)
-        if not entry or not entry[1]:
+        if not entry or not entry[1][1]:
             continue
-        for path in entry[1]:
+        for path in entry[1][1]:
             FR.commit(board, sp2, path, code)
         written += 1
     board.Save(PCB)
