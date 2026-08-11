@@ -103,6 +103,24 @@ export const ACCESSORIES = await Promise.all([
     rides: { host: 'camera-mount-mirror', offset: [3.995, 4.71, 2.16] },
   }),
 
+  // STICK PAD — le tapis antidérapant qui empêche la batterie de glisser sur
+  // la top-plate. Imprimé en TPU, donc souple : c'est la seule pièce du build
+  // qui ne soit pas rigide.
+  //
+  // Il reprend les découpes de la top-plate — les deux fentes de sangle et le
+  // logo — et c'est là-dessus qu'il se cale, pas sur des perçages. Mesuré sur
+  // les quatre découpes appariées : aucune mise à l'échelle nécessaire (les
+  // cotes concordent à 0,4 mm près), mais un décalage de 4,4 mm dans le sens
+  // de la longueur, très resserré d'une découpe à l'autre (dispersion
+  // 0,06 mm). C'est ce décalage que porte `rides`, avec l'épaisseur de la
+  // plaque pour poser le pad DESSUS.
+  meshPart({
+    url: 'assets/parts-3d/oa35-stickpad.stl',
+    id: 'stickpad', index: 24, name: 'Stick pad batterie',
+    material: 'TPU souple', source: 'fichier STL fourni, contours retracés',
+    rides: { host: 'top-plate', offset: [0, 1.0, 4.4] },
+  }),
+
   // Patins de bras : un par bras, donc quatre exemplaires du même fichier.
   // Pas de miroir — l'empreinte est carrée (17,7 x 17,7 mm) et la pièce est
   // symétrique, la même s'utilise aux quatre coins.

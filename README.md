@@ -401,6 +401,30 @@ elle à l'assemblage comme au désassemblage. Sur l'établi il garde son propre
 créneau, c'est là qu'on le regarde seul ; et si tu le déplaces aux curseurs,
 ta position l'emporte.
 
+### Le stick pad
+
+Pièce 24, en **TPU souple** — la seule pièce non rigide du build. Il empêche la
+batterie de glisser sur la top-plate et reprend ses découpes : les deux fentes
+de sangle et le logo.
+
+| | |
+|---|---|
+| Encombrement | 30,6 × 69,7 × 2,5 mm |
+| Volume | 3,338 cm³ |
+
+C'est sur ces découpes qu'il se cale, pas sur des perçages. Les quatre
+ouvertures appariées donnent **aucune mise à l'échelle à faire** — les cotes
+concordent à 0,4 mm près — mais un **décalage de 4,4 mm** dans le sens de la
+longueur, très resserré d'une découpe à l'autre (dispersion 0,06 mm). Le pad
+est donc porté par la top-plate avec ce décalage, et la suit à l'assemblage
+comme au désassemblage.
+
+Les contours du fichier fourni étaient facettés — 242 points pour tout le
+pourtour, avec des segments jusqu'à 11 mm. Ils ont été retracés par lissage
+borné : le facettage part, la forme reste à **0,20 mm près au maximum**
+(0,06 mm en moyenne), volume conservé à 0,09 %. Le maillage livré est fermé,
+sans triangle dégénéré.
+
 ## Visserie
 
 La visserie est le seul élément qui n'a pas à être photographié : elle est

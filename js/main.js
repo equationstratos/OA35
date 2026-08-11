@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-10h · chanfrein des joues camera, independant des aretes';
+const BUILD = '2026-08-10i · stick pad TPU, pose et cale sur la top-plate';
 $('build-stamp').textContent = BUILD;
 
 /* Les trois groupes de visserie — sachet du plan de travail, visserie posée,
