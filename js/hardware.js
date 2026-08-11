@@ -217,6 +217,21 @@ export function findFastenerSites(parts, tolerance = 1.0) {
    * entretoise se dresse.
    */
 
+  /*
+   * LE PLANCHER DU DRONE — la plaque la plus basse du build.
+   *
+   * Il décide du SENS de vissage. Une colonne qui s'arrête sur lui ne peut
+   * pas se visser par le dessus : il faudrait traverser tout le châssis pour
+   * ne mordre que 1,5 mm de carbone, et la tête resterait plantée au milieu
+   * de l'électronique. On visse par le dessous — tête sous le plancher, tige
+   * vers le haut — comme les vis moteur, et comme on le fait sur la machine
+   * réelle : c'est la seule face du drone qu'on atteint librement.
+   */
+  const floor = parts.reduce(
+    (bas, p) => (p.plate && (!bas || p.bottom < bas.bottom) ? p : bas),
+    null,
+  );
+
   // 1. les perçages exploitables, tous pièces confondues
   const holes = [];
   for (const p of parts) {
@@ -347,14 +362,40 @@ export function findFastenerSites(parts, tolerance = 1.0) {
 
       // sinon l'étage se visse sur lui-même, du haut vers sa pièce du bas
       if (etage.length < 2) return;
+
+      /*
+       * PAR LE DESSOUS QUAND L'ÉTAGE POSE SUR LE PLANCHER.
+       *
+       * La vis se retourne : sa tête vient sous la plaque de fond, sa tige
+       * monte à travers l'empilage et mord dans la pièce du HAUT. Les deux
+       * épaisseurs s'échangent donc, exactement comme pour une vis moteur —
+       * ce que traverse la vis, c'est tout l'étage sauf sa pièce haute.
+       *
+       * La longueur, elle, ne bouge pas : traverser 1,5 + 3,5 pour mordre
+       * 2,5 revient au même que traverser 3,5 + 2,5 pour mordre 1,5. C'est
+       * bien le même M2×8 — seul le sens change.
+       */
+      const parLeBas = !!floor && etage[0].part === floor;
+
       sites.push({
         x: col.x, z: col.z, thread, gap: 0,
         lower: etage[0].part, upper: haut.part,
         lowerTop: etage[0].top, upperTop: haut.seat,
-        upperMaterial: etage.slice(1).reduce((n, h) => n + h.material, 0),
+        // ce que la vis mord : la pièce basse par le dessus, la HAUTE par le
+        // dessous — et alors elle seule, pas tout ce qui la surmonte
+        upperMaterial: parLeBas
+          ? haut.material
+          : etage.slice(1).reduce((n, h) => n + h.material, 0),
         lowerMaterial: etage[0].material,
         clampedIds: etage.slice(1, -1).map((h) => h.part.id),
         offset: 0,
+        ...(parLeBas ? {
+          fromBelow: true,
+          // plan d'appui de la tête : la face inférieure du plancher
+          seatBottom: etage[0].bottom,
+          // matière traversée : tout l'étage sauf la pièce mordue
+          traversed: etage.slice(0, -1).reduce((n, h) => n + h.material, 0),
+        } : {}),
       });
     });
   }
@@ -585,11 +626,13 @@ export function allocateFromKit(sites) {
     // plus sur rien, et le serrage la déformait.
     const standoffLength = needsStandoff ? Math.round(site.gap * 100) / 100 : 0;
     // Une vis PAR LE DESSOUS traverse la pièce basse et mord dans la haute :
-    // les deux épaisseurs s'échangent. Le calcul, lui, est le même.
-    const traversee = site.underslung
+    // les deux épaisseurs s'échangent. Le calcul, lui, est le même. Vis
+    // moteur et vis de plancher relèvent du même cas.
+    const parLeBas = site.underslung || site.fromBelow;
+    const traversee = parLeBas
       ? (Number.isFinite(site.traversed) ? site.traversed : site.lowerMaterial)
       : site.upperMaterial;
-    const mordue = site.underslung ? site.upperMaterial : site.lowerMaterial;
+    const mordue = parLeBas ? site.upperMaterial : site.lowerMaterial;
     const grip = needsStandoff
       ? site.thread.engagement                      // la vis mord dans l'entretoise
       : Math.min(mordue, site.thread.engagement);

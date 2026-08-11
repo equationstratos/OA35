@@ -36,7 +36,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-11g · visserie par colonne, joues camera en metal';
+const BUILD = '2026-08-11h · vis de chassis par le dessous';
 $('build-stamp').textContent = BUILD;
 
 /* Les trois groupes de visserie — sachet du plan de travail, visserie posée,
@@ -1653,14 +1653,20 @@ function placeHardware(options = {}) {
     // la vis appuie sur la face supérieure de la pièce haute, au droit du trou
     // — ou SOUS la pièce basse quand elle monte par le dessous
     const screw = hw.screwMesh(site.thread, item.screwLength);
-    if (site.underslung) {
-      // demi-tour : la tige part vers le haut, la tête reste dessous
+    /*
+     * DEUX FAMILLES MONTENT PAR LE DESSOUS, et elles se posent pareil : les
+     * vis moteur, qui traversent le patin et le bras, et les vis de châssis,
+     * qui traversent le plancher. Dans les deux cas la tête reste sous la
+     * pièce et la tige part vers le haut — un demi-tour, et le point d'appui
+     * lu sur la face INFÉRIEURE au lieu de la supérieure.
+     */
+    const parLeBas = site.underslung || site.fromBelow;
+    if (parLeBas) {
       screw.rotation.x = Math.PI;
-      screw.userData.role = 'moteur';
-      screw.name = 'screw';
+      if (site.underslung) screw.userData.role = 'moteur';
     }
     const to = new THREE.Vector3(
-      site.x, site.underslung ? site.seatBottom : site.upperTop, site.z,
+      site.x, parLeBas ? site.seatBottom : site.upperTop, site.z,
     );
     const slot = (spare.get(item.line.id) || []).pop();
     if (animated && slot) {
@@ -1758,7 +1764,36 @@ function renderBom(items, sites, candidateCount, missing = [], free = [], parts 
       + (auSachet ? '.' : `, longueur que le sachet du châssis n'a pas : elles viennent avec les moteurs.`);
   }
 
-  $('bom').innerHTML = rows + spacerRows + motorRow
+  /*
+   * LES VIS DE CHÂSSIS, ELLES AUSSI PAR LE DESSOUS.
+   *
+   * Elles montent sous le plancher du drone, tête plaquée contre le carbone.
+   * Comme les vis moteur, on ne les trouve pas en cherchant une tête sur le
+   * dessus — sauf qu'elles, elles sortent bien du sachet du châssis. La
+   * nomenclature dit donc où elles entrent, et dans quoi elles mordent.
+   */
+  const dessous = items.filter((i) => i.site.fromBelow);
+  let floorRow = '';
+  let floorWarn = '';
+  if (dessous.length) {
+    const longueurs = new Map();
+    for (const i of dessous) longueurs.set(i.line.label, (longueurs.get(i.line.label) || 0) + 1);
+    const detail = [...longueurs.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([l, n]) => `${n} × ${l}`).join(', ');
+    const plancher = dessous[0].site.lower.name;
+    const mordues = [...new Set(dessous.map((i) => i.site.upper.name))].join(', ');
+
+    floorRow = `<div class="hl"><dt>Vis de châssis — par le DESSOUS</dt><dd>${detail}</dd></div>`
+      + `<div class="dim"><dt>tête sous</dt><dd>${plancher}</dd></div>`
+      + `<div class="dim"><dt>filet dans</dt><dd>${mordues}</dd></div>`;
+
+    floorWarn = ` Les ${dessous.length} vis de châssis montent elles aussi PAR LE `
+      + `DESSOUS — tête sous la ${plancher.toLowerCase()}, tige vers le haut : `
+      + `c'est la seule face du drone qu'on atteint une fois l'empilage monté.`;
+  }
+
+  $('bom').innerHTML = rows + spacerRows + motorRow + floorRow
     + `<div><dt>Fixations</dt><dd>${items.length} / ${candidateCount} candidates</dd></div>`
     + `<div${weak.length ? ' class="warn"' : ''}><dt>Pièces vissables tenues</dt>`
     + `<dd>${screwable.length - weak.length} / ${screwable.length}</dd></div>`
@@ -1781,6 +1816,7 @@ function renderBom(items, sites, candidateCount, missing = [], free = [], parts 
     + (longest > 0.01 ? `, dépassement maximal sous la pièce ${longest.toFixed(1)} mm` : '')
     + '.'
     + motorWarn
+    + floorWarn
     + (weak.length ? ` ${weak.length} pièce(s) tenue(s) par moins de 2 vis : ${weak.map((p) => p.name).join(', ')}.` : '')
     + (clipped.length
       ? ` ${clipped.map((p) => p.name).join(', ')} n'a/n'ont aucun perçage de vis : `

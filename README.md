@@ -692,7 +692,7 @@ Ce que ça donne sur ce châssis, sans une seule fixation laissée sans vis :
 
 | | |
 |---|---|
-| 8 × **M2×8** | plaque inférieure → intermédiaire, **en serrant le bras** (1,5 + 3,5 + 2,5) |
+| 8 × **M2×8** | plaque inférieure → intermédiaire, **en serrant le bras** (1,5 + 3,5 + 2,5), **par le dessous** |
 | 8 × **M2×7** + entretoise 1 mm | clamp-plate → intermédiaire |
 | 4 × **M2×8/M2×6** + entretoise 21,94 mm | l'étage de la top-plate |
 | 16 × **M2×10** | les moteurs, par le dessous |
@@ -715,6 +715,34 @@ Quatre règles ont été nécessaires, toutes tirées de défauts constatés :
   deux trous de Ø3,99 — hors de toute plage de filetage. Le filetage se lit sur
   le perçage le plus étroit de la colonne, les autres ne font que laisser
   passer.
+
+### Le sens de vissage : ce qui pose sur le plancher monte par le dessous
+
+Une colonne qui s'arrête sur la **plaque de fond** ne peut pas se visser par le
+dessus. Il faudrait traverser tout le châssis pour ne mordre que 1,5 mm de
+carbone, et la tête resterait plantée au milieu de l'électronique. On visse par
+le dessous — **tête sous le plancher, tige vers le haut** —, comme les vis
+moteur, et comme on le fait sur la machine réelle : c'est la seule face du
+drone qu'on atteigne librement une fois l'empilage monté.
+
+La règle est **géométrique**, pas nominative : le détecteur cherche la plaque la
+plus basse du build et retourne toute fixation dont l'étage pose dessus. Sur ce
+châssis, cela fait **9 vis** :
+
+| | |
+|---|---|
+| 8 × **M2×8** | sous la bottom-plate, à travers le bras, filet dans la plaque intermédiaire |
+| 1 × **M2×6** | sous la bottom-plate, filet dans le support caméra |
+
+**Les longueurs ne bougent pas**, et c'est attendu : traverser 1,5 + 3,5 pour
+mordre 2,5 revient au même que traverser 3,5 + 2,5 pour mordre 1,5. C'est bien
+le même M2×8 — seul le sens change. Ce qui change dans le modèle, c'est le plan
+d'appui de la tête (la face **inférieure** du plancher au lieu de la face
+supérieure de la pièce haute) et les deux épaisseurs, qui s'échangent : la vis
+traverse tout l'étage sauf sa pièce du haut, et mord dans celle-là.
+
+La nomenclature les sort sous leur propre ligne, **Vis de châssis — par le
+DESSOUS**, à côté de celle des vis moteur.
 
 ### Les vis moteur
 
