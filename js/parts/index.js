@@ -19,6 +19,7 @@ import * as sideGuard from './09-side-guard.js';
 import * as gpsMount from './10-gps-mount.js';
 import { MOTORS } from './11-moteurs.js';
 import { PROPS } from './12-helices.js';
+import { DJI_PARTS } from './13-dji.js';
 
 export const PARTS = [
   bottomPlate, middlePlate, clampPlate, topPlate,
@@ -32,6 +33,7 @@ export const PARTS = [
   ...ACCESSORIES,
   ...MOTORS,
   ...PROPS,
+  ...DJI_PARTS,
 ];
 
 /** Emplacements réservés — remplis au fur et à mesure des pièces envoyées. */
@@ -39,8 +41,9 @@ export const PLANNED = [
   // Moteurs et hélices ne sont plus des emplacements réservés : ils sont
   // modélisés (11-moteurs.js, 12-helices.js). Leurs anciens numéros, 20 et 21,
   // étaient d'ailleurs déjà pris par les covers 02.
+  // La caméra, l'émetteur et les deux antennes ne sont plus des emplacements
+  // réservés : ils sont modélisés (13-dji.js), d'après les fichiers STEP du
+  // constructeur. Restent le contrôleur de vol et la batterie.
   { index: 22, name: 'Contrôleur de vol (FC)' },
-  { index: 23, name: 'Caméra FPV' },
-  { index: 24, name: 'VTX + antenne' },
   { index: 25, name: 'Batterie' },
 ];

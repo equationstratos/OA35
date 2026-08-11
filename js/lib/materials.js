@@ -154,6 +154,23 @@ export function machinedMaterial(color = 0x30343a) {
   return m;
 }
 
+/**
+ * Composant DJI : coque en plastique technique noir mat.
+ *
+ * Ni imprimé ni usiné — c'est du moulé de série, et il ne se peint pas. La
+ * teinte est FIGÉE : une livrée repeint le châssis, pas la caméra. Personne ne
+ * repeint son air unit, et le voir passer en jaune ruche ferait perdre au
+ * visualisateur ce qu'il a de plus utile — montrer ce que le drone est
+ * vraiment.
+ */
+export function deviceMaterial(color = 0x1a1c1f) {
+  const m = new THREE.MeshPhysicalMaterial({
+    color, metalness: 0.18, roughness: 0.52, clearcoat: 0.35, clearcoatRoughness: 0.4,
+  });
+  m.userData.fixedTint = true;
+  return m;
+}
+
 /* Teinte des liserés, commune à tout le build : une livrée les change tous. */
 let accentTint = null;
 

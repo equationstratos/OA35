@@ -15,7 +15,7 @@
 
 import { loadSTL, meshBounds, mirrorGeometryX } from '../lib/stl-loader.js';
 import { meshPartObject, meshAnchors } from '../lib/mesh-part.js';
-import { printedMaterial, machinedMaterial } from '../lib/materials.js';
+import { printedMaterial, machinedMaterial, deviceMaterial } from '../lib/materials.js';
 
 /**
  * @param {object} o
@@ -34,11 +34,18 @@ import { printedMaterial, machinedMaterial } from '../lib/materials.js';
  *        pour que « bas » veuille dire la même chose ici que sur le drone.
  * @param {boolean} [o.chamfer] la pièce porte un chanfrein d'usinage visible :
  *        un filet clair suit ses arêtes vives, indépendamment du surlignage
- * @param {'imprime'|'metal'} [o.finish] matière de rendu. Les joues du support
- *        caméra sont en aluminium usiné, pas en plastique imprimé.
+ * @param {'imprime'|'metal'|'appareil'} [o.finish] matière de rendu. Les joues
+ *        du support caméra sont en aluminium usiné, pas en plastique imprimé ;
+ *        les composants DJI sont du moulé de série, et leur teinte est figée.
  * @param {number} [o.clamp] épaisseur SERRÉE par la vis qui la traverse, en mm.
  *        À déclarer quand la sonde ne sait pas la mesurer : sur un maillage
  *        importé aux parois obliques, elle retombe sur l'encombrement.
+ * @param {boolean} [o.detectAnchors] chercher les repères d'accrochage. À
+ *        couper sur un composant du commerce : il ne se visse pas au sachet du
+ *        châssis, et la détection prendrait chaque bossage moulé de son boîtier
+ *        pour un perçage — des cibles qui ne mènent nulle part, et cinq
+ *        secondes de démarrage pour rien.
+ * @param {boolean} [o.noFastener] pièce sans perçage de vis exploitable
  * @param {number} [o.spin] quart de tour autour de la verticale DU FICHIER, en
  *        radians, appliqué avant tout le reste. Deux exports de la même pièce
  *        n'ont pas forcément sa longueur sur le même axe : sans ce recalage,
@@ -48,7 +55,7 @@ export async function meshPart({
   url, id, index, name, material, source,
   mirrored = false, zUp = true, upsideDown = false, spin = 0,
   reuseAnchors = null, rides = null, chamfer = false, clamp = null,
-  finish = 'imprime',
+  finish = 'imprime', noFastener = false, detectAnchors = true,
 }) {
   let geometry = null;
   let error = null;
@@ -112,7 +119,7 @@ export async function meshPart({
   // la détection. Exact, tant que l'habillage réutilisé partage le même quart
   // de tour et le même miroir.
   let anchors = [];
-  if (geometry) {
+  if (geometry && detectAnchors) {
     if (reuseAnchors) {
       const d = [0, 1, 2].map((k) => shift[k] - reuseAnchors.shift[k]);
       anchors = reuseAnchors.anchors.map((a) => ({
@@ -133,7 +140,9 @@ export async function meshPart({
       const a = wantMirror
         ? anchors.map((c) => ({ ...c, x: -c.x }))
         : anchors;
-      const matiere = finish === 'metal' ? machinedMaterial() : printedMaterial();
+      const matiere = finish === 'metal' ? machinedMaterial()
+        : finish === 'appareil' ? deviceMaterial()
+          : printedMaterial();
       const group = meshPartObject(geo, matiere, a, chamfer);
       if (zUp) group.rotation.x = -Math.PI / 2;
       return group;
@@ -153,6 +162,10 @@ export async function meshPart({
       // épaisseur réellement serrée par la vis qui la traverse, quand la
       // sonde ne sait pas la mesurer sur un maillage importé
       clamp,
+      // pièce qui ne se visse pas : un composant du commerce se branche et se
+      // cale, ses perçages sont ceux du constructeur et n'appellent rien du
+      // sachet du châssis
+      noFastener,
       dims: {
         // « thickness » sert de demi-épaisseur pour poser une pièce au-dessus
         // ou en dessous d'une autre : c'est la HAUTEUR dans la scène qu'il

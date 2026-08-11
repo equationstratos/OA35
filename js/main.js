@@ -36,7 +36,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-11h · vis de chassis par le dessous';
+const BUILD = '2026-08-11i · camera, air unit et antennes DJI O4 Pro';
 $('build-stamp').textContent = BUILD;
 
 /* Les trois groupes de visserie — sachet du plan de travail, visserie posée,
@@ -940,6 +940,10 @@ function layoutParts() {
   // là qu'on le regarde seul.
   if (!sideBySide) {
     const ride = new THREE.Vector3();
+    const q = new THREE.Quaternion();
+    const qh = new THREE.Quaternion();
+    const AXE = new THREE.Vector3(0, 1, 0);
+    const cible = new THREE.Vector3();
     entries.forEach((e) => {
       const r = e.mod.meta.rides;
       if (!e.holder || !r) return;
@@ -949,7 +953,33 @@ function layoutParts() {
       if (!host || !host.holder) return;
       ride.set(r.offset[0], r.offset[1], r.offset[2]).applyEuler(host.holder.rotation);
       e.holder.position.copy(host.holder.position).add(ride);
-      e.holder.rotation.copy(host.holder.rotation);
+
+      /*
+       * ORIENTATION PROPRE À LA PIÈCE PORTÉE.
+       *
+       * Un cache clipsé prend l'orientation de la joue qu'il habille, sans
+       * rien de plus. Mais tout ce qui se loge dans un logement ne se contente
+       * pas de suivre son hôte : une antenne VTX entre dans un alésage incliné
+       * à 55°, une caméra bascule dans sa cage. Deux façons de le dire, selon
+       * ce qui a été MESURÉ sur la pièce hôte :
+       *
+       *  - `aim` : la direction, relevée sur l'axe de l'alésage. La pièce y
+       *    aligne son propre axe vertical. C'est le cas des antennes — un
+       *    fourreau rond n'a pas de roulis, seule sa direction compte.
+       *  - `turn` : trois angles, quand le roulis compte. C'est le cas de la
+       *    caméra : elle doit regarder devant ET être d'aplomb.
+       */
+      qh.setFromEuler(host.holder.rotation);
+      if (r.aim) {
+        cible.set(r.aim[0], r.aim[1], r.aim[2]).normalize();
+        q.setFromUnitVectors(AXE, cible);
+        e.holder.quaternion.copy(qh).multiply(q);
+      } else if (r.turn) {
+        q.setFromEuler(new THREE.Euler(r.turn[0], r.turn[1], r.turn[2]));
+        e.holder.quaternion.copy(qh).multiply(q);
+      } else {
+        e.holder.rotation.copy(host.holder.rotation);
+      }
     });
   }
 
@@ -1820,7 +1850,7 @@ function renderBom(items, sites, candidateCount, missing = [], free = [], parts 
     + (weak.length ? ` ${weak.length} pièce(s) tenue(s) par moins de 2 vis : ${weak.map((p) => p.name).join(', ')}.` : '')
     + (clipped.length
       ? ` ${clipped.map((p) => p.name).join(', ')} n'a/n'ont aucun perçage de vis : `
-        + 'ces pièces se clipsent, rien à visser dessus.'
+        + 'elles se clipsent, se calent ou se branchent — rien à visser dessus.'
       : '')
     + short,
     (short || weak.length) ? 'warn' : 'ok',

@@ -672,6 +672,98 @@ une déduction, pas un relevé : elle se corrigera avec les photos des hélices.
 > chevauchent au lieu de former un solide fermé. Les pièces du châssis, elles,
 > restent vérifiées fermées.
 
+### L'électronique DJI O4 Pro
+
+Caméra, air unit et les deux antennes VTX. Ces quatre-là ne sont ni des pièces
+du châssis ni des impressions : ce sont les composants que le drone embarque,
+et le châssis n'existe que pour les porter. Leurs maillages viennent des
+**fichiers STEP des constructeurs**, repris tels quels et jamais redessinés
+(dépôt `equationstratos/stratosdrones`, `oasis30/ref/vendor_step/`).
+
+| Pièce | Cotes lues sur le maillage | Fichier source |
+|---|---|---|
+| Caméra O4 Pro | 25,44 × **23,30** × 20,01 mm, tourillons Ø 2,14 | `DJI_O4_PRO_CAM.step` |
+| Air Unit O4 Pro | 33,42 carré × 13,01 mm, fixation **25,5 × 25,5** | `DJI_O4_AIR_UNIT_PRO.step` |
+| Antenne O4 Pro | fourreau Ø 3,50, **85 mm** utiles | `DJI_O4_Pro_Antenna_v1.step` |
+
+La finesse de maillage est pilotée par la **courbure**, pas par une taille
+unique : une face plate n'a pas besoin de mille triangles, un congé de rayon
+1 mm si. À qualité égale cela divise le poids par cinq — c'est ce qui permet de
+garder l'objectif net sans faire exploser la page.
+
+Ce qui est **retiré** des fichiers d'origine : les 148 mm de nappe droite de la
+caméra (dans le drone elle est pliée), le connecteur MMCX de l'antenne (il
+n'est pas au support, il est branché sur l'air unit), et les cartes, blindages
+et micro-connecteurs enfermés dans les coques — invisibles une fois montés, et
+ils coûtaient l'essentiel du maillage.
+
+**Elles ne se peignent pas.** Une livrée repeint le châssis, pas la caméra :
+leur matière porte `fixedTint`, et le sélecteur de couleur comme les livrées
+passent leur chemin. **Elles ne se vissent pas au sachet** non plus
+(`noFastener`) : leurs perçages sont ceux du constructeur.
+
+#### Où chacune se loge
+
+Aucune n'a de place à elle dans le plan : chacune **suit la pièce qui la
+porte**, et si on déplace cette pièce, elle suit.
+
+**Les antennes.** Le support d'antenne VTX porte quatre perçages, et il fallait
+trouver les bons. Deux fûts verticaux Ø 3,99 le traversent de part en part
+(entraxe 21) : ce sont eux qui le vissent au châssis. Deux canaux Ø 2,89, eux,
+partent du cœur de la pièce et s'ouvrent en **V** sur sa face inclinée — ce
+sont les logements d'antenne. Leur axe a été ajusté aux moindres carrés sur
+les faces du perçage (292 et 278 facettes, écart au cylindre 0,03 mm), et le
+résultat est parfaitement symétrique — c'est ce qui confirme la lecture :
+
+| | gauche | droite |
+|---|---|---|
+| inclinaison sur la verticale | 55,5° | 55,2° |
+| ouverture latérale | −32,9° | +32,7° |
+| recul | +52,5° | +52,2° |
+
+Le fourreau fait Ø 3,50 pour un alésage de Ø 2,89 : c'est voulu, la matière
+serre le fourreau. Les 10 mm enterrés ne se voient pas ; les 75 mm restants
+sortent en V, comme sur le drone monté.
+
+**L'air unit** va dans la baie **arrière**, centrée à z = +53,4. La plaque
+intermédiaire porte deux baies, chacune percée aux deux standards (20 × 20 et
+25,5 × 25,5) ; celle de l'avant, à z = +12,0, tombe pile sur le serrage des
+bras, donc sur le centre de gravité — c'est la place du contrôleur de vol, pas
+celle de l'émetteur. Un **demi-tour** amène le connecteur de nappe face à la
+caméra ; sans lui la nappe partirait vers la queue et devrait faire le tour du
+drone. L'USB-C se retrouve alors sur le flanc droit, où il est accessible.
+
+**La caméra** est portée par la plaque de fond — l'origine du build — et non
+par les joues, dont le repère est tourné de 88° et retourné. Son centre est
+visé à (0 ; 15,0 ; −33,0), objectif affleurant le nez des joues à z = −45,3.
+Elle bascule de **15°** vers le haut : ce n'est pas une cote du châssis, la
+caméra se règle au montage, elle est serrée entre les deux joues et rien ne
+fixe son angle.
+
+#### La cage manque de 1,5 mm
+
+Mesuré, pas supposé. Le passage libre entre les faces intérieures des deux
+joues s'ouvre en V vers l'arrière — **20,95 mm** à z = −18, **22,62 mm** à
+z = −42 — alors que la caméra en fait **23,30** sur toute sa longueur. Résultat
+au droit de la caméra :
+
+| z | largeur caméra | passage entre joues | serrage par côté |
+|---|---|---|---|
+| −26 | 20,18 | 21,51 | −0,67 (jeu) |
+| −32 | 23,40 | 21,93 | **+0,74** |
+| −38 | 23,15 | 22,34 | +0,40 |
+| −44 | 22,59 | 22,76 | −0,09 (jeu) |
+
+Les congés de la coque sauvent les extrémités ; au plus serré la caméra entre
+de **0,74 mm dans chaque joue**. Le châssis étant vendu *pour* l'O4 Pro
+(plaques 1,5 / 2,5 / 2,0 mm et bras 3,5 mm, toutes vérifiées sur le modèle),
+la cage réelle est forcément plus large : il manque environ **1,2 mm par joue**
+au placement actuel. Deux causes possibles, et je ne peux pas trancher depuis
+le fichier — les joues sont posées avec un lacet de 2° qui ferme la cage à
+l'avant, et leur écartement vient d'un placement à la main. La caméra est donc
+posée à ses cotes exactes, sans mise à l'échelle : c'est la cage qui bougera si
+on décide de la corriger.
+
 ### La détection, par colonne
 
 **Détecter et poser** raisonnait par PAIRES : chaque perçage bas cherchait un
@@ -965,7 +1057,12 @@ js/lib/geom.js             pixels -> mm, congés, symétrie, extrusion
 js/lib/materials.js        carbone sergé 2x2 généré au runtime
 js/parts/01-bottom-plate.js
 js/parts/09-side-guard.js  covers latéraux gauche/droit et leurs habillages
+js/parts/11-moteurs.js     1804 3450 KV, dessiné cote par cote d'après les photos
+js/parts/12-helices.js     3,5" tri-pales
+js/parts/13-dji.js         caméra, air unit et antennes O4 Pro (STEP constructeur)
+js/liveries.js             les quinze jeux de couleurs
 assets/parts-3d/side-guard/  les sept habillages dérivés du side guard
 assets/parts-3d/oa35-cache-vis-camera.stl  cache de vis, encastré au dos de la joue
+assets/vendor/             maillages DJI, tirés des STEP du constructeur
 vendor/three/              Three.js r160 (embarqué)
 ```
