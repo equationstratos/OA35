@@ -24,18 +24,29 @@ import { buildMotor, MOTOR, motorHeight } from '../lib/motor.js';
 
 const MATERIAL = 'Moteur brushless';
 
-// construit UNE fois : quatre appels donneraient quatre fois le même maillage
-const { geometry, materials, anchors, dims } = buildMotor();
+/**
+ * DEUX MAILLAGES, PAS UN. Les moteurs sont identiques, mais pas leurs fils :
+ * le brin qui court sur le bras jusqu'au châssis est plus long à l'arrière,
+ * où les bras le sont aussi (101,7 mm contre 79,6 à l'avant). Un brin unique
+ * pendait dans le vide d'un côté ou s'arrêtait à mi-bras de l'autre.
+ *
+ * Les longueurs sont mesurées sur les bras : du bord de la cloche jusqu'au
+ * châssis, sous le cover, là où les fils plongent dans les deux fentes de la
+ * plaque inférieure.
+ */
+const ARRIERE = buildMotor({ wireRun: 62 });
+const AVANT = buildMotor({ wireRun: 44 });
 
 /** Emplacements, nommés d'après le bras qui les porte. */
 const SLOTS = [
-  { id: 'motor-ar-l', index: 25, name: 'Moteur arrière gauche' },
-  { id: 'motor-ar-r', index: 26, name: 'Moteur arrière droit' },
-  { id: 'motor-av-l', index: 27, name: 'Moteur avant gauche' },
-  { id: 'motor-av-r', index: 28, name: 'Moteur avant droit' },
+  { id: 'motor-ar-l', index: 25, name: 'Moteur arrière gauche', jeu: ARRIERE },
+  { id: 'motor-ar-r', index: 26, name: 'Moteur arrière droit', jeu: ARRIERE },
+  { id: 'motor-av-l', index: 27, name: 'Moteur avant gauche', jeu: AVANT },
+  { id: 'motor-av-r', index: 28, name: 'Moteur avant droit', jeu: AVANT },
 ];
 
-function motorPart({ id, index, name }) {
+function motorPart({ id, index, name, jeu }) {
+  const { geometry, materials, anchors, dims } = jeu;
   // matières propres à cet exemplaire : la géométrie est partagée, pas la
   // teinte. `clone()` recopie aussi userData, donc `fixedTint` et `baseTint`
   // suivent — sans quoi le cuivre redeviendrait repeignable.

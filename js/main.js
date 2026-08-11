@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-11c · moteurs et helices dans le plan de build';
+const BUILD = '2026-08-11d · plan livre au 1er chargement, fils moteur recales';
 $('build-stamp').textContent = BUILD;
 
 /* Les trois groupes de visserie — sachet du plan de travail, visserie posée,
@@ -43,6 +43,81 @@ $('build-stamp').textContent = BUILD;
  * visibilité peut alors s'appliquer dès le premier rendu, sans dépendre de
  * l'ordre des déclarations dans le fichier. */
 const visserieGroupes = new Map();
+
+/* ------------------------------------------------------------------ *
+ * Le plan livré avec le dépôt
+ * ------------------------------------------------------------------ */
+
+/**
+ * À la PREMIÈRE visite, le build arrive monté.
+ *
+ * Sans ça, la page s'ouvrait sur trente et une pièces alignées sur un plan de
+ * travail : exact, mais on ne voyait pas le drone. Le plan de référence du
+ * dépôt (`tinyhoop-mk1-plan.json`) est donc installé d'office — et une seule
+ * fois.
+ *
+ * TROIS PRÉCAUTIONS, parce qu'écraser le travail de quelqu'un est le pire
+ * défaut qu'un outil puisse avoir :
+ *
+ *  - on n'installe rien s'il y a déjà des placements en mémoire ;
+ *  - on pose un jeton, si bien qu'un plan effacé exprès reste effacé : vider
+ *    l'assemblage ne le fait pas revenir à la prochaine ouverture ;
+ *  - tout est enveloppé : fichier absent, JSON illisible, stockage refusé —
+ *    la page s'ouvre quand même, simplement sur l'établi comme avant.
+ *
+ * L'installation passe par le STOCKAGE, pas par les variables : les états de
+ * la page se lisent plus bas, chacun depuis sa clé. Écrire les clés avant
+ * qu'elles ne soient lues évite d'avoir à réinitialiser quoi que ce soit.
+ */
+const PLAN_LIVRE = 'tinyhoop-mk1-plan.json';
+const PLAN_LIVRE_KEY = 'tinyhoop-mk1:plan-livre';
+let planLivreInstalle = false;
+
+async function installerPlanLivre() {
+  let vierge = false;
+  try {
+    vierge = !localStorage.getItem(PLAN_LIVRE_KEY)
+      && !localStorage.getItem('tinyhoop-mk1:placements');
+  } catch { return; }
+  if (!vierge) return;
+
+  try {
+    const reponse = await fetch(PLAN_LIVRE, { cache: 'no-cache' });
+    if (!reponse.ok) throw new Error(reponse.status);
+    const data = await reponse.json();
+    if (!data || data.tool !== 'tinyhoop-mk1-workspace') throw new Error('format');
+
+    localStorage.setItem('tinyhoop-mk1:placements', JSON.stringify(data.placements || {}));
+    if (Array.isArray(data.hidden)) {
+      localStorage.setItem('tinyhoop-mk1:hidden-parts', JSON.stringify(data.hidden));
+    }
+    if (data.colors) localStorage.setItem('tinyhoop-mk1:colors', JSON.stringify(data.colors));
+    if (Array.isArray(data.standoffs)) {
+      localStorage.setItem('tinyhoop-mk1:standoffs', JSON.stringify(data.standoffs));
+    }
+    /*
+     * Le plan livré est PROPRE : aucun de ses placements n'est marqué « à la
+     * main ». Ce drapeau fige une pièce partout, animation d'assemblage
+     * comprise, et la migration qui suit efface justement les placements qui
+     * le portent. Sans ce jeton, le plan tout juste installé perdait quatre
+     * positions — celles des covers, de la top-plate et du support GPS.
+     */
+    // clé écrite en toutes lettres : la constante PLAN_FIX_KEY est déclarée
+    // plus bas dans le fichier, et y toucher ici lèverait une erreur
+    localStorage.setItem('tinyhoop-mk1:plan-fix-habillages', '1');
+    planLivreInstalle = true;
+  } catch (e) {
+    console.warn(`[plan] ${PLAN_LIVRE} non chargé : la page s'ouvre sur l'établi.`, e);
+  }
+  try { localStorage.setItem(PLAN_LIVRE_KEY, '1'); } catch { /* rien à retenir */ }
+}
+
+await installerPlanLivre();
+
+// Le plan tout juste installé s'affiche MONTÉ : c'est le drone qu'on vient
+// voir, pas ses pièces rangées. Les visites suivantes retrouvent la case dans
+// l'état où elle a été laissée.
+if (planLivreInstalle) $('opt-layout').checked = false;
 
 /* ------------------------------------------------------------------ *
  * Scène
@@ -2788,8 +2863,12 @@ function frameAll(direction) {
 entries = collectParts();
 entries.forEach((e) => mountPart(e, null));
 applyColors();
-// la session s'ouvre sur l'établi rangé : le build se monte par le bouton
-forceBench = true;
+// La session s'ouvre sur l'établi rangé : le build se monte par le bouton.
+// SAUF à la toute première visite, celle où le plan livré vient d'être
+// installé — on ouvre alors sur le drone monté, c'est ce qu'on vient voir.
+// Sans cette exception, décocher la case « côte à côte » ne suffisait pas :
+// ce drapeau-ci gagne sur elle.
+forceBench = !planLivreInstalle;
 
 /* ------------------------------------------------------------------ *
  * Calque photo en 3D
@@ -3047,9 +3126,14 @@ function applyDisplayOptions() {
       // sinon la moitié de la pièce reste pleine pendant que l'autre passe en
       // fil de fer.
       eachMaterial(o, (mat) => {
+        // Une matière peut être translucide DE NATURE — les pales d'hélice le
+        // sont. Le calque photo la fantomise davantage, mais en sortant du
+        // calque elle retrouve son opacité à elle, pas 1 : sans ça, décocher
+        // le calque rendait les hélices opaques pour de bon.
+        const base = mat.userData.baseOpacity ?? 1;
         mat.wireframe = fil;
-        mat.transparent = ghost;
-        mat.opacity = ghost ? 0.55 : 1;
+        mat.transparent = ghost || base < 1;
+        mat.opacity = ghost ? Math.min(0.55, base) : base;
         mat.needsUpdate = true;
       });
     }

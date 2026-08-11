@@ -259,22 +259,35 @@ export function bellLabelMaterial(designation = '1804', kv = 3450, color = 0x2e3
  * Matières de l'hélice
  * ------------------------------------------------------------------ */
 
-/** Polycarbonate d'hélice : noir profond, un peu satiné. */
+/**
+ * Polycarbonate d'hélice : noir profond, satiné, LÉGÈREMENT TRANSPARENT.
+ *
+ * Une hélice de 89 mm masque le bras et le moteur qu'elle coiffe ; à peine
+ * translucide, elle les laisse lire au travers sans cesser d'être une pale.
+ * L'opacité voulue est mémorisée dans `baseOpacity` : le calque photo, qui
+ * fantomise tout le build, doit pouvoir la reprendre sans l'écraser ni la
+ * perdre en revenant.
+ */
 export function propellerMaterial(color = 0x1d2026) {
   const m = new THREE.MeshPhysicalMaterial({
     color, metalness: 0.05, roughness: 0.36,
     clearcoat: 0.7, clearcoatRoughness: 0.2,
+    transparent: true, opacity: 0.62, depthWrite: false,
   });
   m.userData.baseTint = color;
+  m.userData.baseOpacity = 0.62;
   return m;
 }
 
 /** Moyeu d'hélice : même matière, teinte à peine plus claire. */
 export function propHubMaterial(color = 0x282c33) {
+  // le moyeu reste opaque : c'est lui qui donne l'assise visuelle de l'hélice
   const m = new THREE.MeshPhysicalMaterial({
     color, metalness: 0.05, roughness: 0.42, clearcoat: 0.5,
+    transparent: true, opacity: 0.88,
   });
   m.userData.baseTint = color;
+  m.userData.baseOpacity = 0.88;
   return m;
 }
 

@@ -289,10 +289,29 @@ recale de lui-même 15 pièces sur leurs perçages, de 0,40 mm au maximum.
 Écart entre axes voisins : **101,6 mm** pour des hélices de 88,9 — les disques
 ne se recouvrent pas, il reste 12,7 mm entre bouts de pales.
 
-> Le fichier `tinyhoopmk1plancorrige (2).json`, plus ancien, est laissé tel
-> quel mais **périmé** : il désigne encore les covers par `cover-01` et
-> `cover-02`, identifiants qui n'existent plus depuis que chaque flanc est une
-> pièce à lui (`cover-01-g` / `cover-01-d`).
+### Il s'installe tout seul, une fois
+
+**À la première visite, la page s'ouvre sur le drone monté.** Le plan est
+installé d'office, et le build s'affiche assemblé plutôt que rangé sur
+l'établi : c'est le drone qu'on vient voir.
+
+Trois précautions, parce qu'écraser le travail de quelqu'un est le pire défaut
+qu'un outil puisse avoir :
+
+- rien n'est installé s'il y a **déjà des placements** en mémoire ;
+- un **jeton** est posé, si bien qu'un plan effacé exprès reste effacé — vider
+  l'assemblage ne le fait pas revenir à la prochaine ouverture ;
+- tout est **enveloppé** : fichier absent, JSON illisible, stockage refusé, la
+  page s'ouvre quand même, simplement sur l'établi comme avant.
+
+Aucun de ses placements n'est marqué « à la main ». Ce drapeau fige une pièce
+partout, animation d'assemblage comprise, et la migration des anciens plans
+efface justement les placements qui le portent : le plan livré y perdait
+quatre positions — covers, top-plate et support GPS — à peine chargé.
+
+> L'ancien `tinyhoopmk1plancorrige (2).json` a été **supprimé** : il désignait
+> encore les covers par `cover-01` et `cover-02`, identifiants disparus depuis
+> que chaque flanc est une pièce à lui.
 
 ## Disposition des pièces
 
@@ -590,6 +609,31 @@ hélice n'a plus qu'une patte de raccordement.
 Les deux sens de rotation sont **deux maillages**, pas un miroir : le vrillage
 et la flèche changent de signe. Un miroir de maillage aurait retourné les
 normales et l'hélice serait sortie noire.
+
+Les pales sont **légèrement translucides** (opacité 0,62). Un disque de 89 mm
+masque le bras et le moteur qu'il coiffe ; à peine transparent, il les laisse
+lire au travers sans cesser d'être une pale. Cette opacité est une propriété
+de la matière, pas un réglage d'affichage : le calque photo la fantomise
+davantage, et en sortant du calque elle la retrouve — sans quoi décocher le
+calque rendait les hélices opaques pour de bon.
+
+#### Les fils moteur
+
+Ils **se posent sur le bras et partent vers le centre du drone**, en nappe de
+trois, pour passer sous le cover jusqu'aux deux fentes de la plaque inférieure
+(5,5 × 17,7 mm, en ±5,6 ; 22,65). C'est un repère à ne pas se tromper : le
+moteur partage le repère de son bras, lequel s'étend vers son −Z local avec le
+moteur au bout. « Vers le centre » est donc son +Z local, soit le −Y du repère
+de dessin du moteur.
+
+Leur longueur est **différente à l'avant et à l'arrière** — 44 mm contre 62 —,
+et c'est pour ça qu'il y a deux maillages de moteur et non un : sur ce dead-cat
+les bras arrière font 101,7 mm contre 79,6 à l'avant, et un brin unique pendait
+dans le vide d'un côté ou s'arrêtait à mi-bras de l'autre.
+
+> Le brin s'arrête au bord du châssis, là où il plonge. Le passage dans la
+> fente elle-même n'est pas modélisé : sur une vraie machine, cette portion
+> dépend de la façon dont chacun range ses fils.
 
 Ces deux pièces sont **multi-matières** — six matières pour le moteur, deux
 pour l'hélice, sur un seul maillage par plages de faces. Le sélecteur de

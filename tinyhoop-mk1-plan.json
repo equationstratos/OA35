@@ -90,7 +90,6 @@
    "rotY": -3.141592653589793,
    "rotX": 0,
    "rotZ": 0,
-   "manual": true,
    "refId": "middle-plate",
    "side": "above"
   },
@@ -102,8 +101,7 @@
    "rotX": 0,
    "rotZ": 0,
    "refId": "camera-mount-mirror",
-   "side": "above",
-   "manual": true
+   "side": "above"
   },
   "gps-mount": {
    "x": -0.1,
@@ -113,8 +111,7 @@
    "rotX": 0,
    "rotZ": 0,
    "refId": "top-plate",
-   "side": "above",
-   "manual": true
+   "side": "above"
   },
   "footpad-ar-l": {
    "x": 70.6555,
@@ -123,7 +120,6 @@
    "rotX": 0,
    "rotY": 3.141787,
    "rotZ": 0,
-   "manual": true,
    "refId": "arm-long-l",
    "side": "below"
   },
@@ -134,7 +130,6 @@
    "rotX": 0,
    "rotY": 1.570602,
    "rotZ": 0,
-   "manual": true,
    "refId": "arm-long-r",
    "side": "below"
   },
@@ -145,7 +140,6 @@
    "rotX": 0,
    "rotY": 0.411602,
    "rotZ": 0,
-   "manual": true,
    "refId": "arm-short-l",
    "side": "below"
   },
@@ -156,7 +150,6 @@
    "rotX": 0,
    "rotY": -1.982398,
    "rotZ": 0,
-   "manual": true,
    "refId": "arm-short-r",
    "side": "below"
   },
@@ -167,7 +160,6 @@
    "rotY": 0,
    "rotX": 0,
    "rotZ": 0,
-   "manual": true,
    "refId": "middle-plate",
    "side": "above"
   },
@@ -178,7 +170,6 @@
    "rotY": 0,
    "rotX": 0,
    "rotZ": 0,
-   "manual": true,
    "refId": "middle-plate",
    "side": "above"
   },
@@ -190,8 +181,7 @@
    "rotX": 0,
    "rotZ": 0,
    "refId": "top-plate",
-   "side": "above",
-   "manual": true
+   "side": "above"
   },
   "cover-02-d": {
    "x": 11.22,
@@ -201,8 +191,7 @@
    "rotX": 0,
    "rotZ": 0,
    "refId": "top-plate",
-   "side": "above",
-   "manual": true
+   "side": "above"
   },
   "motor-ar-l": {
    "x": 70.062,

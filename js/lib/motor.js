@@ -94,9 +94,17 @@ export const MOTOR = {
   mountHoleDiameter: 1.9,
   bossDiameter: 4.8,
 
-  /** Fils */
+  /**
+   * Fils.
+   *
+   * `wireRun` est la longueur du brin qui court SUR LE BRAS, du bord de la
+   * cloche jusqu'au châssis. Elle n'est pas la même à l'avant et à l'arrière :
+   * les bras arrière sont les plus longs sur ce dead-cat, et un brin unique
+   * aurait pendu dans le vide d'un côté ou se serait arrêté à mi-bras de
+   * l'autre. C'est un paramètre de `buildMotor`, pas une constante.
+   */
   wireDiameter: 1.15,
-  wireLength: 16.0,
+  wireRun: 46.0,
 };
 
 /** Hauteur hors tout, arbre compris. */
@@ -280,7 +288,7 @@ function mergeParts(parts) {
  * @returns {{geometry:THREE.BufferGeometry, materials:THREE.Material[],
  *            anchors:object[], dims:{length:number,width:number,thickness:number}}}
  */
-export function buildMotor() {
+export function buildMotor({ wireRun = MOTOR.wireRun } = {}) {
   const m = MOTOR;
   const R = m.bellDiameter / 2;
   const parts = [];
@@ -475,26 +483,38 @@ export function buildMotor() {
   parts.push({ geometry: portee, material: noir });
 
   /* --- Les trois fils --------------------------------------------- */
-  const sortie = Math.PI;              // ils sortent à l'arrière
+  /*
+   * ILS PARTENT VERS LE CENTRE DU DRONE, à plat sur le bras.
+   *
+   * Le repère du moteur est celui de son bras : la plaque et le moteur
+   * subissent la même bascule (le Y du dessin devient le −Z de la scène), et
+   * le moteur reçoit la rotation du bras. Le bras s'étend vers son −Z local,
+   * moteur au bout ; « vers le centre » est donc son +Z local, c'est-à-dire
+   * le −Y du repère de dessin du moteur. D'où cette sortie à −90°, et non les
+   * 180° arbitraires de la première version, qui envoyaient les fils dans le
+   * vide en travers du bras.
+   *
+   * Les trois brins sortent côte à côte, en nappe, et se posent sur le bras
+   * dès la sortie de la cloche : ils passent ensuite sous le cover jusqu'aux
+   * deux fentes de la plaque inférieure. Le dernier point plonge légèrement,
+   * c'est l'amorce de ce passage.
+   */
+  const sortie = -Math.PI / 2;
   for (let k = -1; k <= 1; k++) {
     const offset = k * (m.wireDiameter + 0.18);
-    const start = new THREE.Vector3(
-      Math.cos(sortie) * 4.5 - Math.sin(sortie) * offset,
-      Math.sin(sortie) * 4.5 + Math.cos(sortie) * offset,
-      m.baseThickness * 0.55,
+    const along = (d, o, z) => new THREE.Vector3(
+      Math.cos(sortie) * d - Math.sin(sortie) * o,
+      Math.sin(sortie) * d + Math.cos(sortie) * o,
+      z,
     );
-    const mid = new THREE.Vector3(
-      Math.cos(sortie) * (R + 1.5) - Math.sin(sortie) * offset,
-      Math.sin(sortie) * (R + 1.5) + Math.cos(sortie) * offset,
-      m.baseThickness * 0.5,
-    );
-    const end = new THREE.Vector3(
-      Math.cos(sortie) * (R + m.wireLength) - Math.sin(sortie) * offset,
-      Math.sin(sortie) * (R + m.wireLength) + Math.cos(sortie) * offset,
-      m.wireDiameter / 2,
-    );
-    const courbe = new THREE.CatmullRomCurve3([start, mid, end]);
-    const tube = new THREE.TubeGeometry(courbe, 20, m.wireDiameter / 2, 8, false);
+    const courbe = new THREE.CatmullRomCurve3([
+      along(4.0, offset, m.baseThickness * 0.55),
+      along(R - 2.0, offset, m.baseThickness * 0.35),
+      along(R + 2.0, offset, m.wireDiameter / 2 + 0.05),
+      along(R + wireRun * 0.55, offset, m.wireDiameter / 2),
+      along(R + wireRun, offset, m.wireDiameter / 2 - 0.25),
+    ]);
+    const tube = new THREE.TubeGeometry(courbe, 28, m.wireDiameter / 2, 8, false);
     parts.push({ geometry: tube, material: fil });
   }
 
