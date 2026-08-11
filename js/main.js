@@ -16,6 +16,7 @@ import {
 } from './lib/patterns.js';
 import { FRAME, thicknessForRole } from './frame-spec.js';
 import { tintMaterial, DEFAULT_TINT } from './lib/materials.js';
+import { LIVREES, swatchOf, colorFor } from './liveries.js';
 import * as exporter from './lib/export.js';
 import * as hw from './hardware.js';
 import * as so from './standoffs.js';
@@ -35,7 +36,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-11e · vis moteur par le dessous, M2x10 avec le patin';
+const BUILD = '2026-08-11f · livrees de couleur, moyeu d helice a deux vis';
 $('build-stamp').textContent = BUILD;
 
 /* Les trois groupes de visserie — sachet du plan de travail, visserie posée,
@@ -1121,6 +1122,70 @@ function setPartColor(id, hex) {
 }
 
 /* ------------------------------------------------------------------ *
+ * Livrées
+ *
+ * Un jeu de couleurs cohérent, posé d'un clic sur tout ce qui se peint : les
+ * pièces imprimées, le stick pad, les cloches moteur, le filet de chanfrein
+ * et les deux hélices avant. Le détail du classement est dans js/liveries.js.
+ * ------------------------------------------------------------------ */
+
+const LIVREE_KEY = 'tinyhoop-mk1:livree';
+let livreeId = null;
+try { livreeId = localStorage.getItem(LIVREE_KEY) || null; } catch { /* ignore */ }
+
+function applyLivree(livree) {
+  // on repart d'une feuille blanche : une livrée REMPLACE la précédente, elle
+  // ne s'ajoute pas. Sans ça, passer de Bee à Ghost laissait du jaune sur les
+  // pièces que Ghost ne nomme pas.
+  partColors = {};
+  if (!livree.reset) {
+    for (const mod of PARTS) {
+      const hex = colorFor(livree, mod.meta);
+      if (hex) partColors[mod.meta.id] = hex;
+    }
+  }
+  saveColors();
+  applyColors();
+
+  if (livree.chanfrein) {
+    edgeLook.color = livree.chanfrein;
+    saveEdgeLook();
+    $('opt-edge-color').value = livree.chanfrein;
+    applySelectionLook();
+  }
+
+  livreeId = livree.reset ? null : livree.id;
+  try {
+    if (livreeId) localStorage.setItem(LIVREE_KEY, livreeId);
+    else localStorage.removeItem(LIVREE_KEY);
+  } catch { /* réglage non conservé : la livrée reste posée pour la session */ }
+
+  renderLivrees();
+  renderPartList();
+  pushHistory();
+  updateAsmHint(
+    livree.reset
+      ? 'Teintes d’usine rendues à toutes les pièces.'
+      : `Livrée « ${livree.name} » posée — ${livree.note}.`,
+    'ok',
+  );
+}
+
+function renderLivrees() {
+  const box = $('livree-list');
+  if (!box) return;
+  box.innerHTML = LIVREES.map((l) => `<button type="button" data-livree="${l.id}"
+    class="${(livreeId || 'origine') === l.id ? 'on' : ''}" title="${l.note}">
+    <span class="dot" style="background:${swatchOf(l)}"></span>${l.name}</button>`).join('');
+  box.querySelectorAll('button').forEach((b) => {
+    b.addEventListener('click', () => {
+      const l = LIVREES.find((x) => x.id === b.dataset.livree);
+      if (l) applyLivree(l);
+    });
+  });
+}
+
+/* ------------------------------------------------------------------ *
  * Historique (annuler / rétablir)
  * ------------------------------------------------------------------ */
 
@@ -1453,17 +1518,31 @@ function placeHardware(options = {}) {
   clearHardware();
 
   const parts = assembledParts();
-  const candidates = hw.findFastenerSites(parts);
   const spacing = Number($('hw-spacing').value);
-  let sites = hw.spaceOut(candidates, spacing);
-
-  // LES VIS PAR LE DESSOUS SONT À PART. Un moteur tient par ses quatre vis,
-  // pas par deux : l'espacement, qui écarte les fixations redondantes d'une
-  // plaque, n'a rien à faire ici. Et elles ne sortent pas du sachet du
-  // châssis — elles viennent avec les moteurs —, donc elles ne puisent pas
-  // dans le même stock. Elles restent comptées parmi les candidates.
   const parDessous = hw.findUnderslungSites(parts);
-  candidates.push(...parDessous);
+
+  /*
+   * UN TROU, UNE VIS.
+   *
+   * Là où une vis monte par le dessous, le détecteur classique voyait AUSSI
+   * un couple — patin sous bras — et posait une seconde vis, tête sur le
+   * dessus du bras. Deux têtes pour un seul perçage : c'est ce qu'on voyait à
+   * l'écran. C'est pourtant la même vis qui fait les deux, elle traverse le
+   * patin, le bras, et se visse dans le moteur. Les doublons sont donc
+   * écartés avant tout le reste.
+   */
+  const prisParDessous = (s) => parDessous.some(
+    (d) => Math.hypot(d.x - s.x, d.z - s.z) < 1.2,
+  );
+  const classiques = hw.findFastenerSites(parts).filter((s) => !prisParDessous(s));
+
+  // LES VIS PAR LE DESSOUS NE S'ESPACENT PAS. Un moteur tient par ses quatre
+  // vis, pas par deux : l'espacement, qui écarte les fixations redondantes
+  // d'une plaque, n'a rien à faire ici. Et elles ne sortent pas du sachet du
+  // châssis — elles viennent avec les moteurs —, donc elles ne puisent pas
+  // dans le même stock.
+  let sites = hw.spaceOut(classiques, spacing);
+  const candidates = classiques.concat(parDessous);
 
   if (!candidates.length) {
     updateAsmHint(
@@ -3184,6 +3263,7 @@ function renderPartList() {
   }
 }
 renderPartList();
+renderLivrees();
 
 const plannedList = $('planned-list');
 for (const p of PLANNED) {

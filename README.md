@@ -593,7 +593,13 @@ Deux détails valent d'être expliqués :
   externe : le visualiseur fonctionne hors-ligne, et changer de référence
   moteur ne demande que deux chaînes de caractères.
 
-> **L'hélice, elle, n'a pas de photo de référence.** Sa taille est déduite du
+**Le moyeu se visse en T.** Un trou au centre — le passage de l'arbre — et un
+de chaque côté, sur le même cercle de Ø6,2 que les quatre perçages du dessus de
+cloche : l'hélice prend donc deux d'entre eux, diamétralement opposés. C'est ce
+que montre la photo du moyeu, et c'est cohérent avec le moteur, qui offre
+quatre trous pour deux vis.
+
+> **La forme des pales, elle, n'a pas de photo de référence.** Sa taille est déduite du
 > châssis — un OasisFly**35** de 175 mm d'empattement tourne en 3,5 pouces, et
 > un 1804 à 3450 KV est motorisé pour ça. Le dessin est donc générique : la
 > combinaison la plus courante sur ce format. Envoie une photo des tiennes et
@@ -695,6 +701,13 @@ C'est normal, et c'est dit dans la fiche : les vis moteur viennent avec les
 moteurs. Les laisser puiser dans le sachet vidait les vis longues au détriment
 des fixations qui en ont besoin, et laissait douze moteurs sur seize sans vis.
 
+**Un trou, une vis.** Là où une vis monte par le dessous, le détecteur
+classique voyait *aussi* un couple patin → bras et posait une seconde vis, tête
+sur le dessus du bras : deux têtes pour un seul perçage. C'est pourtant la même
+vis qui fait les deux, et les doublons sont maintenant écartés — toute fixation
+classique tombant à moins de 1,2 mm d'une fixation par le dessous est
+supprimée.
+
 Deux cotes ont dû être **déclarées** plutôt que mesurées, parce que la sonde de
 perçage ne sait pas les voir. Elle lance un rayon vers le bas et ne retient que
 ce qu'il touche ; or les matières d'une pièce dessinée ou importée ne sont
@@ -707,6 +720,45 @@ est juste ; ailleurs, non :
 - la **bride du patin**, 2,5 mm. Palpée, elle donnait 8,70 : l'encombrement de
   la pièce entière, béquille comprise. La cote vient du fichier — sur 3 364
   colonnes sondées, 1 360 tombent entre 2,5 et 3,0 mm, médiane 2,50.
+
+## Les livrées
+
+Cinquième bouton de la barre : **Livrées ▾**. Un jeu de couleurs cohérent posé
+d'un clic sur tout ce qui se peint.
+
+| Ce qui est peint | |
+|---|---|
+| Pièces imprimées | covers, joues, supports, patins, caches |
+| Stick pad | matière à part — la bobine de TPU n'est jamais du même bain |
+| Cloches moteur | aluminium anodisé, donc repeignable |
+| Filet de chanfrein | une livrée sombre veut un filet clair, et l'inverse |
+| **Les deux hélices avant** | et elles seules |
+
+**Pourquoi les hélices avant seulement.** C'est la convention du FPV : l'avant
+d'une couleur, l'arrière sombre, pour lire l'orientation de la machine d'un
+coup d'œil quand elle est loin. Une livrée qui peindrait les quatre ferait joli
+et se piloterait mal.
+
+**Ce qui n'est jamais peint** : le carbone, qui a la couleur du carbone ; et le
+cuivre des bobinages comme l'acier des arbres, dont la matière refuse la teinte
+— elles le déclarent, ce n'est pas un oubli.
+
+Quinze livrées, dont **Origine** qui rend au build ses teintes d'usine :
+
+| | | | |
+|---|---|---|---|
+| **Bee** jaune ruche | **Red Racing** rouge course | **Spider** violet | **Shark** bleu |
+| **Snake** vert clair | **Girly** rose | **Ghost** noir mat | **Steel** gris acier |
+| **Tiger** orange | **White Wolf** blanc | **Copper** cuivre | **Glacier** blanc bleuté |
+| **Kaki** vert militaire | **Toxic** vert fluo | **Origine** teintes d'usine | |
+
+Une livrée **remplace** la précédente, elle ne s'ajoute pas : passer de Bee à
+Ghost ne laisse pas de jaune sur les pièces que Ghost ne nomme pas. Le
+classement se fait sur la **matière déclarée** par chaque pièce, pas sur une
+liste d'identifiants — un support imprimé ajouté demain sera peint sans qu'on
+ait à revenir dans le fichier.
+
+Le choix est conservé d'une session à l'autre, et se défait par **Annuler**.
 
 ## Visserie
 

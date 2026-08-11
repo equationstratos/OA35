@@ -290,6 +290,7 @@ export function findUnderslungSites(parts, tolerance = 0.8, contact = 1.0) {
        * support, et la vis tombe dans leur emprise.
        */
       let serre = 0;
+      const plaquees = [];
       let assise = Number.isFinite(a.bottom) ? a.bottom : lower.bottom;
       const x = (a.x + b.x) / 2;
       const z = (a.z + b.z) / 2;
@@ -298,6 +299,7 @@ export function findUnderslungSites(parts, tolerance = 0.8, contact = 1.0) {
         if (Math.abs(p.top - assise) > contact) continue;
         if (x < p.minX || x > p.maxX || z < p.minZ || z > p.maxZ) continue;
         serre += p.clamp;
+        plaquees.push(p.id);
         // la tête porte sous la bride serrée, pas sous toute la pièce : la
         // béquille d'un patin descend bien plus bas que son plan de joint
         assise = p.top - p.clamp;
@@ -318,6 +320,9 @@ export function findUnderslungSites(parts, tolerance = 0.8, contact = 1.0) {
         // matière réellement traversée : le support, plus ce qu'il plaque
         traversed: (Number.isFinite(a.material) ? a.material : lower.thickness) + serre,
         clamped: serre,
+        // pièces que cette vis plaque en plus du support : elles sont tenues
+        // par elle, même si elles ne sont ni la pièce basse ni la haute
+        clampedIds: plaquees,
         upperMaterial: Number.isFinite(b.material) ? b.material : upper.thickness,
         lowerMaterial: Number.isFinite(a.material) ? a.material : lower.thickness,
         offset: Math.hypot(a.x - b.x, a.z - b.z),
@@ -555,6 +560,7 @@ export function unfastened(parts, assigned) {
   for (const item of assigned) {
     held.add(item.site.lower.id);
     held.add(item.site.upper.id);
+    for (const id of item.site.clampedIds || []) held.add(id);
   }
   return parts.filter((p) => !held.has(p.id));
 }
@@ -568,7 +574,9 @@ export function unfastened(parts, assigned) {
 export function screwsPerPart(assigned) {
   const n = new Map();
   for (const item of assigned) {
-    for (const id of [item.site.lower.id, item.site.upper.id]) {
+    // la pièce basse, la haute, et celles que la vis plaque au passage : un
+    // patin de bras n'est ni l'une ni l'autre, il est pris entre les deux
+    for (const id of [item.site.lower.id, item.site.upper.id, ...(item.site.clampedIds || [])]) {
       n.set(id, (n.get(id) || 0) + 1);
     }
   }

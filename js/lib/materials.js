@@ -280,11 +280,12 @@ export function propellerMaterial(color = 0x1d2026) {
 }
 
 /** Moyeu d'hélice : même matière, teinte à peine plus claire. */
-export function propHubMaterial(color = 0x282c33) {
-  // le moyeu reste opaque : c'est lui qui donne l'assise visuelle de l'hélice
+export function propHubMaterial(color = 0x9aa2ad) {
+  // Le moyeu reste opaque, et CLAIR : sur la photo il tranche nettement sur
+  // le noir des pales — c'est la platine qui prend les deux vis.
   const m = new THREE.MeshPhysicalMaterial({
-    color, metalness: 0.05, roughness: 0.42, clearcoat: 0.5,
-    transparent: true, opacity: 0.88,
+    color, metalness: 0.35, roughness: 0.4, clearcoat: 0.5,
+    transparent: true, opacity: 0.95,
   });
   m.userData.baseTint = color;
   m.userData.baseOpacity = 0.88;

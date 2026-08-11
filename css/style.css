@@ -806,3 +806,34 @@ main.side-collapsed #sidebar {
 }
 .opt.liseret input[type="color"]::-webkit-color-swatch-wrapper { padding: 1px; }
 .opt.liseret input[type="color"]::-webkit-color-swatch { border: none; border-radius: 2px; }
+
+/* --- livrées ------------------------------------------------------- *
+ * Une grille de pastilles : la couleur se choisit à l'œil, pas au nom.
+ * Deux colonnes tiennent dans la largeur d'un menu sans le faire défiler.
+ */
+.livrees {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  margin-bottom: 8px;
+}
+.livrees button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 5px 7px;
+  text-align: left;
+  font-size: 12px;
+}
+.livrees button .dot {
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+.livrees button.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}

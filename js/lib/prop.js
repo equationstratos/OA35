@@ -31,10 +31,8 @@ export const PROP = {
   pitch: 2.5 * POUCE,        // 63,5 mm par tour
   blades: 3,
 
-  hubDiameter: 9.0,
+  hubDiameter: 9.4,
   hubHeight: 6.2,
-  collarDiameter: 6.4,
-  collarHeight: 1.3,
   /**
    * Alésage. Il suit l'ARBRE DU MOTEUR tel que les photos le montrent — un
    * téton de Ø2,1 —, pas le Ø5 habituel d'une hélice de ce format. Les deux
@@ -42,6 +40,15 @@ export const PROP = {
    * jour où j'aurai les photos des hélices, c'est ici que ça se corrige.
    */
   bore: 2.4,
+  /**
+   * DEUX VIS, PAS QUATRE. Le moyeu porte un trou au centre — le passage de
+   * l'arbre — et un de chaque côté, sur le même cercle de Ø6,2 que les quatre
+   * perçages du dessus de cloche. L'hélice se visse donc sur deux d'entre
+   * eux, diamétralement opposés : c'est un montage en T, celui que montre la
+   * photo du moyeu.
+   */
+  screwCircle: 6.2,
+  screwHole: 1.9,
 
   rootRadius: 4.0,           // le pied est noyé dans le moyeu
   maxChord: 14.6,
@@ -105,32 +112,27 @@ export function buildProp(hand = 1) {
     const x = Math.cos(a) * P.hubDiameter / 2, y = Math.sin(a) * P.hubDiameter / 2;
     if (i === 0) corps.moveTo(x, y); else corps.lineTo(x, y);
   }
-  const alesage = new THREE.Path();
-  for (let i = 0; i <= 32; i++) {
-    const a = -2 * Math.PI * i / 32;
-    const x = Math.cos(a) * P.bore / 2, y = Math.sin(a) * P.bore / 2;
-    if (i === 0) alesage.moveTo(x, y); else alesage.lineTo(x, y);
+  /** Contour circulaire tourné dans le sens d'un trou. */
+  const trou = (radius, cx = 0, cy = 0, seg = 24) => {
+    const path = new THREE.Path();
+    for (let i = 0; i <= seg; i++) {
+      const a = -2 * Math.PI * i / seg;
+      const x = cx + Math.cos(a) * radius, y = cy + Math.sin(a) * radius;
+      if (i === 0) path.moveTo(x, y); else path.lineTo(x, y);
+    }
+    return path;
+  };
+
+  corps.holes.push(trou(P.bore / 2, 0, 0, 32));
+  // les deux vis, diamétralement opposées
+  for (const sgn of [-1, 1]) {
+    corps.holes.push(trou(P.screwHole / 2, sgn * P.screwCircle / 2, 0, 20));
   }
-  corps.holes.push(alesage);
 
   const hub = new THREE.ExtrudeGeometry(corps, {
     depth: P.hubHeight, bevelEnabled: false, curveSegments: 8,
   });
   parts.push({ geometry: hub, material: moyeu });
-
-  // la collerette du dessus, celle sur laquelle appuie l'écrou
-  const collier = new THREE.Shape();
-  for (let i = 0; i <= 40; i++) {
-    const a = 2 * Math.PI * i / 40;
-    const x = Math.cos(a) * P.collarDiameter / 2, y = Math.sin(a) * P.collarDiameter / 2;
-    if (i === 0) collier.moveTo(x, y); else collier.lineTo(x, y);
-  }
-  collier.holes.push(alesage.clone());
-  const col = new THREE.ExtrudeGeometry(collier, {
-    depth: P.collarHeight, bevelEnabled: false, curveSegments: 8,
-  });
-  col.translate(0, 0, P.hubHeight);
-  parts.push({ geometry: col, material: moyeu });
 
   /* --- Les pales --------------------------------------------------- */
   // Les pales partent HAUT dans le moyeu : plus bas, leur pied plongeait
@@ -260,11 +262,15 @@ export function buildProp(hand = 1) {
   return {
     geometry: out,
     materials,
-    // un seul repère : l'alésage, c'est par là qu'elle s'enfile sur l'arbre
-    anchors: [{
-      index: 0, x: 0, y: 0, z: P.hubHeight / 2,
-      r: P.bore / 2, axis: 'Z', coverage: 1, kind: 'hole',
-    }],
+    // l'alésage central, par où passe l'arbre, et les deux perçages de vis
+    anchors: [
+      { index: 0, x: 0, y: 0, z: P.hubHeight / 2,
+        r: P.bore / 2, axis: 'Z', coverage: 1, kind: 'hole' },
+      { index: 1, x: -P.screwCircle / 2, y: 0, z: P.hubHeight / 2,
+        r: P.screwHole / 2, axis: 'Z', coverage: 1, kind: 'hole' },
+      { index: 2, x: P.screwCircle / 2, y: 0, z: P.hubHeight / 2,
+        r: P.screwHole / 2, axis: 'Z', coverage: 1, kind: 'hole' },
+    ],
     // on annonce le DIAMÈTRE, pas l'encombrement : une tripale n'a pas de
     // pale sur l'axe X, sa boîte englobante mesure 73 mm pour une hélice de
     // 88,9 — c'est le diamètre qu'on lit sur une hélice, pas sa boîte
