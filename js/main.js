@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-10j · stick pad : bords droits, fixations fermees, 1,5 mm';
+const BUILD = '2026-08-10k · top plates : 4 habillages, haut symetrise, 6 percages';
 $('build-stamp').textContent = BUILD;
 
 /* Les trois groupes de visserie — sachet du plan de travail, visserie posée,

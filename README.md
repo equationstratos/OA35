@@ -401,6 +401,40 @@ elle à l'assemblage comme au désassemblage. Sur l'établi il garde son propre
 créneau, c'est là qu'on le regarde seul ; et si tu le déplaces aux curseurs,
 ta position l'emporte.
 
+### Les habillages de top plate
+
+La top-plate existe en **quatre habillages**, choisis au clic comme ceux des
+covers — chaque famille a son propre sélecteur.
+
+| Habillage | Ce qu'il est |
+|---|---|
+| **Origine** | la plaque **tracée** du fichier fourni — contour et perçages |
+| **Nid d'abeille** | alvéoles de 5,4 mm, cloisons 1,15 mm, grand hexagone central |
+| **Skull** | motif crâne, mis aux proportions de la plaque, lettrage conservé |
+| **Vector** | motif vector, même traitement |
+
+Les trois motifs sont dessinés sur **le contour et les perçages de la plaque de
+référence** : ils se vissent au même endroit, 30,6 × 104,88 × 2,0 mm.
+
+Deux corrections leur sont communes, héritées d'un défaut du fichier fourni :
+
+- **le haut est rendu symétrique.** Le fichier porte une patte pleine à droite
+  et un crochet ouvert à gauche. Il manquait donc la matière à gauche, et y
+  percer ne produisait rien — c'est ce qui laissait le trou incomplet. La patte
+  de droite est recopiée en miroir au-dessus de y = 42.
+- **le sixième perçage.** Matière rétablie, le trou manquant est percé en
+  (−13,17 ; 49,05). Les six sont percés **en dernier**, après la matière rendue
+  au bord et un anneau franc de 1,6 mm autour de chacun : aucune découpe de
+  motif ne peut plus les entamer, pas même celui qui ne passe qu'à 2,22 mm du
+  contour.
+
+Sur les motifs, seules les découpes larges sont élargies de 0,30 mm ; le
+lettrage garde sa cote, sinon ses traits fins se referment.
+
+> Limite connue : l'onglet **Plan coté** montre toujours le contour de la
+> plaque tracée, quel que soit l'habillage affiché en 3D. Les habillages sont
+> des maillages, ils n'ont ni contour ni perçages extraits.
+
 ### Le stick pad
 
 Pièce 24, en **TPU souple** — la seule pièce non rigide du build. Il empêche la
