@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-10k · top plates : 4 habillages, haut symetrise, 6 percages';
+const BUILD = '2026-08-11a · support GPS : 5 habillages, logement et vissage conserves';
 $('build-stamp').textContent = BUILD;
 
 /* Les trois groupes de visserie — sachet du plan de travail, visserie posée,

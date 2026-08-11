@@ -464,6 +464,52 @@ Les deux fixations étaient des **trous de serrure** — une poche circulaire de
 cercles pleins**, à l'aplomb des perçages de la plaque (±12,4 ; à 4,4 mm de
 décalage près, ce qui confirme le calage par un chemin indépendant).
 
+### Les habillages de support GPS
+
+Le support GPS avant (pièce 12) existe en **cinq habillages**, choisis au clic
+comme ceux des covers et des top plates — chaque famille a son sélecteur.
+
+| Habillage | Ce qu'il est | Volume |
+|---|---|---|
+| **Origine** | la coque fournie | 1,977 cm³ |
+| **Blindé** | toit à deux pans, arête faîtière franche d'un bout à l'autre, nez cassé | 2,122 cm³ |
+| **Cyber** | la même coque, gravée de quatre ouïes obliques | 2,263 cm³ |
+| **Mecha** | blindage à gradins, la section se rétreint par paliers francs | 2,644 cm³ |
+| **Stealth** | arête en travers et pans fuyants, façon verrière d'appareil furtif | 2,338 cm³ |
+
+Les quatre dessins sont construits **en demi-espaces** : une coque définie par
+des plans donne des facettes franches et des arêtes vives, pas des bosses
+molles — c'est ce qui les met dans la ligne des bras et des joues du châssis.
+
+Ce qui est **fonctionnel** est identique dans les cinq : la semelle et ses deux
+oreilles percées sont reprises telles quelles du fichier fourni, et la place du
+module est creusée à l'identique. Le support se visse au même endroit et reçoit
+le même module, quel que soit l'habillage.
+
+Deux garde-fous ont demandé un vrai travail, chacun vérifié pièce par pièce :
+
+- **la place du module.** Elle n'est pas une cavité fermée — le support est
+  ouvert par le dessous et par les fentes de son toit —, si bien qu'un
+  remplissage depuis l'extérieur y entre librement : les premières coques
+  sortaient **pleines**, elles auraient bouché le logement. La règle retenue se
+  mesure au lieu de se supposer : dans chaque tranche horizontale, l'air enfermé
+  par le pourtour de matière est du logement ; on garde le plus gros bloc — les
+  gorges du toit forment elles aussi des boucles fermées, et perçaient la coque
+  neuve — et on le prolonge vers le bas, ce qui rend le couloir d'entrée du
+  module. **1,765 cm³** ainsi protégés, et le contrôle final compte zéro
+  cellule de matière ajoutée dedans.
+- **l'accès aux vis.** Les deux perçages des oreilles traversent la pièce de
+  part en part (Ø2 mm en −13,26 ; 19,76 et 12,46 ; 19,77). Une coque qui monte
+  au-dessus les enterre : le support serait joli et invissable. Chaque dessin
+  creuse donc au-dessus d'eux un **puits de 5,6 mm de côté**, comme le lamage
+  que porte déjà la pièce d'origine.
+
+Les coques sont **évidées à 1,2 mm de paroi**, et leur creux débouche dans le
+logement : rien n'est emprisonné à l'impression. Chaque fichier est vérifié
+**fermé** — chaque arête sert exactement deux fois —, sans triangle dégénéré,
+d'un seul tenant et sans poche d'air fermée. C'est le fichier tel qu'il sort du
+bouton **⬇ STL** de la fiche.
+
 ## Visserie
 
 La visserie est le seul élément qui n'a pas à être photographié : elle est

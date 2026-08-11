@@ -43,11 +43,9 @@ export const ACCESSORIES = await Promise.all([
     id: 'cover-02-d', index: 21, name: 'Cover 02 droit',
     material: PRINTED, source: 'coque droite de oasisfly35 DC-Cover-02.stl',
   }),
-  meshPart({
-    url: 'assets/parts-3d/oasisfly-35-front-GPS-mount.STL',
-    id: 'gps-mount', index: 12, name: 'Support GPS avant',
-    material: PRINTED, source: 'fichier STL fourni',
-  }),
+  // Le SUPPORT GPS n'est plus monté ici : il est passé dans 10-gps-mount.js,
+  // qui fournit la même pièce — même identifiant, même numéro — avec le choix
+  // de sa coque. Le remonter ici en ferait un doublon.
   meshPart({
     url: 'assets/parts-3d/oasisfly-35-antenne-VTX.stl',
     id: 'vtx-mount', index: 13, name: 'Support antenne VTX',

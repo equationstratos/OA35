@@ -16,6 +16,7 @@ import * as armLong from './06-arm-long.js';
 import * as armShort from './07-arm-short.js';
 import { ACCESSORIES } from './08-accessoires.js';
 import * as sideGuard from './09-side-guard.js';
+import * as gpsMount from './10-gps-mount.js';
 
 export const PARTS = [
   bottomPlate, middlePlate, clampPlate, topPlate,
@@ -24,6 +25,8 @@ export const PARTS = [
   // les covers latéraux viennent en tête des accessoires, à la place qu'ils
   // occupaient quand 08-accessoires.js les montait encore
   sideGuard.gauche, sideGuard.droit,
+  // le support GPS vient à la place qu'il occupait dans les accessoires
+  gpsMount.support,
   ...ACCESSORIES,
 ];
 
