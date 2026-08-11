@@ -12,6 +12,7 @@
 import { meshPart } from './mesh-asset.js';
 
 const PRINTED = 'Plastique imprimé';
+const METAL = 'Aluminium usiné';
 
 /** Un patin par bras : nommés d'après le bras qu'ils chaussent. */
 const FOOTPAD_SLOTS = [
@@ -54,7 +55,9 @@ export const ACCESSORIES = await Promise.all([
   meshPart({
     url: 'assets/FRAME/OA35-camera-mount.STL',
     id: 'camera-mount', index: 14, name: 'Support caméra',
-    material: PRINTED, source: 'fichier STL fourni',
+    // EN MÉTAL, pas en plastique imprimé : c'est de l'aluminium usiné, et
+    // c'est bien l'angle d'usinage qui dessine le filet clair de son chanfrein
+    material: METAL, finish: 'metal', source: 'fichier STL fourni',
     // les joues du support sont chanfreinées : sur la pièce réelle, l'angle
     // d'usinage accroche la lumière et dessine un filet clair tout autour du
     // contour et des ouvertures
@@ -65,7 +68,8 @@ export const ACCESSORIES = await Promise.all([
   meshPart({
     url: 'assets/FRAME/OA35-camera-mount.STL',
     id: 'camera-mount-mirror', index: 15, name: 'Support caméra (miroir)',
-    material: PRINTED, source: 'miroir du support caméra (même fichier STL)',
+    material: METAL, finish: 'metal',
+    source: 'miroir du support caméra (même fichier STL)',
     mirrored: true,
     chamfer: true,
   }),

@@ -15,7 +15,7 @@
 
 import { loadSTL, meshBounds, mirrorGeometryX } from '../lib/stl-loader.js';
 import { meshPartObject, meshAnchors } from '../lib/mesh-part.js';
-import { printedMaterial } from '../lib/materials.js';
+import { printedMaterial, machinedMaterial } from '../lib/materials.js';
 
 /**
  * @param {object} o
@@ -34,6 +34,8 @@ import { printedMaterial } from '../lib/materials.js';
  *        pour que « bas » veuille dire la même chose ici que sur le drone.
  * @param {boolean} [o.chamfer] la pièce porte un chanfrein d'usinage visible :
  *        un filet clair suit ses arêtes vives, indépendamment du surlignage
+ * @param {'imprime'|'metal'} [o.finish] matière de rendu. Les joues du support
+ *        caméra sont en aluminium usiné, pas en plastique imprimé.
  * @param {number} [o.clamp] épaisseur SERRÉE par la vis qui la traverse, en mm.
  *        À déclarer quand la sonde ne sait pas la mesurer : sur un maillage
  *        importé aux parois obliques, elle retombe sur l'encombrement.
@@ -46,6 +48,7 @@ export async function meshPart({
   url, id, index, name, material, source,
   mirrored = false, zUp = true, upsideDown = false, spin = 0,
   reuseAnchors = null, rides = null, chamfer = false, clamp = null,
+  finish = 'imprime',
 }) {
   let geometry = null;
   let error = null;
@@ -130,7 +133,8 @@ export async function meshPart({
       const a = wantMirror
         ? anchors.map((c) => ({ ...c, x: -c.x }))
         : anchors;
-      const group = meshPartObject(geo, printedMaterial(), a, chamfer);
+      const matiere = finish === 'metal' ? machinedMaterial() : printedMaterial();
+      const group = meshPartObject(geo, matiere, a, chamfer);
       if (zUp) group.rotation.x = -Math.PI / 2;
       return group;
     },

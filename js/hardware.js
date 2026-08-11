@@ -82,6 +82,33 @@ const ANODIZED = new THREE.MeshPhysicalMaterial({
   color: 0x2a2f36, metalness: 0.65, roughness: 0.45,
 });
 
+/** Teintes d'usine, pour savoir où revenir quand on efface la couleur. */
+const STEEL_BASE = STEEL.color.getHex();
+const ANODIZED_BASE = ANODIZED.color.getHex();
+
+/**
+ * Teinte de TOUTE la visserie, d'un coup.
+ *
+ * Les vis partagent deux matières, une pour l'acier et une pour l'empreinte :
+ * les teinter ici les teint toutes, celles déjà posées comme celles encore au
+ * sachet. Une par une n'aurait aucun sens — on ne panache pas une visserie.
+ *
+ * @param {number|null} hex couleur, ou null pour l'acier d'origine
+ */
+export function setHardwareTint(hex) {
+  if (hex === null || hex === undefined) {
+    STEEL.color.setHex(STEEL_BASE);
+    ANODIZED.color.setHex(ANODIZED_BASE);
+  } else {
+    STEEL.color.setHex(hex);
+    // l'empreinte reste plus sombre que la tête, sinon la vis devient un
+    // disque plat sans relief
+    ANODIZED.color.setHex(hex).multiplyScalar(0.45);
+  }
+  STEEL.needsUpdate = true;
+  ANODIZED.needsUpdate = true;
+}
+
 /**
  * Vis à tête cylindrique, axe vertical.
  * L'origine est sous la tête : c'est le plan d'appui sur la pièce, donc le
@@ -159,64 +186,177 @@ export function standoffMesh(thread, length) {
  * @param {number} tolerance écart planaire admis, en mm
  * @returns {object[]} points de fixation
  */
-export function findFastenerSites(parts, tolerance = 0.8) {
+/**
+ * Épaisseur maximale qu'une vis traverse sur ce châssis, en mm.
+ * Au-delà, le perçage aligné n'est pas un pied de fixation.
+ */
+const MAX_TRAVERSE = 8;
+
+/**
+ * Diamètre maximal d'un perçage qui peut encore être un passage de vis, en mm.
+ * Deux fois le plus gros filetage du sachet : au-delà, c'est une ouverture.
+ */
+const MAX_HOLE = 6;
+
+export function findFastenerSites(parts, tolerance = 1.0) {
+  /*
+   * UNE COLONNE, UNE VIS.
+   *
+   * La détection se faisait par PAIRES : chaque perçage bas cherchait un
+   * perçage haut, et tous les couples possibles devenaient des fixations. Sur
+   * un empilage de trois pièces, cela en donnait trois pour un seul trou —
+   * plaque vers bras, bras vers plaque intermédiaire, et par-dessus le marché
+   * plaque vers plaque avec une entretoise de 3,5 mm inventée là où c'est le
+   * BRAS qui remplit l'écart. Un espacement minimal masquait le problème en
+   * n'en gardant qu'une au hasard.
+   *
+   * On raisonne maintenant par colonne : tous les perçages alignés à la
+   * verticale forment un empilage, et cet empilage reçoit UNE vis. Elle
+   * traverse tout ce qui est au-dessus et mord dans la pièce du bas. S'il
+   * reste de l'air entre deux étages, c'est là — et là seulement — qu'une
+   * entretoise se dresse.
+   */
+
+  // 1. les perçages exploitables, tous pièces confondues
+  const holes = [];
+  for (const p of parts) {
+    if (p.noFastener) continue;
+    for (const h of p.holes) {
+      if (h.vertical === false) continue;
+      /*
+       * On ne demande PAS que chaque perçage soit un taraudage : beaucoup ne
+       * sont que des passages, plus larges que la vis. Le support VTX se fixe
+       * par deux trous de Ø3,99 — hors de toute plage de filetage — et les
+       * exclure ici lui retirait ses deux vis. Le filetage se lit plus bas,
+       * sur le perçage le plus étroit de la colonne ; ici on écarte seulement
+       * ce qui ne peut plus être un passage de vis.
+       */
+      if (h.diameter > MAX_HOLE) continue;
+      const material = Number.isFinite(h.material) ? h.material : p.thickness;
+      // un pied de fixation est mince : au-delà, le perçage aligné est autre
+      // chose — l'axe d'une joue caméra, à vingt-cinq millimètres du plan de
+      // pose, tombe en projection sur les perçages de la plaque
+      if (material > MAX_TRAVERSE) continue;
+      const top = Number.isFinite(h.top) ? h.top : p.top;
+      const bottom = Number.isFinite(h.bottom) ? h.bottom : p.bottom;
+      holes.push({
+        x: h.x, z: h.z, diameter: h.diameter, material, part: p,
+        top: Math.max(top, bottom),
+        bottom: Math.min(top, bottom),
+        seat: Number.isFinite(h.seat) ? h.seat : Math.max(top, bottom),
+      });
+    }
+  }
+
+  // 2. regroupement en colonnes verticales
+  const columns = [];
+  for (const h of holes) {
+    /*
+     * Le rapprochement se fait sur CHAQUE perçage déjà dans la colonne, pas
+     * sur sa position moyenne : les trous d'un même empilage ne sont jamais
+     * parfaitement superposés — l'assemblage lui-même recale à 0,4 mm près —
+     * et la moyenne dérivait assez pour que la top-plate, à 0,95 mm de la
+     * plaque intermédiaire, forme une colonne à part et perde ses vis.
+     */
+    const col = columns.find((c) => !c.holes.some((k) => k.part === h.part)
+      && c.holes.some((k) => Math.hypot(k.x - h.x, k.z - h.z) <= tolerance));
+    if (col) col.holes.push(h);
+    else columns.push({ holes: [h] });
+  }
+  // la colonne se place au milieu de ses perçages
+  for (const c of columns) {
+    c.x = c.holes.reduce((n, h) => n + h.x, 0) / c.holes.length;
+    c.z = c.holes.reduce((n, h) => n + h.z, 0) / c.holes.length;
+  }
+
+  /*
+   * 3. une fixation par ÉTAGE de chaque colonne.
+   *
+   * Une colonne se découpe à chaque vide : les pièces au contact forment un
+   * étage, tenu par une vis, et l'étage suivant repose soit sur une entretoise
+   * — s'il s'agit bien de deux plaques — soit sur rien du tout, auquel cas il
+   * se visse sur lui-même. Ne rendre qu'une fixation par colonne, comme le
+   * faisait la première version, laissait la top-plate sans vis : le grand
+   * vide de ses entretoises accaparait toute la colonne.
+   */
   const sites = [];
-  const ordered = [...parts].sort((a, b) => a.y - b.y);
+  for (const col of columns) {
+    if (col.holes.length < 2) continue;
+    const pile = [...col.holes].sort((a, b) => a.bottom - b.bottom);
 
-  for (let i = 0; i < ordered.length; i++) {
-    for (let j = i + 1; j < ordered.length; j++) {
-      const lower = ordered[i];
-      const upper = ordered[j];
+    // Le filetage est celui du perçage le plus étroit : c'est lui qui tient,
+    // les autres ne font que laisser passer. Un passage reste un passage tant
+    // qu'il ne dépasse pas le double du filetage — au-delà, la tête traverse.
+    const thread = threadForHole(Math.min(...pile.map((h) => h.diameter)));
+    if (!thread) continue;
+    if (pile.some((h) => h.diameter > thread.diameter * 2)) continue;
 
-      // Une pièce vissée PAR LE DESSOUS ne reçoit jamais de vis par le haut :
-      // un moteur pris ici plantait une tête au sommet de sa cloche.
-      if (upper.underslung) continue;
-      // et une pièce sans perçage de fixation n'entre dans aucun couple :
-      // l'alésage d'une hélice est un passage d'arbre, pas un trou de vis
-      if (upper.noFastener || lower.noFastener) continue;
+    // découpage en étages, à chaque vide qui compte
+    const etages = [[pile[0]]];
+    for (let i = 1; i < pile.length; i++) {
+      const vide = pile[i].bottom - pile[i - 1].top;
+      if (vide > 0.5) etages.push([pile[i]]);
+      else etages[etages.length - 1].push(pile[i]);
+    }
 
-      for (const a of lower.holes) {
-        const thread = threadForHole(a.diameter);
-        if (!thread) continue;
-        if (a.vertical === false) continue;   // perçage de flanc : pas pour une vis verticale
-
-        for (const b of upper.holes) {
-          if (b.vertical === false) continue;
-          if (Math.hypot(a.x - b.x, a.z - b.z) > tolerance) continue;
-          // le trou du dessus peut être un simple passage, plus large que le
-          // filetage : la vis le traverse et mord dans la pièce du dessous.
-          // C'est le cas des covers, percées à 3,5 mm pour des vis M2.
-          const upperThread = threadForHole(b.diameter);
-          const clearance = b.diameter > thread.diameter
-            && b.diameter <= thread.diameter * 2;
-          if (upperThread !== thread && !clearance) continue;
-
-          // faces en regard, RELEVÉES AU DROIT DU PERÇAGE : c'est là que la
-          // vis traverse, et une pièce n'a pas la même épaisseur partout
-          const lowerTop = Number.isFinite(a.top) ? a.top : lower.top;
-          const upperBottom = Number.isFinite(b.bottom) ? b.bottom : upper.bottom;
-          const gap = upperBottom - lowerTop;
-          if (gap < -0.4) continue;          // la haute mord dans la basse : ce n'est pas un appui
-
-          sites.push({
-            x: (a.x + b.x) / 2,
-            z: (a.z + b.z) / 2,
-            thread,
-            gap: Math.max(0, gap),
-            lower,
-            upper,
-            lowerTop,
-            // la tête de vis appuie sur la semelle de la pièce haute
-            upperTop: Number.isFinite(b.seat) ? b.seat : (Number.isFinite(b.top) ? b.top : upper.top),
-            // matière réellement traversée de chaque côté
-            upperMaterial: Number.isFinite(b.material) ? b.material : upper.thickness,
-            lowerMaterial: Number.isFinite(a.material) ? a.material : lower.thickness,
-            offset: Math.hypot(a.x - b.x, a.z - b.z),
-          });
-          break; // un perçage de la pièce basse ne sert qu'une fois par pièce haute
+    etages.forEach((etage, k) => {
+      /*
+       * L'ENTRETOISE SE DRESSE SUR LA PLAQUE LA PLUS PROCHE EN DESSOUS, pas
+       * sur l'étage immédiatement inférieur. Un flanc de cover s'intercale
+       * dans la colonne — il est clipsé, il ne porte rien — et la top-plate
+       * perdait alors ses entretoises : l'outil la trouvait posée sur le
+       * cover, refusait la colonne, et se rabattait sur une vis qui ne
+       * traversait que le stick pad.
+       */
+      let dessous = null;
+      for (let j = k - 1; j >= 0 && !dessous; j--) {
+        // on fouille l'étage de haut en bas : la plaque n'est pas forcément
+        // sa pièce la plus haute. Sous la top-plate arrière, l'étage porteur
+        // est « plaque intermédiaire + support VTX », et ne regarder que le
+        // dessus faisait tomber sur le support — qui ne porte rien — donc
+        // renoncer à l'entretoise et laisser la top-plate sans vis de ce côté.
+        for (let i = etages[j].length - 1; i >= 0; i--) {
+          if (etages[j][i].part.plate) { dessous = etages[j][i]; break; }
         }
       }
-    }
+      const vide = dessous ? etage[0].bottom - dessous.top : 0;
+      const haut = etage[etage.length - 1];
+
+      /*
+       * UNE ENTRETOISE NE SE DRESSE QU'ENTRE DEUX PLAQUES. Dès qu'un écart
+       * séparait deux perçages alignés, le détecteur y plantait une colonne —
+       * y compris entre une joue caméra et le support GPS, dont les trous se
+       * croisent par hasard en projection. Sur ce châssis, les entretoises
+       * tiennent l'étage des plaques, et rien d'autre.
+       */
+      const surEntretoise = !!dessous && etage[0].part.plate && vide > 0.5;
+
+      if (surEntretoise) {
+        // la vis traverse tout l'étage et mord dans l'entretoise
+        sites.push({
+          x: col.x, z: col.z, thread, gap: vide,
+          lower: dessous.part, upper: haut.part,
+          lowerTop: dessous.top, upperTop: haut.seat,
+          upperMaterial: etage.reduce((n, h) => n + h.material, 0),
+          lowerMaterial: dessous.material,
+          clampedIds: etage.slice(0, -1).map((h) => h.part.id),
+          offset: 0,
+        });
+        return;
+      }
+
+      // sinon l'étage se visse sur lui-même, du haut vers sa pièce du bas
+      if (etage.length < 2) return;
+      sites.push({
+        x: col.x, z: col.z, thread, gap: 0,
+        lower: etage[0].part, upper: haut.part,
+        lowerTop: etage[0].top, upperTop: haut.seat,
+        upperMaterial: etage.slice(1).reduce((n, h) => n + h.material, 0),
+        lowerMaterial: etage[0].material,
+        clampedIds: etage.slice(1, -1).map((h) => h.part.id),
+        offset: 0,
+      });
+    });
   }
   return sites;
 }
@@ -350,31 +490,6 @@ export function fastenerFor(site) {
     // l'entretoise du commerce ne tombe pas toujours pile sur l'écart mesuré
     standoffPlay: needsStandoff ? standoff - site.gap : 0,
   };
-}
-
-/**
- * Ne garde que des fixations suffisamment espacées.
- *
- * Deux plaques qui se ressemblent ont beaucoup de perçages en regard : tous
- * sont des points de fixation *possibles*, mais on ne visse pas deux
- * entretoises à trois millimètres l'une de l'autre. Le tri est glouton, en
- * partant des perçages les plus larges — ce sont ceux qui portent la
- * structure, les petits servant souvent à autre chose.
- *
- * @param {object[]} sites
- * @param {number} minSpacing distance minimale entre deux fixations, en mm
- */
-export function spaceOut(sites, minSpacing) {
-  if (minSpacing <= 0) return sites;
-  const kept = [];
-  const ordered = [...sites].sort((a, b) => b.thread.diameter - a.thread.diameter);
-  for (const site of ordered) {
-    const tooClose = kept.some(
-      (k) => Math.hypot(k.x - site.x, k.z - site.z) < minSpacing,
-    );
-    if (!tooClose) kept.push(site);
-  }
-  return kept;
 }
 
 /** Nomenclature : regroupe la visserie par type et longueur. */

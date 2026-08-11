@@ -213,7 +213,7 @@ surlignées** :
 | | |
 |---|---|
 | **Arêtes surlignées** | calque de lecture, bleu, sur toutes les pièces. La case du menu Affichage l'allume et l'éteint. |
-| **Chanfrein** | caractéristique de la pièce. Seules celles qui le déclarent en portent un — aujourd'hui les deux joues caméra. **Il reste visible quand la case est décochée.** |
+| **Chanfrein** | caractéristique de la pièce. Seules celles qui le déclarent en portent un — aujourd'hui les deux joues caméra, **qui sont en aluminium usiné** et dont l'arête accroche vraiment la lumière. **Il reste visible quand la case est décochée.** |
 
 Décocher une aide à la lecture ne doit pas effacer une arête réellement
 chanfreinée : c'est toute la différence entre les deux.
@@ -672,6 +672,50 @@ une déduction, pas un relevé : elle se corrigera avec les photos des hélices.
 > chevauchent au lieu de former un solide fermé. Les pièces du châssis, elles,
 > restent vérifiées fermées.
 
+### La détection, par colonne
+
+**Détecter et poser** raisonnait par PAIRES : chaque perçage bas cherchait un
+perçage haut, et tous les couples possibles devenaient des fixations. Sur un
+empilage de trois pièces, cela en donnait **trois pour un seul trou** — plaque
+vers bras, bras vers plaque intermédiaire, et par-dessus le marché plaque vers
+plaque avec une entretoise de 3,5 mm inventée là où c'est le **bras** qui
+remplit l'écart. Un curseur d'espacement minimal masquait le problème en n'en
+gardant qu'une, au hasard. Ce curseur a disparu : il n'a plus lieu d'être.
+
+La détection raisonne maintenant **par colonne**. Tous les perçages alignés à
+la verticale forment un empilage ; la colonne se découpe à chaque vide, et
+chaque étage reçoit **une** vis, qui traverse tout ce qui est au-dessus et mord
+dans la pièce du bas. S'il reste de l'air entre deux étages de plaques, c'est
+là — et là seulement — qu'une entretoise se dresse.
+
+Ce que ça donne sur ce châssis, sans une seule fixation laissée sans vis :
+
+| | |
+|---|---|
+| 8 × **M2×8** | plaque inférieure → intermédiaire, **en serrant le bras** (1,5 + 3,5 + 2,5) |
+| 8 × **M2×7** + entretoise 1 mm | clamp-plate → intermédiaire |
+| 4 × **M2×8/M2×6** + entretoise 21,94 mm | l'étage de la top-plate |
+| 16 × **M2×10** | les moteurs, par le dessous |
+| le reste | joues caméra, support VTX, support GPS, stick pad |
+
+Quatre règles ont été nécessaires, toutes tirées de défauts constatés :
+
+- **la sonde voit les deux faces** le temps de la mesure. Les matières sont en
+  face avant : un rayon lancé vers le bas ne rencontrait que les surfaces
+  tournées vers le haut. La joue caméra annonçait 12 à 24 mm de matière à
+  traverser, le support VTX 15, et l'outil réclamait des M2×16 à M2×26 qui
+  n'existent pas au sachet. Mesures corrigées : 4,1 et 3,0 mm ;
+- **un pied de fixation est mince** — au-delà de 8 mm, le perçage aligné est
+  autre chose. Les trous d'axe d'une joue caméra, à vingt-cinq millimètres du
+  plan de pose, tombent en projection sur les perçages de la plaque ;
+- **une entretoise ne se dresse qu'entre deux plaques**, et sur la plaque la
+  plus proche en dessous. Un flanc de cover clipsé s'intercale dans la colonne
+  sans rien porter, et la top-plate y perdait ses entretoises ;
+- **tous les perçages ne sont pas des taraudages.** Le support VTX se fixe par
+  deux trous de Ø3,99 — hors de toute plage de filetage. Le filetage se lit sur
+  le perçage le plus étroit de la colonne, les autres ne font que laisser
+  passer.
+
 ### Les vis moteur
 
 Elles sont à part dans tout le build, et la nomenclature les sort de la masse
@@ -731,7 +775,10 @@ d'un clic sur tout ce qui se peint.
 | Pièces imprimées | covers, joues, supports, patins, caches |
 | Stick pad | matière à part — la bobine de TPU n'est jamais du même bain |
 | Cloches moteur | aluminium anodisé, donc repeignable |
+| Liseré des cloches | l'accent de la livrée — deux couleurs sur un moteur, c'est tout l'intérêt |
+| Joues du support caméra | **en aluminium usiné**, pas en plastique : elles suivent les cloches |
 | Filet de chanfrein | une livrée sombre veut un filet clair, et l'inverse |
+| Toute la visserie | d'un bloc — on ne panache pas des vis |
 | **Les deux hélices avant** | et elles seules |
 
 **Pourquoi les hélices avant seulement.** C'est la convention du FPV : l'avant
@@ -757,6 +804,12 @@ Ghost ne laisse pas de jaune sur les pièces que Ghost ne nomme pas. Le
 classement se fait sur la **matière déclarée** par chaque pièce, pas sur une
 liste d'identifiants — un support imprimé ajouté demain sera peint sans qu'on
 ait à revenir dans le fichier.
+
+Trois de ces teintes ne visent pas une pièce mais une **matière**, partout où
+elle se trouve : le liseré des cloches, la visserie et le filet de chanfrein.
+Elles sont rejouées au chargement — sans quoi une livrée retrouvée après
+rechargement avait ses pièces peintes mais ses vis en acier et ses liserés
+turquoise.
 
 Le choix est conservé d'une session à l'autre, et se défait par **Annuler**.
 

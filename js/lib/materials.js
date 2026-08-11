@@ -131,10 +131,35 @@ export function anodizedMaterial(color = 0x2e3238) {
 export function accentMaterial(color = 0x18b3a4) {
   const m = new THREE.MeshPhysicalMaterial({
     color, metalness: 0.35, roughness: 0.3, clearcoat: 0.6,
-    emissive: 0x04322e,
   });
-  m.userData.fixedTint = true;
+  // Le liseré SUIT LA LIVRÉE, mais pas la teinte de la pièce : la cloche et
+  // son liseré sont deux couleurs, c'est tout l'intérêt. D'où un rôle à part,
+  // teinté par `setAccentTint` et non par le sélecteur de la pièce.
+  m.userData.tintRole = 'accent';
+  m.userData.baseTint = color;
   return m;
+}
+
+/**
+ * Aluminium usiné : joues du support caméra.
+ *
+ * Ce ne sont pas des pièces imprimées — elles sont en métal, et leur arête
+ * d'usinage accroche la lumière, ce que rend déjà leur chanfrein.
+ */
+export function machinedMaterial(color = 0x30343a) {
+  const m = new THREE.MeshPhysicalMaterial({
+    color, metalness: 0.55, roughness: 0.34, clearcoat: 0.45, clearcoatRoughness: 0.2,
+  });
+  m.userData.baseTint = color;
+  return m;
+}
+
+/* Teinte des liserés, commune à tout le build : une livrée les change tous. */
+let accentTint = null;
+
+/** @param {number|null} hex couleur des liserés, ou null pour l'origine */
+export function setAccentTint(hex) {
+  accentTint = (hex === null || hex === undefined) ? null : hex;
 }
 
 /** Acier clair : arbre, bout d'arbre. */
@@ -317,6 +342,13 @@ export function tintMaterial(material, kind, hex) {
   }
   // le cuivre d'un bobinage ne se repeint pas : la matière le déclare
   if (material.userData && material.userData.fixedTint) return;
+
+  // un liseré ne prend pas la couleur de sa pièce, il prend celle des liserés
+  if (material.userData && material.userData.tintRole === 'accent') {
+    material.color.setHex(accentTint ?? material.userData.baseTint);
+    material.needsUpdate = true;
+    return;
+  }
 
   const carbon = kind === 'carbone';
   if (hex === null || hex === undefined) {

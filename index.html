@@ -132,11 +132,11 @@
         <strong>sachet livré avec le châssis</strong> — 88 pièces, étalées sur
         le plan de travail au départ — et la plus courte qui tienne est
         retenue. Chaque vis quitte son casier et va se poser dans son perçage,
-        en mouvement.<br>Tout perçage en regard d'un autre est un point de
-        fixation <em>possible</em> : l'espacement minimal écarte les
-        redondants.</p>
-      <label class="ctl">Espacement minimal <output id="v-spacing">8 mm</output>
-        <input type="range" id="hw-spacing" min="0" max="30" step="1" value="8"></label>
+        en mouvement.<br>La détection raisonne <strong>par colonne</strong> :
+        tous les perçages alignés à la verticale forment un empilage, et cet
+        empilage reçoit <strong>une</strong> vis — elle traverse tout ce qui
+        est au-dessus et mord dans la pièce du bas. S'il reste de l'air entre
+        deux étages de plaques, c'est là qu'une entretoise se dresse.</p>
       <label class="opt"><input type="checkbox" id="opt-kit" checked> Afficher le sachet sur le plan</label>
       <p class="hint">Vis et entretoises posées s'affichent ou se cachent
         séparément, depuis le menu <strong>Affichage</strong>.</p>

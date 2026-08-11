@@ -15,7 +15,7 @@ import {
   describe as describeScale, rememberPattern, usesPreferred as usesPreferredPattern,
 } from './lib/patterns.js';
 import { FRAME, thicknessForRole } from './frame-spec.js';
-import { tintMaterial, DEFAULT_TINT } from './lib/materials.js';
+import { tintMaterial, DEFAULT_TINT, setAccentTint } from './lib/materials.js';
 import { LIVREES, swatchOf, colorFor } from './liveries.js';
 import * as exporter from './lib/export.js';
 import * as hw from './hardware.js';
@@ -36,7 +36,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-11f · livrees de couleur, moyeu d helice a deux vis';
+const BUILD = '2026-08-11g · visserie par colonne, joues camera en metal';
 $('build-stamp').textContent = BUILD;
 
 /* Les trois groupes de visserie — sachet du plan de travail, visserie posée,
@@ -1145,6 +1145,18 @@ function applyLivree(livree) {
     }
   }
   saveColors();
+
+  /*
+   * Trois teintes ne se rangent pas dans `partColors` : elles ne visent pas
+   * une pièce mais une MATIÈRE, partout où elle se trouve.
+   *
+   *  - le liseré des ouvertures de cloche, qui doit rester d'une autre couleur
+   *    que la cloche elle-même — c'est tout son intérêt ;
+   *  - la visserie, d'un bloc : on ne panache pas des vis ;
+   *  - le filet de chanfrein, qui a déjà son propre réglage.
+   */
+  setAccentTint(livree.accent ? Number(`0x${livree.accent.slice(1)}`) : null);
+  hw.setHardwareTint(livree.visserie ? Number(`0x${livree.visserie.slice(1)}`) : null);
   applyColors();
 
   if (livree.chanfrein) {
@@ -1329,6 +1341,27 @@ function measureHoles(entry) {
   const box = new THREE.Box3().setFromObject(body);
   // taraudage déclaré par la pièce, quand elle en connaît la cote
   const mount = entry.mod.meta.mount || null;
+
+  /*
+   * LA SONDE VOIT LES DEUX FACES, LE TEMPS DE LA MESURE.
+   *
+   * Les matières sont en FACE AVANT : un rayon lancé vers le bas ne rencontre
+   * que les surfaces tournées vers le haut, jamais les dessous. Sur une plaque
+   * carbone, dont la matière est double face par ailleurs, la mesure tombait
+   * juste ; sur les pièces importées, non — la joue support caméra annonçait
+   * 12 à 24 mm de matière à traverser, le support VTX 15, et l'outil réclamait
+   * des vis de M2×16 à M2×26 qui n'existent pas au sachet.
+   *
+   * On bascule donc les matières en double face pendant le palpage, puis on
+   * les remet. C'est le rendu qui veut la face avant, pas la mesure.
+   */
+  const faces = [];
+  const mats = Array.isArray(body.material) ? body.material : [body.material];
+  for (const m of mats) {
+    if (!m) continue;
+    faces.push([m, m.side]);
+    m.side = THREE.DoubleSide;
+  }
   const v = new THREE.Vector3();
   const mq = new THREE.Quaternion();
   const dir = new THREE.Vector3();
@@ -1399,6 +1432,8 @@ function measureHoles(entry) {
     });
   });
 
+  for (const [m, side] of faces) m.side = side;
+
   entry.holder.position.copy(keep.p);
   entry.holder.quaternion.copy(keep.q);
   entry.holder.updateMatrixWorld(true);
@@ -1446,6 +1481,9 @@ function assembledParts() {
         name: e.mod.meta.name,
         y: e.holder.position.y,
         thickness: e.mod.meta.dims.thickness,
+        // plaque tracée (carbone) ou maillage importé : une entretoise ne se
+        // dresse qu'entre deux plaques
+        plate: !e.mod.meta.isMesh,
         // vissée par le dessous (moteur), ou sans perçage de vis (hélice)
         underslung: e.mod.meta.underslung === true,
         noFastener: e.mod.meta.noFastener === true,
@@ -1518,7 +1556,6 @@ function placeHardware(options = {}) {
   clearHardware();
 
   const parts = assembledParts();
-  const spacing = Number($('hw-spacing').value);
   const parDessous = hw.findUnderslungSites(parts);
 
   /*
@@ -1536,12 +1573,9 @@ function placeHardware(options = {}) {
   );
   const classiques = hw.findFastenerSites(parts).filter((s) => !prisParDessous(s));
 
-  // LES VIS PAR LE DESSOUS NE S'ESPACENT PAS. Un moteur tient par ses quatre
-  // vis, pas par deux : l'espacement, qui écarte les fixations redondantes
-  // d'une plaque, n'a rien à faire ici. Et elles ne sortent pas du sachet du
-  // châssis — elles viennent avec les moteurs —, donc elles ne puisent pas
-  // dans le même stock.
-  let sites = hw.spaceOut(classiques, spacing);
+  // Les vis par le dessous ne sortent pas du sachet du châssis — elles
+  // viennent avec les moteurs —, donc elles ne puisent pas dans le même stock.
+  const sites = classiques;
   const candidates = classiques.concat(parDessous);
 
   if (!candidates.length) {
@@ -1758,10 +1792,6 @@ function renderBom(items, sites, candidateCount, missing = [], free = [], parts 
 }
 
 $('hw-place').addEventListener('click', () => placeHardware({ animated: true }));
-$('hw-spacing').addEventListener('input', () => {
-  $('v-spacing').value = `${$('hw-spacing').value} mm`;
-  if (hardwareGroup.children.length) placeHardware();
-});
 $('hw-clear').addEventListener('click', () => {
   clearHardware();
   updateAsmHint('Visserie retirée.');
@@ -3264,6 +3294,23 @@ function renderPartList() {
 }
 renderPartList();
 renderLivrees();
+
+/*
+ * Les teintes de MATIÈRE se rejouent au démarrage.
+ *
+ * Les couleurs de pièce sont dans le stockage, elles reviennent seules ; le
+ * liseré des cloches et la visserie, eux, vivent dans leur matière et pas dans
+ * un plan. Sans ce rappel, une livrée retrouvée après rechargement avait ses
+ * pièces peintes mais ses vis en acier et ses liserés turquoise.
+ */
+if (livreeId) {
+  const l = LIVREES.find((x) => x.id === livreeId);
+  if (l) {
+    setAccentTint(l.accent ? Number(`0x${l.accent.slice(1)}`) : null);
+    hw.setHardwareTint(l.visserie ? Number(`0x${l.visserie.slice(1)}`) : null);
+    applyColors();
+  }
+}
 
 const plannedList = $('planned-list');
 for (const p of PLANNED) {

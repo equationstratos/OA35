@@ -9,9 +9,14 @@
  *    couleur qu'on voit de loin, celle qui donne son nom à la livrée.
  *  - LE STICK PAD, en TPU. Matière différente, teinte propre : sur une vraie
  *    machine, la bobine de TPU souple n'est jamais du même bain que le PLA.
- *  - LES CLOCHES MOTEUR. Elles sont en aluminium anodisé, donc repeignables ;
- *    le cuivre des bobinages et l'acier de l'arbre, eux, ne bougent pas —
- *    leur matière refuse la teinte, et c'est voulu.
+ *  - LES CLOCHES MOTEUR, et le LISERÉ qui cerne leurs ouvertures. Ce sont deux
+ *    couleurs distinctes : la cloche prend la teinte de la livrée, le liseré
+ *    son accent. Le cuivre des bobinages et l'acier de l'arbre, eux, ne
+ *    bougent pas — leur matière refuse la teinte, et c'est voulu.
+ *  - LES JOUES DU SUPPORT CAMÉRA, en aluminium usiné : du métal, pas du
+ *    plastique imprimé, elles suivent donc les cloches moteur.
+ *  - LA VISSERIE, d'un bloc. On ne panache pas des vis : une seule couleur
+ *    pour toutes, celle que la livrée donne.
  *  - LE FILET DE CHANFREIN, ce liseré clair qui suit les arêtes d'usinage.
  *    Une livrée sombre demande un filet clair, une livrée claire un filet
  *    plus doux : il fait partie du jeu.
@@ -51,6 +56,7 @@ export const LIVREES = [
     note: 'jaune ruche sur noir',
     imprime: '#f2b705', tpu: '#f2b705', moteur: '#1b1d21',
     helice: '#f2b705', chanfrein: '#ffe08a',
+    accent: '#ffd54a', visserie: '#f2b705',
   },
   {
     id: 'red-racing',
@@ -58,6 +64,7 @@ export const LIVREES = [
     note: 'rouge course',
     imprime: '#c8102e', tpu: '#c8102e', moteur: '#2a1114',
     helice: '#e01f3d', chanfrein: '#ff9aa6',
+    accent: '#ff5a72', visserie: '#c8102e',
   },
   {
     id: 'spider',
@@ -65,6 +72,7 @@ export const LIVREES = [
     note: 'violet d’araignée',
     imprime: '#6b2fbf', tpu: '#7a3ad4', moteur: '#221037',
     helice: '#8b5cf6', chanfrein: '#c9a7ff',
+    accent: '#b388ff', visserie: '#8b5cf6',
   },
   {
     id: 'shark',
@@ -72,6 +80,7 @@ export const LIVREES = [
     note: 'bleu requin',
     imprime: '#1e6fd9', tpu: '#1e6fd9', moteur: '#10243d',
     helice: '#3b8ef0', chanfrein: '#9fd0ff',
+    accent: '#6cc7ff', visserie: '#3b8ef0',
   },
   {
     id: 'snake',
@@ -79,6 +88,7 @@ export const LIVREES = [
     note: 'vert clair de serpent',
     imprime: '#6fd44e', tpu: '#8ae06d', moteur: '#162a12',
     helice: '#7fe05c', chanfrein: '#c8ffab',
+    accent: '#b6ff8a', visserie: '#7fe05c',
   },
   {
     id: 'girly',
@@ -86,6 +96,7 @@ export const LIVREES = [
     note: 'rose franc',
     imprime: '#ff5fa2', tpu: '#ff7fb6', moteur: '#33101f',
     helice: '#ff77b0', chanfrein: '#ffc2dc',
+    accent: '#ffb3d1', visserie: '#ff77b0',
   },
   {
     id: 'ghost',
@@ -93,6 +104,7 @@ export const LIVREES = [
     note: 'noir mat, filet clair',
     imprime: '#14161a', tpu: '#14161a', moteur: '#0f1114',
     helice: '#1b1e23', chanfrein: '#e9eef5',
+    accent: '#8a9199', visserie: '#6f767e',
   },
   {
     id: 'steel',
@@ -100,6 +112,7 @@ export const LIVREES = [
     note: 'gris acier',
     imprime: '#8b949e', tpu: '#7c858f', moteur: '#5b636c',
     helice: '#9aa3ad', chanfrein: '#f2f6fa',
+    accent: '#dfe6ee', visserie: '#b9c2cc',
   },
   {
     id: 'tiger',
@@ -107,6 +120,7 @@ export const LIVREES = [
     note: 'orange tigre',
     imprime: '#ff7a18', tpu: '#ff8c33', moteur: '#231208',
     helice: '#ff8f2e', chanfrein: '#ffc48a',
+    accent: '#ffc48a', visserie: '#ff8f2e',
   },
   {
     id: 'white-wolf',
@@ -114,6 +128,7 @@ export const LIVREES = [
     note: 'blanc loup',
     imprime: '#eef2f6', tpu: '#e2e8ee', moteur: '#c9d0d8',
     helice: '#f4f7fa', chanfrein: '#9fb2c4',
+    accent: '#9fb2c4', visserie: '#c9d0d8',
   },
 
   /* --- quatre de plus, dans le même esprit --------------------------- */
@@ -123,6 +138,7 @@ export const LIVREES = [
     note: 'cuivre chaud sur noir — la teinte des bobinages',
     imprime: '#b06a2c', tpu: '#c07a35', moteur: '#1b1d21',
     helice: '#c98a3a', chanfrein: '#ffd7a8',
+    accent: '#e5a55c', visserie: '#c98a3a',
   },
   {
     id: 'glacier',
@@ -130,6 +146,7 @@ export const LIVREES = [
     note: 'blanc bleuté, filet cyan',
     imprime: '#dfe9f2', tpu: '#cfe0ee', moteur: '#7f97ab',
     helice: '#eaf3fa', chanfrein: '#6cd8ff',
+    accent: '#6cd8ff', visserie: '#a9c6da',
   },
   {
     id: 'kaki',
@@ -137,6 +154,7 @@ export const LIVREES = [
     note: 'vert militaire mat',
     imprime: '#5d6b3a', tpu: '#6b7a44', moteur: '#2a3019',
     helice: '#6f7f46', chanfrein: '#cbd7a6',
+    accent: '#cbd7a6', visserie: '#8b9a5e',
   },
   {
     id: 'toxic',
@@ -144,6 +162,7 @@ export const LIVREES = [
     note: 'vert fluo sur anthracite',
     imprime: '#b6ff1a', tpu: '#c8ff4d', moteur: '#181a1d',
     helice: '#c4ff3d', chanfrein: '#e8ff9a',
+    accent: '#e8ff9a', visserie: '#b6ff1a',
   },
 ];
 
@@ -169,6 +188,9 @@ export function colorFor(livree, meta) {
     case 'TPU souple':
       return livree.tpu || livree.imprime || null;
     case 'Moteur brushless':
+      return livree.moteur || null;
+    case 'Aluminium usiné':
+      // les joues caméra sont du métal anodisé, comme les cloches
       return livree.moteur || null;
     case 'Polycarbonate':
       // les DEUX AVANT seulement : l'arrière reste sombre, c'est le repère
