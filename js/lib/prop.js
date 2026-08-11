@@ -31,11 +31,17 @@ export const PROP = {
   pitch: 2.5 * POUCE,        // 63,5 mm par tour
   blades: 3,
 
-  hubDiameter: 10.0,
+  hubDiameter: 9.0,
   hubHeight: 6.2,
-  collarDiameter: 7.6,
+  collarDiameter: 6.4,
   collarHeight: 1.3,
-  bore: 5.0,                 // alésage, arbre M5
+  /**
+   * Alésage. Il suit l'ARBRE DU MOTEUR tel que les photos le montrent — un
+   * téton de Ø2,1 —, pas le Ø5 habituel d'une hélice de ce format. Les deux
+   * pièces doivent s'emmancher l'une sur l'autre dans le visualiseur ; le
+   * jour où j'aurai les photos des hélices, c'est ici que ça se corrige.
+   */
+  bore: 2.4,
 
   rootRadius: 4.0,           // le pied est noyé dans le moyeu
   maxChord: 14.6,
@@ -127,7 +133,9 @@ export function buildProp(hand = 1) {
   parts.push({ geometry: col, material: moyeu });
 
   /* --- Les pales --------------------------------------------------- */
-  const zAxe = P.hubHeight * 0.42;   // les pales partent à mi-hauteur du moyeu
+  // Les pales partent HAUT dans le moyeu : plus bas, leur pied plongeait
+  // sous la base du moyeu et venait mordre le plateau de la cloche moteur.
+  const zAxe = P.hubHeight * 0.60;
 
   for (let b = 0; b < P.blades; b++) {
     const base = 2 * Math.PI * b / P.blades;

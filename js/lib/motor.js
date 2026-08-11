@@ -82,8 +82,16 @@ export const MOTOR = {
   /** Embase */
   baseThickness: 1.8,
   baseHubDiameter: 11.0,
-  mountSpacing: 12.0,    // entraxe M2, 12 × 12
-  mountHoleDiameter: 2.1,
+  /**
+   * CERCLE DE PERÇAGE Ø12, quatre trous M2 à 45°.
+   *
+   * Relevé sur les bras du châssis, pas supposé : leurs quatre perçages
+   * moteur sont espacés de 8,486 mm en X comme en Z, soit √2 × 6 — des trous
+   * sur un cercle de Ø12, et non le carré de 12 × 12 que j'avais dessiné
+   * d'abord. Avec l'entraxe erroné, le moteur ne se vissait sur rien.
+   */
+  mountCircle: 12.0,
+  mountHoleDiameter: 1.9,
   bossDiameter: 4.8,
 
   /** Fils */
@@ -430,7 +438,7 @@ export function buildMotor() {
   }
 
   /* --- Embase en croix -------------------------------------------- */
-  const rMount = m.mountSpacing / 2 * Math.SQRT2;   // entraxe 12 × 12, donc 45°
+  const rMount = m.mountCircle / 2;                 // quatre trous à 45°
   const rBoss = m.bossDiameter / 2;
 
   const socle = new THREE.CylinderGeometry(

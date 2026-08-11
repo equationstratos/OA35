@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-11b · moteurs 1804 et helices 3,5 pouces, dessines';
+const BUILD = '2026-08-11c · moteurs et helices dans le plan de build';
 $('build-stamp').textContent = BUILD;
 
 /* Les trois groupes de visserie — sachet du plan de travail, visserie posée,

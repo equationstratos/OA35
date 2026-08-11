@@ -261,6 +261,39 @@ Dans les deux cas elle apparaît dans le panneau latéral avec sa case
 d'affichage et ses cotes, et se pose **à côté des pièces déjà créées** dans la
 vue 3D.
 
+## Le plan de build livré
+
+`tinyhoop-mk1-plan.json` — le build monté, à charger par **Plan ▾ → Importer**.
+Il place les **vingt-sept pièces** : le châssis, les covers, les supports, les
+patins, puis les quatre moteurs et les quatre hélices.
+
+Les moteurs n'y sont pas posés à vue. Chaque bras porte, au centre de ses
+quatre perçages M2, un **dégagement d'arbre de Ø4,25** : c'est lui qui donne
+l'axe. Le moteur est posé dessus, sur la face supérieure du bras (y = 4,25),
+et l'hélice à 11,75 mm au-dessus — le dessus du moyeu de cloche.
+
+Ce que ce calage donne comme contrôle, une fois les quatre axes placés :
+
+| | |
+|---|---|
+| Rectangle moteur | 139,7 × 101,6 mm |
+| Diagonale (empattement) | **172,7 mm** |
+| Fiche technique | 175 mm |
+| Écart | 2,3 mm, soit 1,3 % |
+
+C'est l'usage annoncé de l'empattement — *« il servira de contrôle une fois
+les bras modélisés »*. Les 1,3 % qui restent viennent du placement des bras
+dans le plan, pas de la géométrie des pièces : au montage, le visualiseur
+recale de lui-même 15 pièces sur leurs perçages, de 0,40 mm au maximum.
+
+Écart entre axes voisins : **101,6 mm** pour des hélices de 88,9 — les disques
+ne se recouvrent pas, il reste 12,7 mm entre bouts de pales.
+
+> Le fichier `tinyhoopmk1plancorrige (2).json`, plus ancien, est laissé tel
+> quel mais **périmé** : il désigne encore les covers par `cover-01` et
+> `cover-02`, identifiants qui n'existent plus depuis que chaque flanc est une
+> pièce à lui (`cover-01-g` / `cover-01-d`).
+
 ## Disposition des pièces
 
 Deux modes, via **Pièces côte à côte** dans le panneau Affichage :
@@ -562,6 +595,27 @@ Ces deux pièces sont **multi-matières** — six matières pour le moteur, deux
 pour l'hélice, sur un seul maillage par plages de faces. Le sélecteur de
 couleur ne touche que ce qui se repeint : on peut changer la teinte d'une
 cloche, pas celle d'un bobinage de cuivre.
+
+#### L'entraxe de fixation, corrigé par les bras
+
+Le moteur a d'abord été dessiné avec le carré de **12 × 12 mm** annoncé
+partout pour ce format. Les bras disent autre chose : leurs quatre perçages
+moteur sont espacés de **8,486 mm** en X comme en Z — soit √2 × 6, donc des
+trous sur un **cercle de Ø12**, à 45°. Avec le carré, le moteur ne se vissait
+sur rien. C'est la cote des bras qui fait foi, elle est mesurée sur le fichier
+fourni ; le moteur a été refait dessus.
+
+Chaque bras porte aussi, au centre exact de ces quatre perçages, un trou de
+**Ø4,25** — le dégagement d'arbre. C'est lui qui donne l'axe moteur, sans
+avoir à moyenner quoi que ce soit.
+
+#### L'accouplement moteur-hélice
+
+Sur les photos, l'arbre qui dépasse de la cloche est un **téton de Ø2,1**, pas
+l'arbre fileté M5 habituel de ce format. L'alésage de l'hélice a donc été mis
+à Ø2,4 pour que les deux pièces s'emmanchent réellement dans le visualiseur,
+plutôt que de laisser un trou de Ø5 flotter au-dessus d'un téton de Ø2. C'est
+une déduction, pas un relevé : elle se corrigera avec les photos des hélices.
 
 > Leur bouton **⬇ STL** exporte bien la géométrie, mais ce n'est **pas une
 > pièce imprimable** : un moteur et une hélice s'achètent, et leurs volumes se
