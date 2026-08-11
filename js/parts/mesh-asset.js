@@ -34,6 +34,9 @@ import { printedMaterial } from '../lib/materials.js';
  *        pour que « bas » veuille dire la même chose ici que sur le drone.
  * @param {boolean} [o.chamfer] la pièce porte un chanfrein d'usinage visible :
  *        un filet clair suit ses arêtes vives, indépendamment du surlignage
+ * @param {number} [o.clamp] épaisseur SERRÉE par la vis qui la traverse, en mm.
+ *        À déclarer quand la sonde ne sait pas la mesurer : sur un maillage
+ *        importé aux parois obliques, elle retombe sur l'encombrement.
  * @param {number} [o.spin] quart de tour autour de la verticale DU FICHIER, en
  *        radians, appliqué avant tout le reste. Deux exports de la même pièce
  *        n'ont pas forcément sa longueur sur le même axe : sans ce recalage,
@@ -42,7 +45,7 @@ import { printedMaterial } from '../lib/materials.js';
 export async function meshPart({
   url, id, index, name, material, source,
   mirrored = false, zUp = true, upsideDown = false, spin = 0,
-  reuseAnchors = null, rides = null, chamfer = false,
+  reuseAnchors = null, rides = null, chamfer = false, clamp = null,
 }) {
   let geometry = null;
   let error = null;
@@ -143,6 +146,9 @@ export async function meshPart({
       // pièce portée par une autre : elle n'a pas de place à elle dans le
       // build assemblé, elle est là où est celle qu'elle habille
       rides,
+      // épaisseur réellement serrée par la vis qui la traverse, quand la
+      // sonde ne sait pas la mesurer sur un maillage importé
+      clamp,
       dims: {
         // « thickness » sert de demi-épaisseur pour poser une pièce au-dessus
         // ou en dessous d'une autre : c'est la HAUTEUR dans la scène qu'il

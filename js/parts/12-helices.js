@@ -57,6 +57,12 @@ function propPart({ id, index, name, sens }) {
       material: MATERIAL,
       stackHeight: 0,
       isMesh: true,
+      /**
+       * Rien à visser ici. L'alésage central n'est pas un perçage de fixation
+       * mais le passage de l'arbre : laissé au détecteur, il devenait un point
+       * de vissage et plantait une vis en plein milieu de l'hélice.
+       */
+      noFastener: true,
       missingAsset: null,
       source: `tripale 3,5" × 2,5, rotation ${rotation}`
         + ' — dessinée d’après le format du châssis, pas d’une photo',

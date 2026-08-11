@@ -92,6 +92,16 @@ export const MOTOR = {
    */
   mountCircle: 12.0,
   mountHoleDiameter: 1.9,
+  /**
+   * Profondeur de filet des quatre trous.
+   *
+   * Ce n'est PAS l'épaisseur de la semelle : la pièce réelle porte un bossage
+   * autour de chaque perçage, et c'est lui qui donne la prise. La cote compte,
+   * c'est elle qui décide de la longueur de vis — 3,5 mm de bras plus 3,4 de
+   * filet donnent une M2×7. Prise sur la semelle seule, elle aurait annoncé du
+   * M2×6, trop court pour tenir un moteur.
+   */
+  threadDepth: 3.4,
   bossDiameter: 4.8,
 
   /**
@@ -474,6 +484,18 @@ export function buildMotor({ wireRun = MOTOR.wireRun } = {}) {
     });
     pg.translate(Math.cos(a) * rMount, Math.sin(a) * rMount, 0);
     parts.push({ geometry: pg, material: noir });
+
+    // le bossage taraudé, à l'intérieur de la cloche : invisible une fois
+    // montée, mais c'est lui que la vis moteur trouve en arrivant par le bas
+    const bossage = new THREE.Shape();
+    const bd = discShape(rBoss * 0.86, 24);
+    bossage.curves = bd.curves;
+    bossage.holes.push(circlePath(m.mountHoleDiameter / 2, 16));
+    const bg = new THREE.ExtrudeGeometry(bossage, {
+      depth: m.threadDepth - m.baseThickness, bevelEnabled: false, curveSegments: 8,
+    });
+    bg.translate(Math.cos(a) * rMount, Math.sin(a) * rMount, m.baseThickness);
+    parts.push({ geometry: bg, material: noir });
   }
 
   // portée de roulement, au centre de l'embase

@@ -666,6 +666,48 @@ une déduction, pas un relevé : elle se corrigera avec les photos des hélices.
 > chevauchent au lieu de former un solide fermé. Les pièces du châssis, elles,
 > restent vérifiées fermées.
 
+### Les vis moteur
+
+Elles sont à part dans tout le build, et la nomenclature les sort de la masse
+sous leur propre ligne, **Vis moteur — par le DESSOUS**.
+
+| | |
+|---|---|
+| Nombre | 4 par moteur, **16** en tout |
+| Longueur | **M2×10** |
+| Sens | tête **sous** le patin, filet dans la semelle du moteur |
+| Provenance | livrées **avec les moteurs** |
+
+**Elles montent par le dessous**, et c'est ce qui les rendait introuvables : le
+détecteur de visserie ne savait poser qu'une vis par le dessus, tête sur la
+pièce haute. Appliqué au moteur, il plantait une tête au sommet de la cloche.
+Une pièce peut désormais déclarer qu'elle se visse par en dessous ; le couple
+est alors lu à l'envers — la vis traverse la pièce basse et mord dans la haute.
+
+**Elles ne prennent pas que le bras.** Les quatre trous du patin sont sur le
+même cercle de Ø12 que ceux du moteur : la même vis prend la bride du patin,
+traverse le bras, puis se visse dans la semelle. D'où la longueur :
+
+    2,5 mm de patin + 3,5 mm de bras + 3,4 mm de taraudage = 9,4 → M2×10
+
+**Le sachet du châssis n'a pas cette longueur** — il saute de M2×8 à M2×12.
+C'est normal, et c'est dit dans la fiche : les vis moteur viennent avec les
+moteurs. Les laisser puiser dans le sachet vidait les vis longues au détriment
+des fixations qui en ont besoin, et laissait douze moteurs sur seize sans vis.
+
+Deux cotes ont dû être **déclarées** plutôt que mesurées, parce que la sonde de
+perçage ne sait pas les voir. Elle lance un rayon vers le bas et ne retient que
+ce qu'il touche ; or les matières d'une pièce dessinée ou importée ne sont
+tournées que vers l'extérieur, si bien que le rayon voit les dessus et jamais
+les dessous. Sur une plaque carbone, dont la matière est double face, la mesure
+est juste ; ailleurs, non :
+
+- le **taraudage du moteur**, 3,4 mm. Palpé, il donnait 1,6 — donc une vis trop
+  courte pour tenir un moteur ;
+- la **bride du patin**, 2,5 mm. Palpée, elle donnait 8,70 : l'encombrement de
+  la pièce entière, béquille comprise. La cote vient du fichier — sur 3 364
+  colonnes sondées, 1 360 tombent entre 2,5 et 3,0 mm, médiane 2,50.
+
 ## Visserie
 
 La visserie est le seul élément qui n'a pas à être photographié : elle est

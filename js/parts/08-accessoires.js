@@ -132,9 +132,19 @@ export const ACCESSORIES = await Promise.all([
   // c'est justement elle qui vient contre le dessous du bras : la béquille
   // creuse (6,1 mm) et la pointe doivent descendre vers le sol. Sans le
   // retournement, le patin monte dans le bras.
+  //
+  // `clamp` : LA MÊME VIS QUE LE MOTEUR TRAVERSE LE PATIN. Les quatre trous du
+  // patin sont sur le cercle de Ø12 des perçages moteur — la vis monte du
+  // dessous, prend la bride du patin, traverse le bras, et se visse dans la
+  // semelle du moteur. Sa longueur dépend donc de cette bride.
+  //
+  // 2,5 mm, mesuré sur le fichier : sur 3 364 colonnes sondées, 1 360
+  // tombent entre 2,5 et 3,0 mm et la médiane vaut 2,50. La sonde du
+  // visualiseur, elle, annonçait 8,70 — l'encombrement de la pièce, béquille
+  // comprise — parce qu'un rayon vertical ne voit pas les faces inférieures.
   ...FOOTPAD_SLOTS.map(({ id, index, name }) => meshPart({
     url: 'assets/parts-3d/35_footpad_final.STL',
     id, index, name, material: PRINTED, source: 'fichier STL fourni',
-    zUp: false, upsideDown: true,
+    zUp: false, upsideDown: true, clamp: 2.5,
   })),
 ]);

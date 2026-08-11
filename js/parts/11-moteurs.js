@@ -66,6 +66,20 @@ function motorPart({ id, index, name, jeu }) {
       material: MATERIAL,
       stackHeight: 0,
       isMesh: true,
+      /**
+       * VISSÉ PAR LE DESSOUS. La vis moteur monte à travers le bras et se
+       * visse dans la semelle : sa tête est SOUS le bras, pas sur le moteur.
+       * Sans ce drapeau, le détecteur de visserie — qui ne connaît que la vis
+       * posée par le dessus — plantait une tête de vis au sommet de la cloche.
+       */
+      underslung: true,
+      /**
+       * Le taraudage, déclaré : face d'appui à y = 0 dans le repère de la
+       * pièce, 3,4 mm de filet. Le palpage par rayon ne sait pas le mesurer —
+       * il ne voit que les faces tournées vers le haut — et annonçait 1,6 mm,
+       * donc une vis trop courte pour tenir un moteur.
+       */
+      mount: { face: 0, depth: MOTOR.threadDepth },
       missingAsset: null,
       source: `${MOTOR.designation} ${MOTOR.kv} KV — dessiné d'après les photos du fabricant`,
       rides: null,

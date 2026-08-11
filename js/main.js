@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-11d · plan livre au 1er chargement, fils moteur recales';
+const BUILD = '2026-08-11e · vis moteur par le dessous, M2x10 avec le patin';
 $('build-stamp').textContent = BUILD;
 
 /* Les trois groupes de visserie — sachet du plan de travail, visserie posée,
@@ -1262,6 +1262,8 @@ function measureHoles(entry) {
   entry.holder.updateMatrixWorld(true);
 
   const box = new THREE.Box3().setFromObject(body);
+  // taraudage déclaré par la pièce, quand elle en connaît la cote
+  const mount = entry.mod.meta.mount || null;
   const v = new THREE.Vector3();
   const mq = new THREE.Quaternion();
   const dir = new THREE.Vector3();
@@ -1302,6 +1304,28 @@ function measureHoles(entry) {
       }
       if (best) break;
     }
+    /*
+     * TARAUDAGE DÉCLARÉ : le palpage ne sait pas le voir.
+     *
+     * La sonde lance un rayon vers le bas et ne retient que ce qu'il touche.
+     * Or les matières d'une pièce dessinée sont en face avant seulement : le
+     * rayon voit les dessus, jamais les dessous. Sur une plaque en carbone,
+     * dont la matière est double face, les deux surfaces répondent et la
+     * mesure est juste ; sur le moteur, elle s'arrêtait au sommet de sa patte
+     * et annonçait 1,6 mm de prise là où il y en a 3,4.
+     *
+     * Une pièce qui connaît son taraudage le déclare donc, et c'est elle qui
+     * a raison : on l'a dessinée.
+     */
+    if (mount) {
+      return Object.assign(probe, {
+        bottom: mount.face,
+        footTop: mount.face + mount.depth,
+        top: mount.face + mount.depth,
+        material: mount.depth,
+      });
+    }
+
     // sonde infructueuse (perçage au bord d'une paroi mince) : on retombe sur
     // l'encombrement mesuré de la pièce, jamais sur son origine
     return Object.assign(probe, best || {
@@ -1357,6 +1381,15 @@ function assembledParts() {
         name: e.mod.meta.name,
         y: e.holder.position.y,
         thickness: e.mod.meta.dims.thickness,
+        // vissée par le dessous (moteur), ou sans perçage de vis (hélice)
+        underslung: e.mod.meta.underslung === true,
+        noFastener: e.mod.meta.noFastener === true,
+        // épaisseur serrée par une vis qui la traverse (patin de bras)
+        clamp: e.mod.meta.clamp || 0,
+        // emprise au sol : sert à savoir si une vis tombe dans la pièce, quand
+        // ses perçages ne sont pas exploitables
+        minX: box.isEmpty() ? 0 : box.min.x, maxX: box.isEmpty() ? 0 : box.max.x,
+        minZ: box.isEmpty() ? 0 : box.min.z, maxZ: box.isEmpty() ? 0 : box.max.z,
         // faces réelles, mesurées : l'origine d'un maillage importé est à sa
         // base, pas en son milieu — y ± épaisseur/2 le plaçait n'importe où
         top: box.isEmpty() ? e.holder.position.y : box.max.y,
@@ -1423,6 +1456,15 @@ function placeHardware(options = {}) {
   const candidates = hw.findFastenerSites(parts);
   const spacing = Number($('hw-spacing').value);
   let sites = hw.spaceOut(candidates, spacing);
+
+  // LES VIS PAR LE DESSOUS SONT À PART. Un moteur tient par ses quatre vis,
+  // pas par deux : l'espacement, qui écarte les fixations redondantes d'une
+  // plaque, n'a rien à faire ici. Et elles ne sortent pas du sachet du
+  // châssis — elles viennent avec les moteurs —, donc elles ne puisent pas
+  // dans le même stock. Elles restent comptées parmi les candidates.
+  const parDessous = hw.findUnderslungSites(parts);
+  candidates.push(...parDessous);
+
   if (!candidates.length) {
     updateAsmHint(
       "Aucun perçage ne s'aligne entre deux pièces d'altitudes différentes. "
@@ -1446,7 +1488,12 @@ function placeHardware(options = {}) {
   const MIN_PER_PART = 2;      // une seule vis laisse la pièce pivoter
   let held = heldBy(sites);
   for (const part of parts) {
-    const own = candidates.filter((s) => s.lower.id === part.id || s.upper.id === part.id);
+    // Les fixations PAR LE DESSOUS ne se rattrapent pas ici : elles sont
+    // toutes retenues d'office et ne puisent pas dans le sachet. Les laisser
+    // passer revenait à en repêcher quelques-unes dans le stock du châssis,
+    // qui ressortaient en M2×12 et M2×16 au milieu des M2×10.
+    const own = candidates.filter((s) => !s.underslung
+      && (s.lower.id === part.id || s.upper.id === part.id));
     if (!own.length) continue;                       // rien à visser sur cette pièce
     while ((held.get(part.id) || 0) < Math.min(MIN_PER_PART, own.length)) {
       // on reprend le point le plus éloigné de ceux déjà retenus : deux vis
@@ -1464,8 +1511,10 @@ function placeHardware(options = {}) {
 
   // les vis sortent du sachet livré avec le châssis, pas d'un catalogue
   // infini : c'est lui qui décide des longueurs disponibles
-  const { assigned, stock, missing } = hw.allocateFromKit(sites);
+  const { assigned: duSachet, stock, missing } = hw.allocateFromKit(sites);
   kitStock = stock;
+  // et les vis moteur, hors sachet
+  const assigned = duSachet.concat(hw.allocateOwn(parDessous));
 
   // d'où part chaque vis : de son casier sur le plan quand on assemble le
   // build, directement en place quand on ne fait que recalculer la visserie
@@ -1489,8 +1538,17 @@ function placeHardware(options = {}) {
       hardwareGroup.add(standoff);
     }
     // la vis appuie sur la face supérieure de la pièce haute, au droit du trou
+    // — ou SOUS la pièce basse quand elle monte par le dessous
     const screw = hw.screwMesh(site.thread, item.screwLength);
-    const to = new THREE.Vector3(site.x, site.upperTop, site.z);
+    if (site.underslung) {
+      // demi-tour : la tige part vers le haut, la tête reste dessous
+      screw.rotation.x = Math.PI;
+      screw.userData.role = 'moteur';
+      screw.name = 'screw';
+    }
+    const to = new THREE.Vector3(
+      site.x, site.underslung ? site.seatBottom : site.upperTop, site.z,
+    );
     const slot = (spare.get(item.line.id) || []).pop();
     if (animated && slot) {
       screw.position.copy(slot);
@@ -1516,7 +1574,10 @@ function placeHardware(options = {}) {
 
 function renderBom(items, sites, candidateCount, missing = [], free = [], parts = []) {
   const used = new Map();
-  for (const item of items) used.set(item.line.id, (used.get(item.line.id) || 0) + 1);
+  for (const item of items) {
+    if (item.line.own) continue;     // vis moteur : elle ne sort pas du sachet
+    used.set(item.line.id, (used.get(item.line.id) || 0) + 1);
+  }
 
   // la nomenclature suit le sachet, ligne par ligne : ce qui sert, ce qui reste
   const rows = hw.SCREW_KIT.map((line) => {
@@ -1544,7 +1605,47 @@ function renderBom(items, sites, candidateCount, missing = [], free = [], parts 
   const weak = screwable.filter((p) => (per.get(p.id) || 0) < 2);
   const clipped = free.filter((p) => !hw.hasScrewSeat(p));
 
-  $('bom').innerHTML = rows + spacerRows
+  /*
+   * LES VIS MOTEUR, NOMMÉMENT.
+   *
+   * Ce sont les seules du build à monter par le dessous, et c'est justement
+   * ce qui les rend introuvables quand on cherche une tête sur le dessus.
+   * La nomenclature les sort donc de la masse : combien, quelle longueur, et
+   * par où elles entrent.
+   */
+  const moteur = items.filter((i) => i.site.underslung);
+  let motorRow = '';
+  let motorWarn = '';
+  if (moteur.length) {
+    const moteurs = new Set(moteur.map((i) => i.site.upper.name)).size;
+    const par = (moteur.length / Math.max(1, moteurs)).toFixed(0);
+    const s0 = moteur[0].site;
+    const serre = s0.clamped || 0;
+    const support = s0.traversed - serre;
+    const prise = Math.min(s0.upperMaterial, s0.thread.engagement);
+    const longueurs = new Map();
+    for (const i of moteur) longueurs.set(i.line.label, (longueurs.get(i.line.label) || 0) + 1);
+    const detail = [...longueurs.entries()].map(([l, n]) => `${n} × ${l}`).join(', ');
+
+    motorRow = `<div class="hl"><dt>Vis moteur — par le DESSOUS</dt><dd>${detail}</dd></div>`
+      + `<div class="dim"><dt>soit</dt><dd>${par} par moteur × ${moteurs}</dd></div>`
+      + `<div class="dim"><dt>ce qu'elle traverse</dt>`
+      + (serre
+        ? `<dd>${serre.toFixed(1)} patin + ${support.toFixed(1)} bras + ${prise.toFixed(1)} moteur</dd></div>`
+        : `<dd>${support.toFixed(1)} bras + ${prise.toFixed(1)} moteur</dd></div>`)
+      + `<div class="dim"><dt>provenance</dt><dd>livrées avec les moteurs</dd></div>`;
+
+    // le sachet du châssis n'a pas cette longueur : c'est une info, pas une
+    // alerte — ces vis ne viennent pas de lui
+    const auSachet = hw.SCREW_KIT.some((l) => l.kind === 'screw'
+      && Math.abs(l.length - moteur[0].line.length) < 0.01);
+    motorWarn = ` Les ${moteur.length} vis moteur montent PAR LE DESSOUS `
+      + `— tête sous le patin, filet dans la semelle du moteur — et font `
+      + `${moteur[0].line.label}`
+      + (auSachet ? '.' : `, longueur que le sachet du châssis n'a pas : elles viennent avec les moteurs.`);
+  }
+
+  $('bom').innerHTML = rows + spacerRows + motorRow
     + `<div><dt>Fixations</dt><dd>${items.length} / ${candidateCount} candidates</dd></div>`
     + `<div${weak.length ? ' class="warn"' : ''}><dt>Pièces vissables tenues</dt>`
     + `<dd>${screwable.length - weak.length} / ${screwable.length}</dd></div>`
@@ -1566,6 +1667,7 @@ function renderBom(items, sites, candidateCount, missing = [], free = [], parts 
     + `avec les vis du sachet${spacers.size ? `, ${[...spacers.values()].reduce((a, b) => a + b, 0)} entretoises à la cote exacte (aucun jeu)` : ''}`
     + (longest > 0.01 ? `, dépassement maximal sous la pièce ${longest.toFixed(1)} mm` : '')
     + '.'
+    + motorWarn
     + (weak.length ? ` ${weak.length} pièce(s) tenue(s) par moins de 2 vis : ${weak.map((p) => p.name).join(', ')}.` : '')
     + (clipped.length
       ? ` ${clipped.map((p) => p.name).join(', ')} n'a/n'ont aucun perçage de vis : `

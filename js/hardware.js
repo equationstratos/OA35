@@ -168,6 +168,13 @@ export function findFastenerSites(parts, tolerance = 0.8) {
       const lower = ordered[i];
       const upper = ordered[j];
 
+      // Une pièce vissée PAR LE DESSOUS ne reçoit jamais de vis par le haut :
+      // un moteur pris ici plantait une tête au sommet de sa cloche.
+      if (upper.underslung) continue;
+      // et une pièce sans perçage de fixation n'entre dans aucun couple :
+      // l'alésage d'une hélice est un passage d'arbre, pas un trou de vis
+      if (upper.noFastener || lower.noFastener) continue;
+
       for (const a of lower.holes) {
         const thread = threadForHole(a.diameter);
         if (!thread) continue;
@@ -209,6 +216,112 @@ export function findFastenerSites(parts, tolerance = 0.8) {
           break; // un perçage de la pièce basse ne sert qu'une fois par pièce haute
         }
       }
+    }
+  }
+  return sites;
+}
+
+/**
+ * Fixations VISSÉES PAR LE DESSOUS.
+ *
+ * Certaines pièces ne se prennent pas par le haut : le moteur se visse à
+ * travers le bras, sa tête de vis sous le bras et son filet dans la semelle
+ * du moteur. Y planter une vis par le dessus reviendrait à la faire sortir au
+ * milieu de la cloche.
+ *
+ * Le couple est donc lu à l'envers : la pièce PORTEUSE est celle du dessous,
+ * la vis la traverse de part en part et mord dans celle du dessus. Le reste —
+ * diamètre lu sur le perçage, longueur prise dans le sachet — ne change pas.
+ *
+ * @param {object[]} parts pièces du build
+ * @param {number} tolerance écart admis entre les deux perçages, en mm
+ * @param {number} contact écart admis entre les deux faces en regard, en mm
+ */
+export function findUnderslungSites(parts, tolerance = 0.8, contact = 1.0) {
+  const sites = [];
+  for (const upper of parts) {
+    if (!upper.underslung) continue;
+
+    for (const b of upper.holes) {                   // trous taraudés de la pièce portée
+      if (b.vertical === false) continue;
+      const thread = threadForHole(b.diameter);
+      if (!thread) continue;
+
+      /*
+       * UN SEUL SUPPORT PAR TROU, ET IL DOIT ÊTRE AU CONTACT.
+       *
+       * Sans ces deux conditions, un même trou de moteur s'appariait avec
+       * toutes les pièces alignées sous lui : cinq vis par moteur au lieu de
+       * quatre, et des longueurs calculées sur l'épaisseur de la mauvaise
+       * pièce. Le support d'un moteur, c'est le bras sur lequel il pose —
+       * celui dont la face haute touche sa semelle, pas une plaque trois
+       * centimètres plus bas.
+       */
+      let best = null;
+      for (const lower of parts) {
+        if (lower === upper || lower.noFastener) continue;
+        for (const a of lower.holes) {
+          if (a.vertical === false) continue;
+          if (Math.hypot(a.x - b.x, a.z - b.z) > tolerance) continue;
+          if (Math.abs(b.bottom - a.top) > contact) continue;   // pas au contact
+          const passage = threadForHole(a.diameter);
+          const clearance = a.diameter > thread.diameter
+            && a.diameter <= thread.diameter * 2;
+          if (passage !== thread && !clearance) continue;
+          if (!best || a.top > best.a.top) best = { a, lower };
+        }
+      }
+      if (!best) continue;
+
+      const { a, lower } = best;
+
+      /*
+       * CE QUE LA VIS SERRE ENCORE, SOUS LE SUPPORT.
+       *
+       * Les quatre vis d'un moteur ne prennent pas que le bras : elles
+       * plaquent aussi le patin, dont les perçages sont sur le même cercle de
+       * Ø12. La longueur de vis dépend donc de cette bride en plus.
+       *
+       * Ces pièces-là ne sont PAS appariées par leurs perçages : un patin
+       * importé ne livre pas les siens de façon exploitable — la détection
+       * n'en retrouve qu'un sur quatre, et la sonde annonce l'encombrement
+       * entier de la pièce, béquille comprise. On les reconnaît autrement :
+       * elles déclarent leur épaisseur serrée, elles touchent le dessous du
+       * support, et la vis tombe dans leur emprise.
+       */
+      let serre = 0;
+      let assise = Number.isFinite(a.bottom) ? a.bottom : lower.bottom;
+      const x = (a.x + b.x) / 2;
+      const z = (a.z + b.z) / 2;
+      for (const p of parts) {
+        if (p === upper || p === lower || !p.clamp) continue;
+        if (Math.abs(p.top - assise) > contact) continue;
+        if (x < p.minX || x > p.maxX || z < p.minZ || z > p.maxZ) continue;
+        serre += p.clamp;
+        // la tête porte sous la bride serrée, pas sous toute la pièce : la
+        // béquille d'un patin descend bien plus bas que son plan de joint
+        assise = p.top - p.clamp;
+      }
+
+      sites.push({
+        x,
+        z,
+        thread,
+        gap: 0,                       // pièces au contact : pas d'entretoise
+        underslung: true,
+        lower,
+        upper,
+        lowerTop: Number.isFinite(a.top) ? a.top : lower.top,
+        // la tête vient sous la dernière pièce serrée
+        upperTop: Number.isFinite(b.seat) ? b.seat : upper.top,
+        seatBottom: assise,
+        // matière réellement traversée : le support, plus ce qu'il plaque
+        traversed: (Number.isFinite(a.material) ? a.material : lower.thickness) + serre,
+        clamped: serre,
+        upperMaterial: Number.isFinite(b.material) ? b.material : upper.thickness,
+        lowerMaterial: Number.isFinite(a.material) ? a.material : lower.thickness,
+        offset: Math.hypot(a.x - b.x, a.z - b.z),
+      });
     }
   }
   return sites;
@@ -351,10 +464,16 @@ export function allocateFromKit(sites) {
     // commerce laissait jusqu'à 2 mm de jeu : la plaque du dessus ne portait
     // plus sur rien, et le serrage la déformait.
     const standoffLength = needsStandoff ? Math.round(site.gap * 100) / 100 : 0;
+    // Une vis PAR LE DESSOUS traverse la pièce basse et mord dans la haute :
+    // les deux épaisseurs s'échangent. Le calcul, lui, est le même.
+    const traversee = site.underslung
+      ? (Number.isFinite(site.traversed) ? site.traversed : site.lowerMaterial)
+      : site.upperMaterial;
+    const mordue = site.underslung ? site.upperMaterial : site.lowerMaterial;
     const grip = needsStandoff
       ? site.thread.engagement                      // la vis mord dans l'entretoise
-      : Math.min(site.lowerMaterial, site.thread.engagement);
-    const needed = site.upperMaterial + grip;
+      : Math.min(mordue, site.thread.engagement);
+    const needed = traversee + grip;
     return { site, needed, needsStandoff, standoffLength };
   }).sort((a, b) => b.needed - a.needed);
 
@@ -377,6 +496,47 @@ export function allocateFromKit(sites) {
     });
   }
   return { assigned, stock, missing };
+}
+
+/**
+ * Vis QUI NE VIENNENT PAS DU SACHET DU CHÂSSIS.
+ *
+ * Les vis moteur sont livrées avec les moteurs, pas avec le châssis — et le
+ * sachet le confirme : il saute de M2×8 à M2×12, sans rien entre les deux,
+ * alors qu'il faut ici du M2×10. Les faire puiser dans le sachet vidait les
+ * longues au détriment des fixations qui en ont besoin, et laissait douze
+ * moteurs sur seize sans vis.
+ *
+ * Leur longueur se prend donc dans la série du commerce, sans limite de
+ * stock : c'est une ligne de commande, pas un prélèvement.
+ *
+ * @param {object[]} sites fixations par le dessous
+ */
+export function allocateOwn(sites) {
+  return sites.map((site) => {
+    const grip = Math.min(site.upperMaterial, site.thread.engagement);
+    const needed = (Number.isFinite(site.traversed) ? site.traversed : site.lowerMaterial) + grip;
+    const length = standardLength(needed);
+    return {
+      site,
+      needed,
+      needsStandoff: false,
+      standoffLength: 0,
+      thread: site.thread,
+      screwLength: length,
+      protrusion: Math.max(0, length - needed),
+      standoffPlay: 0,
+      line: {
+        id: `hors-sachet-${site.thread.id}x${length}`,
+        kind: 'screw',
+        thread: site.thread.id,
+        length,
+        label: `${site.thread.id}×${String(length).replace('.', ',')}`,
+        count: 0,
+        own: true,          // ne se décompte pas du sachet
+      },
+    };
+  });
 }
 
 /**
@@ -424,6 +584,10 @@ export function hasScrewSeat(part) {
   // et au filetage que le sachet fournit : un perçage Ø3,5 relève du M3, dont
   // il n'y a pas une seule vis ici — le compter comme vissable aurait promis
   // une fixation impossible à tenir
+  // une pièce qui déclare n'avoir aucun perçage de vis n'est pas vissable,
+  // quel que soit le diamètre de ses trous : l'alésage d'une hélice est un
+  // passage d'arbre, la compter ici l'aurait signalée comme mal tenue
+  if (part.noFastener) return false;
   const kitThreads = new Set(SCREW_KIT.filter((l) => l.kind === 'screw').map((l) => l.thread));
   return part.holes.some((h) => {
     const t = h.vertical !== false && threadForHole(h.diameter);

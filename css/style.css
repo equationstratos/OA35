@@ -661,6 +661,13 @@ ul { list-style: none; margin: 0; padding: 0; }
 #bom { margin-top: 12px; }
 #bom:empty { display: none; }
 
+/* La ligne des VIS MOTEUR ressort du reste de la nomenclature : ce sont les
+   seules du build à monter par le dessous, et c'est précisément ce qui les
+   rend introuvables quand on cherche une tête sur le dessus. */
+#bom .hl dt, #bom .hl dd { color: var(--accent); }
+#bom .hl dt { font-weight: 600; }
+#bom .warn dt, #bom .warn dd { color: var(--warm); }
+
 /* --- entretoises posées à la main --- */
 
 #sidebar h3 {
