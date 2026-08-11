@@ -117,7 +117,7 @@ export const ACCESSORIES = await Promise.all([
   meshPart({
     url: 'assets/parts-3d/oa35-stickpad.stl',
     id: 'stickpad', index: 24, name: 'Stick pad batterie',
-    material: 'TPU souple', source: 'fichier STL fourni, contours retracés',
+    material: 'TPU souple', source: 'contours retracés, fixations fermées, 1,5 mm',
     rides: { host: 'top-plate', offset: [0, 1.0, 4.4] },
   }),
 

@@ -409,8 +409,8 @@ de sangle et le logo.
 
 | | |
 |---|---|
-| Encombrement | 30,6 × 69,7 × 2,5 mm |
-| Volume | 3,338 cm³ |
+| Encombrement | 30,5 × 69,6 × 1,5 mm |
+| Volume | 2,015 cm³ |
 
 C'est sur ces découpes qu'il se cale, pas sur des perçages. Les quatre
 ouvertures appariées donnent **aucune mise à l'échelle à faire** — les cotes
@@ -420,10 +420,15 @@ est donc porté par la top-plate avec ce décalage, et la suit à l'assemblage
 comme au désassemblage.
 
 Les contours du fichier fourni étaient facettés — 242 points pour tout le
-pourtour, avec des segments jusqu'à 11 mm. Ils ont été retracés par lissage
-borné : le facettage part, la forme reste à **0,20 mm près au maximum**
-(0,06 mm en moyenne), volume conservé à 0,09 %. Le maillage livré est fermé,
-sans triangle dégénéré.
+pourtour. Mais **la moitié de ce pourtour est rectiligne** (100 mm de segments
+droits sur 200), et un lissage uniforme arrondissait ces droites. Seuls les
+congés sont donc redensifiés, les longs segments restent des droites exactes :
+écart au tracé d'origine **0,082 mm au pire**, 0,012 mm en moyenne.
+
+Les deux fixations étaient des **trous de serrure** — une poche circulaire de
+Ø3,4 ouverte sur le bord par un couloir. Elles sont désormais **fermées en
+cercles pleins**, à l'aplomb des perçages de la plaque (±12,4 ; à 4,4 mm de
+décalage près, ce qui confirme le calage par un chemin indépendant).
 
 ## Visserie
 
