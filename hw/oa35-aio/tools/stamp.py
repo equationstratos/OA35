@@ -58,11 +58,11 @@ def span(board, name):
             + max(p[1] for p in pts) - min(p[1] for p in pts))
 
 
-# A net that cannot be routed quickly in a given order will not be routed in
-# it at all, and the failures are what cost the time: with the full 400000
-# node budget, sixteen failures make a single ordering take twenty minutes,
-# and twelve orderings four hours.
-TRY_BUDGET = 40000
+# Capping the search to speed the sampling up was a bad trade: it turned a
+# twenty minute ordering into a four minute one but cost five nets out of
+# thirty-four, and the point of sampling orders is to find one that routes
+# them all.  Full budget.
+TRY_BUDGET = 400000
 
 
 def try_order(board_path, ch, order):
