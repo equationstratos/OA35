@@ -510,6 +510,64 @@ logement : rien n'est emprisonné à l'impression. Chaque fichier est vérifié
 d'un seul tenant et sans poche d'air fermée. C'est le fichier tel qu'il sort du
 bouton **⬇ STL** de la fiche.
 
+### Les moteurs et les hélices
+
+Pièces 25 à 28 et 29 à 32. **Ce sont les deux seules pièces du build qui ne
+soient ni importées d'un STL ni tracées sur une photo : elles sont dessinées**,
+cote par cote, dans `js/lib/motor.js` et `js/lib/prop.js`. Un moteur ne se
+livre pas en fichier CAO, et le voxeliser depuis une photo aurait arrondi
+toutes ses arêtes.
+
+| | Moteur | Hélice |
+|---|---|---|
+| Référence | Sub250 1804, 3450 KV | tripale 3,5″ × 2,5 |
+| Encombrement | 23,0 × 23,0 × 15,1 mm | Ø 88,9 × 9,1 mm |
+| Fixation | M2, entraxe 12 × 12 mm | alésage Ø5 |
+
+**Le moteur est relevé sur les photos du fabricant** : la cloche à six
+ouvertures cerclées d'un liseré turquoise, le moyeu en relief avec son téton
+d'arbre et ses quatre perçages sur un Ø6,2, le fût gravé *Sub250 / 1804 / KV*,
+le stator à douze dents bobiné de cuivre qu'on aperçoit par les ouvertures,
+l'embase en croix à quatre pattes et les trois fils plats. Le KV est lu sur la
+photo, où le fût porte « 34.. » — la seule valeur en 34xx du catalogue.
+
+Deux détails valent d'être expliqués :
+
+- **le liseré turquoise n'est pas une couleur peinte sur une arête.** C'est un
+  second plateau, percé plus petit et posé un demi-millimètre sous le plateau
+  noir. Vu de dessus : la tranche noire descend, puis une bande turquoise, puis
+  le vide — exactement ce que montre la pièce.
+- **le lettrage est peint dans une texture générée au vol.** Aucun fichier
+  externe : le visualiseur fonctionne hors-ligne, et changer de référence
+  moteur ne demande que deux chaînes de caractères.
+
+> **L'hélice, elle, n'a pas de photo de référence.** Sa taille est déduite du
+> châssis — un OasisFly**35** de 175 mm d'empattement tourne en 3,5 pouces, et
+> un 1804 à 3450 KV est motorisé pour ça. Le dessin est donc générique : la
+> combinaison la plus courante sur ce format. Envoie une photo des tiennes et
+> elle se refait, tout est paramétré en haut de `js/lib/prop.js`.
+
+La pale est une **surface réglée** : une section de profil est calculée à
+chaque rayon — corde, épaisseur, vrillage, flèche — et les sections voisines
+sont cousues entre elles. Le vrillage suit la loi d'une hélice à pas constant,
+donc l'angle diminue avec le rayon ; il est simplement **borné sous 11,5 mm de
+rayon**, sinon la pale se dresserait à la verticale au pied, là où une vraie
+hélice n'a plus qu'une patte de raccordement.
+
+Les deux sens de rotation sont **deux maillages**, pas un miroir : le vrillage
+et la flèche changent de signe. Un miroir de maillage aurait retourné les
+normales et l'hélice serait sortie noire.
+
+Ces deux pièces sont **multi-matières** — six matières pour le moteur, deux
+pour l'hélice, sur un seul maillage par plages de faces. Le sélecteur de
+couleur ne touche que ce qui se repeint : on peut changer la teinte d'une
+cloche, pas celle d'un bobinage de cuivre.
+
+> Leur bouton **⬇ STL** exporte bien la géométrie, mais ce n'est **pas une
+> pièce imprimable** : un moteur et une hélice s'achètent, et leurs volumes se
+> chevauchent au lieu de former un solide fermé. Les pièces du châssis, elles,
+> restent vérifiées fermées.
+
 ## Visserie
 
 La visserie est le seul élément qui n'a pas à être photographié : elle est

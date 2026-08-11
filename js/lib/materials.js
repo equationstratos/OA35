@@ -102,6 +102,182 @@ export function printedMaterial(color = 0x393f47) {
   });
 }
 
+/* ------------------------------------------------------------------ *
+ * Matières du moteur
+ *
+ * Un moteur n'est pas d'une seule matière : aluminium anodisé noir pour la
+ * cloche et l'embase, anodisation turquoise sur les arêtes des ouvertures,
+ * cuivre pour les bobinages, acier pour l'arbre et les tôles, silicone noir
+ * pour les fils. Elles cohabitent sur UN seul maillage, par plages de faces.
+ *
+ * Celles qui sont marquées `fixedTint` refusent le sélecteur de couleur : on
+ * peut repeindre une cloche, pas du cuivre. Les autres portent leur teinte
+ * d'usine dans `baseTint`, pour savoir où revenir quand on efface la couleur.
+ * ------------------------------------------------------------------ */
+
+/** Aluminium anodisé noir : cloche et embase. */
+export function anodizedMaterial(color = 0x2e3238) {
+  // La scène n'a PAS de carte d'environnement : un métal à fort `metalness`
+  // n'a rien à réfléchir et sort noir. D'où un metalness modéré et un léger
+  // vernis, qui donnent l'aspect satiné de l'anodisation sous ces lumières.
+  const m = new THREE.MeshPhysicalMaterial({
+    color, metalness: 0.32, roughness: 0.42, clearcoat: 0.5, clearcoatRoughness: 0.25,
+  });
+  m.userData.baseTint = color;
+  return m;
+}
+
+/** Anodisation turquoise : le liseré des ouvertures. */
+export function accentMaterial(color = 0x18b3a4) {
+  const m = new THREE.MeshPhysicalMaterial({
+    color, metalness: 0.35, roughness: 0.3, clearcoat: 0.6,
+    emissive: 0x04322e,
+  });
+  m.userData.fixedTint = true;
+  return m;
+}
+
+/** Acier clair : arbre, bout d'arbre. */
+export function steelMaterial() {
+  const m = new THREE.MeshPhysicalMaterial({
+    color: 0xd2d8e0, metalness: 0.45, roughness: 0.25, emissive: 0x2b3138,
+  });
+  m.userData.fixedTint = true;
+  return m;
+}
+
+/** Tôles de stator : gris clair mat, ce qu'on aperçoit entre les bobines. */
+export function laminationMaterial() {
+  const m = new THREE.MeshPhysicalMaterial({
+    color: 0xa8b0ba, metalness: 0.5, roughness: 0.5, emissive: 0x14181d,
+  });
+  m.userData.fixedTint = true;
+  return m;
+}
+
+/**
+ * Couronne d'aimants, collée dans la cloche.
+ *
+ * Sombre, et c'est une correction : en gris clair, elle se voyait par la
+ * tranche du fût — au bord de la silhouette, les faces arrière du fût sont
+ * écartées et laissent voir l'intérieur, qui paraissait alors bordé de blanc.
+ */
+export function magnetMaterial() {
+  const m = new THREE.MeshPhysicalMaterial({
+    color: 0x1b1e23, metalness: 0.4, roughness: 0.72,
+  });
+  m.userData.fixedTint = true;
+  return m;
+}
+
+/** Silicone noir des fils moteur. */
+export function wireMaterial() {
+  const m = new THREE.MeshPhysicalMaterial({
+    color: 0x14161a, metalness: 0.0, roughness: 0.65,
+  });
+  m.userData.fixedTint = true;
+  return m;
+}
+
+let _coilTex = null;
+
+/** Spires de fil émaillé, dessinées en travers de l'axe de la bobine. */
+function coilTexture(turns = 11) {
+  const c = document.createElement('canvas');
+  c.width = 32; c.height = 256;
+  const g = c.getContext('2d');
+  const pitch = c.height / turns;
+  for (let i = 0; i < turns; i++) {
+    const y = i * pitch;
+    const grad = g.createLinearGradient(0, y, 0, y + pitch);
+    grad.addColorStop(0.0, '#5a2f16');
+    grad.addColorStop(0.35, '#c9723a');
+    grad.addColorStop(0.55, '#e59a5c');
+    grad.addColorStop(1.0, '#5a2f16');
+    g.fillStyle = grad;
+    g.fillRect(0, y, c.width, pitch + 0.5);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/** Cuivre bobiné : la matière porte les spires, pas la géométrie. */
+export function copperMaterial() {
+  if (!_coilTex) _coilTex = coilTexture();
+  const m = new THREE.MeshPhysicalMaterial({
+    map: _coilTex, color: 0xffffff, metalness: 0.45, roughness: 0.38,
+    emissive: 0x2a1408,
+  });
+  m.userData.fixedTint = true;
+  return m;
+}
+
+/**
+ * Le fût gravé de la cloche.
+ *
+ * Le lettrage est peint dans une texture générée au vol : le visualiseur ne
+ * charge aucun fichier externe, et un moteur d'une autre référence se décrit
+ * en changeant deux chaînes plutôt qu'une image.
+ */
+export function bellLabelMaterial(designation = '1804', kv = 3450, color = 0x2e3238) {
+  const c = document.createElement('canvas');
+  c.width = 2048; c.height = 256;
+  const g = c.getContext('2d');
+
+  const hex = `#${color.toString(16).padStart(6, '0')}`;
+  g.fillStyle = hex;
+  g.fillRect(0, 0, c.width, c.height);
+
+  g.fillStyle = '#eef2f6';
+  g.textBaseline = 'middle';
+  g.textAlign = 'center';
+
+  g.font = '600 74px "DejaVu Sans", Helvetica, Arial, sans-serif';
+  g.fillText('Sub250', c.width * 0.15, c.height * 0.52);
+
+  g.font = '600 88px "DejaVu Sans", Helvetica, Arial, sans-serif';
+  g.fillText(designation, c.width * 0.47, c.height * 0.52);
+
+  g.font = '600 64px "DejaVu Sans", Helvetica, Arial, sans-serif';
+  g.fillText(`${kv}KV`, c.width * 0.76, c.height * 0.52);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+
+  const m = new THREE.MeshPhysicalMaterial({
+    map: tex, color: 0xffffff, metalness: 0.32, roughness: 0.42,
+    clearcoat: 0.5, clearcoatRoughness: 0.25,
+  });
+  m.userData.baseTint = 0xffffff;
+  return m;
+}
+
+/* ------------------------------------------------------------------ *
+ * Matières de l'hélice
+ * ------------------------------------------------------------------ */
+
+/** Polycarbonate d'hélice : noir profond, un peu satiné. */
+export function propellerMaterial(color = 0x1d2026) {
+  const m = new THREE.MeshPhysicalMaterial({
+    color, metalness: 0.05, roughness: 0.36,
+    clearcoat: 0.7, clearcoatRoughness: 0.2,
+  });
+  m.userData.baseTint = color;
+  return m;
+}
+
+/** Moyeu d'hélice : même matière, teinte à peine plus claire. */
+export function propHubMaterial(color = 0x282c33) {
+  const m = new THREE.MeshPhysicalMaterial({
+    color, metalness: 0.05, roughness: 0.42, clearcoat: 0.5,
+  });
+  m.userData.baseTint = color;
+  return m;
+}
+
 /** Teinte d'origine de chaque matière, quand on veut revenir en arrière. */
 export const DEFAULT_TINT = { carbone: 0xffffff, imprime: 0x393f47 };
 
@@ -119,9 +295,21 @@ export const DEFAULT_TINT = { carbone: 0xffffff, imprime: 0x393f47 };
  * @param {number|null} hex couleur demandée, ou null pour la teinte d'origine
  */
 export function tintMaterial(material, kind, hex) {
+  // Une pièce peut porter plusieurs matières — un moteur en a six. Elles se
+  // teintent chacune selon sa nature, pas toutes de la même couleur.
+  if (Array.isArray(material)) {
+    material.forEach((m) => tintMaterial(m, kind, hex));
+    return;
+  }
+  // le cuivre d'un bobinage ne se repeint pas : la matière le déclare
+  if (material.userData && material.userData.fixedTint) return;
+
   const carbon = kind === 'carbone';
   if (hex === null || hex === undefined) {
-    material.color.setHex(DEFAULT_TINT[carbon ? 'carbone' : 'imprime']);
+    // une matière qui connaît sa teinte d'usine y revient ; les autres
+    // reprennent celle de leur famille
+    const base = material.userData ? material.userData.baseTint : undefined;
+    material.color.setHex(base ?? DEFAULT_TINT[carbon ? 'carbone' : 'imprime']);
   } else if (carbon) {
     // le tissage est sombre : une couleur trop claire l'écraserait, on
     // l'assombrit un peu pour que la trame reste lisible

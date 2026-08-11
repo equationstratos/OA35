@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-11a · support GPS : 5 habillages, logement et vissage conserves';
+const BUILD = '2026-08-11b · moteurs 1804 et helices 3,5 pouces, dessines';
 $('build-stamp').textContent = BUILD;
 
 /* Les trois groupes de visserie — sachet du plan de travail, visserie posée,
@@ -1002,6 +1002,17 @@ function saveColors() {
 /** La matière d'une pièce décide de la façon dont la couleur se pose. */
 function materialKind(entry) {
   return entry.mod.meta.isMesh ? 'imprime' : 'carbone';
+}
+
+/**
+ * Applique une opération à la matière d'un objet, qu'il en porte une ou
+ * plusieurs. Les pièces dessinées — le moteur, l'hélice — sont faites d'un
+ * seul maillage à plusieurs plages de faces, donc d'un tableau de matières.
+ */
+function eachMaterial(object, fn) {
+  if (!object || !object.material) return;
+  if (Array.isArray(object.material)) object.material.forEach(fn);
+  else fn(object.material);
 }
 
 /** Teinte affichée pour une pièce : la sienne, ou celle de sa matière. */
@@ -2033,9 +2044,9 @@ function applySelectionLook() {
     const body = e.object.getObjectByName('body');
     const edges = e.object.getObjectByName('edges');
     const bevel = e.object.getObjectByName('chamfer');
-    if (body && body.material.emissive) {
-      body.material.emissive.setHex(on ? SELECT_EMISSIVE : 0x000000);
-    }
+    eachMaterial(body, (mat) => {
+      if (mat.emissive) mat.emissive.setHex(on ? SELECT_EMISSIVE : 0x000000);
+    });
     if (edges) {
       edges.material.color.setHex(on ? 0xffb454 : 0x6cc7ff);
       edges.material.opacity = on ? 1 : 0.55;
@@ -3031,10 +3042,16 @@ function applyDisplayOptions() {
     // plus qu'un maillage et où un filet de contour n'a plus de sens.
     if (o.name === 'chamfer') o.visible = !fil;
     if (o.name === 'body' && o.material) {
-      o.material.wireframe = fil;
-      o.material.transparent = ghost;
-      o.material.opacity = ghost ? 0.55 : 1;
-      o.material.needsUpdate = true;
+      // une pièce peut porter PLUSIEURS matières : un moteur en a six, par
+      // plages de faces. Le mode fil et le calque photo s'appliquent à toutes,
+      // sinon la moitié de la pièce reste pleine pendant que l'autre passe en
+      // fil de fer.
+      eachMaterial(o, (mat) => {
+        mat.wireframe = fil;
+        mat.transparent = ghost;
+        mat.opacity = ghost ? 0.55 : 1;
+        mat.needsUpdate = true;
+      });
     }
   });
   // le chanfrein se rejoue ici : c'est le point de passage commun à tous les

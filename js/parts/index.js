@@ -17,6 +17,8 @@ import * as armShort from './07-arm-short.js';
 import { ACCESSORIES } from './08-accessoires.js';
 import * as sideGuard from './09-side-guard.js';
 import * as gpsMount from './10-gps-mount.js';
+import { MOTORS } from './11-moteurs.js';
+import { PROPS } from './12-helices.js';
 
 export const PARTS = [
   bottomPlate, middlePlate, clampPlate, topPlate,
@@ -28,12 +30,15 @@ export const PARTS = [
   // le support GPS vient à la place qu'il occupait dans les accessoires
   gpsMount.support,
   ...ACCESSORIES,
+  ...MOTORS,
+  ...PROPS,
 ];
 
 /** Emplacements réservés — remplis au fur et à mesure des pièces envoyées. */
 export const PLANNED = [
-  { index: 20, name: 'Moteurs' },
-  { index: 21, name: 'Hélices' },
+  // Moteurs et hélices ne sont plus des emplacements réservés : ils sont
+  // modélisés (11-moteurs.js, 12-helices.js). Leurs anciens numéros, 20 et 21,
+  // étaient d'ailleurs déjà pris par les covers 02.
   { index: 22, name: 'Contrôleur de vol (FC)' },
   { index: 23, name: 'Caméra FPV' },
   { index: 24, name: 'VTX + antenne' },
