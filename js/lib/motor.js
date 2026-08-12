@@ -72,6 +72,16 @@ export const MOTOR = {
   shaftOut: 3.3,         // ce qui dépasse au-dessus du moyeu
   hubHoleDiameter: 1.5,
   hubHoleCircle: 6.2,    // les quatre petits perçages
+  /*
+   * Prise de la vis d'hélice dans la cloche : la portée surélevée (0,6), le
+   * plateau qu'elle surmonte (0,7), et 0,5 de reprise de matière sous le trou
+   * — un taraudage M2 dans 1,3 mm de tôle ne tiendrait pas une hélice.
+   *
+   * Seul le dernier terme est déclaré ; les deux autres sont les cotes de la
+   * cloche. La somme donne 1,8, et avec les 6,2 mm du moyeu d'hélice à
+   * traverser, exactement le M2×8 que ces moteurs livrent avec eux.
+   */
+  hubThread: 0.6 + 0.7 + 0.5,
 
   /** Stator */
   statorDiameter: 17.6,
@@ -348,8 +358,17 @@ export function buildMotor({ wireRun = MOTOR.wireRun } = {}) {
     ), m.windowRound, true));
   }
   haut.holes.push(circlePath(m.shaftDiameter / 2 + 0.15, 20));
+  /*
+   * LES QUATRE TARAUDAGES DU MOYEU, À 0 / 90 / 180 / 270°.
+   *
+   * Ils étaient à 45°, et l'hélice a ses deux perçages sur un diamètre franc :
+   * les deux motifs ne se faisaient jamais face, et la vis d'hélice n'avait
+   * rien à mordre. Rien ne fixait l'angle de ces quatre trous — il ne se lit
+   * sur aucune photo, alors que celui des perçages d'hélice, si. C'est donc le
+   * moteur qui s'aligne sur l'hélice, et non l'inverse.
+   */
   for (let k = 0; k < 4; k++) {
-    const a = Math.PI / 4 + k * Math.PI / 2;
+    const a = k * Math.PI / 2;
     haut.holes.push(circlePath(m.hubHoleDiameter / 2, 14,
       Math.cos(a) * m.hubHoleCircle / 2, Math.sin(a) * m.hubHoleCircle / 2));
   }
@@ -388,8 +407,9 @@ export function buildMotor({ wireRun = MOTOR.wireRun } = {}) {
   const md = discShape(m.hubDiameter / 2, 40);
   moyeu.curves = md.curves;
   moyeu.holes.push(circlePath(m.shaftDiameter / 2 + 0.1, 20));
+  // mêmes quatre trous que le plateau, donc même angle : ils sont traversants
   for (let k = 0; k < 4; k++) {
-    const a = Math.PI / 4 + k * Math.PI / 2;
+    const a = k * Math.PI / 2;
     moyeu.holes.push(circlePath(m.hubHoleDiameter / 2, 14,
       Math.cos(a) * m.hubHoleCircle / 2, Math.sin(a) * m.hubHoleCircle / 2));
   }
@@ -562,6 +582,43 @@ export function buildMotor({ wireRun = MOTOR.wireRun } = {}) {
       axis: 'Z',
       coverage: 1,
       kind: 'hole',
+      /*
+       * LE TARAUDAGE DE SEMELLE, DÉCLARÉ SUR L'ANCRE ET NON SUR LA PIÈCE.
+       *
+       * Le palpage par rayon ne sait pas le mesurer — il ne voit que les faces
+       * tournées vers le haut — et annonçait 1,6 mm de prise là où il y en a
+       * 3,4, donc une vis trop courte pour tenir un moteur.
+       *
+       * Porté par l'ancre, parce que la cloche a un SECOND jeu de taraudages,
+       * tout en haut : une déclaration valable pour tout le moteur les aurait
+       * ramenés eux aussi au plan de pose, quinze millimètres plus bas.
+       */
+      mount: { face: 0, depth: m.threadDepth },
+    });
+  }
+  /*
+   * LES QUATRE TARAUDAGES DU MOYEU — ceux qui reçoivent les vis d'hélice.
+   *
+   * Sur la face haute de la cloche, sur le même cercle de Ø 6,2 que les deux
+   * perçages du moyeu d'hélice, et désormais au même angle qu'eux.
+   */
+  for (let k = 0; k < 4; k++) {
+    const a = k * Math.PI / 2;
+    anchors.push({
+      index: 4 + k,
+      x: Math.cos(a) * m.hubHoleCircle / 2,
+      y: Math.sin(a) * m.hubHoleCircle / 2,
+      // LA PORTÉE, PAS LE PLATEAU. L'hélice ne pose pas sur le plateau de la
+      // cloche mais sur le moyeu qui le surmonte de 0,6 mm : c'est là que
+      // débouche le taraudage, et c'est là que la vis vient serrer. Partir du
+      // plateau laissait 0,6 mm de vide entre les deux perçages — assez pour
+      // que la colonne se coupe en deux et que l'hélice perde ses vis.
+      z: bellTop + m.hubRise,
+      r: m.hubHoleDiameter / 2,
+      axis: 'Z',
+      coverage: 1,
+      kind: 'hole',
+      mount: { face: bellTop + m.hubRise - m.hubThread, depth: m.hubThread },
     });
   }
 

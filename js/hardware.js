@@ -677,8 +677,22 @@ export function allocateFromKit(sites) {
  */
 export function allocateOwn(sites) {
   return sites.map((site) => {
-    const grip = Math.min(site.upperMaterial, site.thread.engagement);
-    const needed = (Number.isFinite(site.traversed) ? site.traversed : site.lowerMaterial) + grip;
+    /*
+     * DEUX SENS, UN SEUL CALCUL.
+     *
+     * Une vis moteur monte PAR LE DESSOUS : elle traverse le bras et le patin
+     * pour mordre dans la semelle, au-dessus. Une vis d'hélice, elle, descend
+     * normalement : elle traverse le moyeu de l'hélice pour mordre dans le
+     * moyeu du moteur, en dessous. Ce sont les mêmes vis hors sachet, mais les
+     * deux épaisseurs s'échangent d'un cas à l'autre.
+     */
+    const parLeBas = site.underslung || site.fromBelow;
+    const traversee = parLeBas
+      ? (Number.isFinite(site.traversed) ? site.traversed : site.lowerMaterial)
+      : site.upperMaterial;
+    const mordue = parLeBas ? site.upperMaterial : site.lowerMaterial;
+    const grip = Math.min(mordue, site.thread.engagement);
+    const needed = traversee + grip;
     const length = standardLength(needed);
     return {
       site,

@@ -36,7 +36,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-11i · camera, air unit et antennes DJI O4 Pro';
+const BUILD = '2026-08-11j · vis d hélice, protections d antenne TPU';
 $('build-stamp').textContent = BUILD;
 
 /* Les trois groupes de visserie — sachet du plan de travail, visserie posée,
@@ -944,9 +944,35 @@ function layoutParts() {
     const qh = new THREE.Quaternion();
     const AXE = new THREE.Vector3(0, 1, 0);
     const cible = new THREE.Vector3();
-    entries.forEach((e) => {
+
+    /*
+     * LES PORTÉES SE RÉSOLVENT DANS L'ORDRE DE LA CHAÎNE.
+     *
+     * Une protection d'antenne est portée par l'antenne, qui est elle-même
+     * portée par son support : trois maillons. Traitées dans l'ordre du
+     * registre, la protection était placée AVANT que son antenne n'ait quitté
+     * l'établi — elle recopiait donc une position périmée et restait à cinq
+     * cents millimètres du drone.
+     *
+     * On ne traite donc une pièce portée que lorsque son hôte est en place :
+     * soit il ne porte lui-même sur rien, soit il a déjà été traité.
+     */
+    const portees = entries.filter((e) => e.holder && e.mod.meta.rides);
+    const place = new Set(entries.filter((e) => e.holder && !e.mod.meta.rides)
+      .map((e) => e.mod.meta.id));
+    const ordre = [];
+    let reste = portees;
+    while (reste.length) {
+      const prets = reste.filter((e) => place.has(e.mod.meta.rides.host));
+      // chaîne rompue (hôte absent ou cycle) : on prend ce qui reste tel quel,
+      // pour ne jamais laisser une pièce non traitée
+      const lot = prets.length ? prets : reste;
+      lot.forEach((e) => { ordre.push(e); place.add(e.mod.meta.id); });
+      reste = reste.filter((e) => !lot.includes(e));
+    }
+
+    ordre.forEach((e) => {
       const r = e.mod.meta.rides;
-      if (!e.holder || !r) return;
       const stored = placements[e.mod.meta.id];
       if (stored && stored.manual) return;      // posée à la main : on respecte
       const host = entries.find((h) => h.mod.meta.id === r.host);
@@ -1369,8 +1395,10 @@ function measureHoles(entry) {
   entry.holder.updateMatrixWorld(true);
 
   const box = new THREE.Box3().setFromObject(body);
-  // taraudage déclaré par la pièce, quand elle en connaît la cote
-  const mount = entry.mod.meta.mount || null;
+  // Taraudage déclaré, par la pièce entière ou — mieux — par l'ancre : un
+  // moteur a DEUX jeux de taraudages, celui de sa semelle et celui de son
+  // moyeu, et ils ne sont ni à la même hauteur ni de la même profondeur.
+  const mountPiece = entry.mod.meta.mount || null;
 
   /*
    * LA SONDE VOIT LES DEUX FACES, LE TEMPS DE LA MESURE.
@@ -1407,30 +1435,73 @@ function measureHoles(entry) {
     if (!a.axis) dir.set(0, 0, 1);
     dir.applyQuaternion(mq);
     const probe = { lx: v.x, lz: v.z, r: a.r, ax: dir.x, ay: dir.y, az: dir.z };
+    /*
+     * TOUS LES ÉCHANTILLONS, PUIS LE PIED — pas le premier venu.
+     *
+     * On sonde autour du perçage, sur trois couronnes et huit directions. La
+     * version précédente gardait le PREMIER échantillon exploitable, et le
+     * résultat dépendait donc de l'angle tiré : sur une joue de support
+     * caméra, un rayon qui longe la joue DEBOUT traverse vingt millimètres de
+     * matière verticale, quand le rayon voisin, tombé sur le pied couché, en
+     * traverse quatre. Les deux sont vrais ; un seul intéresse la vis. Les
+     * deux joues, qui sont pourtant la même pièce en miroir, mesuraient ainsi
+     * 4,12 et 21,50 mm au même perçage.
+     *
+     * La vis ne serre que ce qui touche la pièce d'en dessous. On garde donc
+     * les échantillons dont le DESSOUS est le plus bas — ceux qui posent
+     * vraiment — et, parmi eux, le plus MINCE : c'est le pied. Le plancher de
+     * 1 mm écarte les éclats de chanfrein, qui donneraient une matière quasi
+     * nulle et une vis trop courte.
+     *
+     * Sans cette règle, trois des quatre pieds du support caméra dépassaient
+     * la traverse maximale et perdaient leur vis — d'où trois fixations
+     * manquantes sous le nez du drone.
+     */
     const r0 = Math.max(a.r, 0.8);
-    let best = null;
+    const echantillons = [];
     for (const ring of [r0 + 0.35, r0 + 0.8, r0 + 1.6]) {
-      for (let k = 0; k < 8 && !best; k++) {
+      for (let k = 0; k < 8; k++) {
         const ang = (k * Math.PI) / 4;
         holeRay.set(
           new THREE.Vector3(v.x + ring * Math.cos(ang), box.max.y + 50, v.z + ring * Math.sin(ang)),
           new THREE.Vector3(0, -1, 0),
         );
-        const hits = holeRay.intersectObject(body, false);
+        /*
+         * UN RAYON QUI FRÔLE UN TRIANGLE DÉGÉNÉRÉ FAIT TOMBER THREE.JS :
+         * `Triangle.getInterpolation` y rend `null`, et le raycaster lit
+         * aussitôt `.dot` dessus. La sonde tirant maintenant vingt-quatre
+         * rayons au lieu de s'arrêter au premier, le cas finit par se
+         * présenter — sur le maillage du moteur, il suffisait d'un.
+         *
+         * Un échantillon perdu n'est pas grave, il en reste vingt-trois ;
+         * l'application qui ne démarre plus, si.
+         */
+        let hits;
+        try {
+          hits = holeRay.intersectObject(body, false);
+        } catch (e) {
+          continue;
+        }
         if (hits.length < 2) continue;
-        // La vis serre la matière qui touche la pièce d'en dessous, pas tout
-        // ce que le rayon rencontre. Un support VTX creux mesure 16 mm du
-        // haut au bas alors que son pied ne fait que 2 mm : demander une vis
-        // de 20 mm rendait la fixation impossible.
         const last = hits.length - 1;
-        best = {
+        echantillons.push({
           top: hits[0].point.y,
           bottom: hits[last].point.y,
           footTop: hits[last - 1].point.y,
           material: hits[last - 1].point.y - hits[last].point.y,
-        };
+        });
       }
-      if (best) break;
+    }
+    let best = null;
+    if (echantillons.length) {
+      const basMin = Math.min(...echantillons.map((s) => s.bottom));
+      const poses = echantillons.filter((s) => s.bottom - basMin <= 0.6);
+      const francs = poses.filter((s) => s.material >= 1.0);
+      const lot = francs.length ? francs : poses;
+      best = lot.reduce((x, y) => (y.material < x.material ? y : x));
+      // le sommet du perçage reste celui de la pièce entière : c'est lui qui
+      // dit jusqu'où monte la colonne, indépendamment du pied qu'on serre
+      best.top = Math.max(...echantillons.map((s) => s.top));
     }
     /*
      * TARAUDAGE DÉCLARÉ : le palpage ne sait pas le voir.
@@ -1445,6 +1516,7 @@ function measureHoles(entry) {
      * Une pièce qui connaît son taraudage le déclare donc, et c'est elle qui
      * a raison : on l'a dessinée.
      */
+    const mount = a.mount || mountPiece;
     if (mount) {
       return Object.assign(probe, {
         bottom: mount.face,
@@ -1516,6 +1588,9 @@ function assembledParts() {
         plate: !e.mod.meta.isMesh,
         // vissée par le dessous (moteur), ou sans perçage de vis (hélice)
         underslung: e.mod.meta.underslung === true,
+        // pièce dont la visserie est livrée avec elle : ce qui se visse DANS
+        // elle ne se prélève pas sur le sachet du châssis
+        ownFasteners: e.mod.meta.ownFasteners === true,
         noFastener: e.mod.meta.noFastener === true,
         // épaisseur serrée par une vis qui la traverse (patin de bras)
         clamp: e.mod.meta.clamp || 0,
@@ -1654,10 +1729,20 @@ function placeHardware(options = {}) {
 
   // les vis sortent du sachet livré avec le châssis, pas d'un catalogue
   // infini : c'est lui qui décide des longueurs disponibles
-  const { assigned: duSachet, stock, missing } = hw.allocateFromKit(sites);
+  /*
+   * CE QUI NE SE PRÉLÈVE PAS SUR LE SACHET.
+   *
+   * Une fixation dont la pièce BASSE fournit sa propre visserie n'a rien à
+   * demander au châssis : les deux vis qui tiennent une hélice mordent dans le
+   * moyeu du moteur, et c'est le moteur qui les livre. Les laisser puiser dans
+   * le sachet lui prenait huit vis dont les fixations du châssis ont besoin.
+   */
+  const horsSachet = sites.filter((s) => s.lower.ownFasteners);
+  const duChassis = sites.filter((s) => !s.lower.ownFasteners);
+  const { assigned: duSachet, stock, missing } = hw.allocateFromKit(duChassis);
   kitStock = stock;
-  // et les vis moteur, hors sachet
-  const assigned = duSachet.concat(hw.allocateOwn(parDessous));
+  // et celles qui viennent avec leur pièce : vis moteur et vis d'hélice
+  const assigned = duSachet.concat(hw.allocateOwn(parDessous.concat(horsSachet)));
 
   // d'où part chaque vis : de son casier sur le plan quand on assemble le
   // build, directement en place quand on ne fait que recalculer la visserie
@@ -1823,7 +1908,30 @@ function renderBom(items, sites, candidateCount, missing = [], free = [], parts 
       + `c'est la seule face du drone qu'on atteint une fois l'empilage monté.`;
   }
 
-  $('bom').innerHTML = rows + spacerRows + motorRow + floorRow
+  /*
+   * LES VIS D'HÉLICE, À PART ELLES AUSSI.
+   *
+   * Deux par hélice, dans les perçages latéraux du moyeu, et elles mordent
+   * dans la portée du moteur. Comme les vis moteur, elles ne sortent pas du
+   * sachet du châssis : c'est le moteur qui les livre.
+   */
+  const helice = items.filter((i) => i.site.upper.id.startsWith('prop-'));
+  let propRow = '';
+  if (helice.length) {
+    const helices = new Set(helice.map((i) => i.site.upper.name)).size;
+    const longueurs = new Map();
+    for (const i of helice) longueurs.set(i.line.label, (longueurs.get(i.line.label) || 0) + 1);
+    const detail = [...longueurs.entries()].map(([l, n]) => `${n} × ${l}`).join(', ');
+    const s0 = helice[0].site;
+    propRow = `<div class="hl"><dt>Vis d'hélice</dt><dd>${detail}</dd></div>`
+      + `<div class="dim"><dt>soit</dt><dd>${(helice.length / Math.max(1, helices)).toFixed(0)} par hélice × ${helices}</dd></div>`
+      + `<div class="dim"><dt>ce qu'elle traverse</dt>`
+      + `<dd>${s0.upperMaterial.toFixed(1)} moyeu d'hélice + `
+      + `${Math.min(s0.lowerMaterial, s0.thread.engagement).toFixed(1)} portée moteur</dd></div>`
+      + `<div class="dim"><dt>provenance</dt><dd>livrées avec les moteurs</dd></div>`;
+  }
+
+  $('bom').innerHTML = rows + spacerRows + motorRow + propRow + floorRow
     + `<div><dt>Fixations</dt><dd>${items.length} / ${candidateCount} candidates</dd></div>`
     + `<div${weak.length ? ' class="warn"' : ''}><dt>Pièces vissables tenues</dt>`
     + `<dd>${screwable.length - weak.length} / ${screwable.length}</dd></div>`

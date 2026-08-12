@@ -266,10 +266,23 @@ export function buildProp(hand = 1) {
     anchors: [
       { index: 0, x: 0, y: 0, z: P.hubHeight / 2,
         r: P.bore / 2, axis: 'Z', coverage: 1, kind: 'hole' },
+      /*
+       * LES DEUX PERÇAGES DE VIS, ÉPAISSEUR DÉCLARÉE.
+       *
+       * Ils traversent le moyeu de part en part, 6,2 mm. Le palpage, lui, ne
+       * savait pas le dire : il sonde autour du trou, et de ce côté-là c'est
+       * une PALE qu'il rencontre — vrillée, elle ne fait que 2,3 mm au droit
+       * du perçage. Les deux vis d'une même hélice sortaient ainsi l'une en
+       * M2×8 et l'autre en M2×5.
+       *
+       * Le moyeu est dessiné, sa hauteur n'est pas à deviner : on la déclare.
+       */
       { index: 1, x: -P.screwCircle / 2, y: 0, z: P.hubHeight / 2,
-        r: P.screwHole / 2, axis: 'Z', coverage: 1, kind: 'hole' },
+        r: P.screwHole / 2, axis: 'Z', coverage: 1, kind: 'hole',
+        mount: { face: 0, depth: P.hubHeight } },
       { index: 2, x: P.screwCircle / 2, y: 0, z: P.hubHeight / 2,
-        r: P.screwHole / 2, axis: 'Z', coverage: 1, kind: 'hole' },
+        r: P.screwHole / 2, axis: 'Z', coverage: 1, kind: 'hole',
+        mount: { face: 0, depth: P.hubHeight } },
     ],
     // on annonce le DIAMÈTRE, pas l'encombrement : une tripale n'a pas de
     // pale sur l'axe X, sa boîte englobante mesure 73 mm pour une hélice de

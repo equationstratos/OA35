@@ -74,12 +74,17 @@ function motorPart({ id, index, name, jeu }) {
        */
       underslung: true,
       /**
-       * Le taraudage, déclaré : face d'appui à y = 0 dans le repère de la
-       * pièce, 3,4 mm de filet. Le palpage par rayon ne sait pas le mesurer —
-       * il ne voit que les faces tournées vers le haut — et annonçait 1,6 mm,
-       * donc une vis trop courte pour tenir un moteur.
+       * SES VIS NE SORTENT PAS DU SACHET DU CHÂSSIS — ni les quatre de sa
+       * semelle, ni les deux qui tiennent l'hélice sur son moyeu. Le sachet
+       * saute d'ailleurs de M2×8 à M2×12, sans rien entre les deux, alors
+       * qu'il faut ici du M2×10 : ces vis-là viennent avec le moteur.
+       *
+       * Les deux taraudages, eux, sont déclarés sur les ANCRES (js/lib/motor.js) :
+       * celui de la semelle et celui du moyeu ne sont ni à la même hauteur ni
+       * de la même profondeur, une déclaration unique pour toute la pièce les
+       * aurait confondus.
        */
-      mount: { face: 0, depth: MOTOR.threadDepth },
+      ownFasteners: true,
       missingAsset: null,
       source: `${MOTOR.designation} ${MOTOR.kv} KV — dessiné d'après les photos du fabricant`,
       rides: null,

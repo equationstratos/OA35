@@ -151,4 +151,36 @@ export const ACCESSORIES = await Promise.all([
     id, index, name, material: PRINTED, source: 'fichier STL fourni',
     zUp: false, upsideDown: true, clamp: 2.5,
   })),
+
+  /*
+   * PROTECTIONS D'ANTENNE — une par antenne, en TPU souple.
+   *
+   * Une cage fendue qui coiffe la tête de l'antenne, prolongée par un fût
+   * conique creux qui descend sur le fourreau. C'est elle qui encaisse le
+   * crash à la place de l'antenne : la tête d'une O4 Pro est ce qui touche le
+   * sol en premier quand le drone se retourne.
+   *
+   * Elle est dessinée SUR l'antenne, pas à vue : le logement fait Ø 15,0 pour
+   * une tête de Ø 14,53, l'alésage du fût Ø 4,0 pour un fourreau de Ø 3,53.
+   * Le générateur — révolutions, congés et booléens sous OpenCASCADE — est
+   * dans `tools/protection-antenne.py`, et il vérifie le maillage fermé avant
+   * d'écrire (0 arête libre sur 27 531).
+   *
+   * `rides` avec un décalage de 10 mm sur l'axe DE L'ANTENNE : c'est la
+   * profondeur de l'alésage du support, donc la hauteur à laquelle le
+   * fourreau sort au jour. Le fût vient s'y arrêter, et la cage tombe pile
+   * autour de la tête. La protection suit l'antenne, qui suit son support :
+   * déplacer le support les emmène toutes les trois.
+   */
+  ...[
+    { id: 'protection-antenne-d', index: 37, name: 'Protection antenne droite', host: 'antenne-vtx-d' },
+    { id: 'protection-antenne-g', index: 38, name: 'Protection antenne gauche', host: 'antenne-vtx-g' },
+  ].map(({ id, index, name, host }) => meshPart({
+    url: 'assets/parts-3d/oa35-protection-antenne.stl',
+    id, index, name,
+    material: 'TPU souple',
+    source: 'dessinée sur l’antenne O4 Pro — tools/protection-antenne.py',
+    noFastener: true, detectAnchors: false,
+    rides: { host, offset: [0, 10, 0] },
+  })),
 ]);

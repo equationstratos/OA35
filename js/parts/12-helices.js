@@ -58,11 +58,14 @@ function propPart({ id, index, name, sens }) {
       stackHeight: 0,
       isMesh: true,
       /**
-       * Rien à visser ici. L'alésage central n'est pas un perçage de fixation
-       * mais le passage de l'arbre : laissé au détecteur, il devenait un point
-       * de vissage et plantait une vis en plein milieu de l'hélice.
+       * DEUX VIS, ET DEUX SEULEMENT — celles des perçages latéraux.
+       *
+       * L'alésage central n'en reçoit pas, et il n'y a rien à exclure pour
+       * cela : c'est le passage de l'arbre, le moteur n'a aucun perçage en
+       * face, et un perçage seul ne fait pas une colonne. Les deux perçages
+       * latéraux, eux, tombent sur le cercle de Ø 6,2 des taraudages du moyeu
+       * moteur — c'est là que la vis mord.
        */
-      noFastener: true,
       missingAsset: null,
       source: `tripale 3,5" × 2,5, rotation ${rotation}`
         + ' — dessinée d’après le format du châssis, pas d’une photo',

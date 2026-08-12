@@ -722,8 +722,24 @@ résultat est parfaitement symétrique — c'est ce qui confirme la lecture :
 | recul | +52,5° | +52,2° |
 
 Le fourreau fait Ø 3,50 pour un alésage de Ø 2,89 : c'est voulu, la matière
-serre le fourreau. Les 10 mm enterrés ne se voient pas ; les 75 mm restants
-sortent en V, comme sur le drone monté.
+serre le fourreau. Les 10 mm enterrés ne se voient pas ; le reste sort en V,
+comme sur le drone monté.
+
+**Et la tête va au bout, pas dans le trou.** La première conversion coupait le
+STEP à z = 9 pour écarter « le connecteur MMCX » — sauf que c'est la TÊTE de
+l'antenne qui est de ce côté-là du fichier, et le connecteur à l'autre bout.
+L'antenne sortait donc du support par son fourreau nu, capuchon en moins et à
+l'envers. Le profil du brin, relevé section par section, ne laisse aucun doute :
+
+| z dans le STEP | Ø | ce que c'est |
+|---|---|---|
+| −12,25 → 5,5 | 14,5 | la **tête**, calotte arrondie |
+| 5,5 → 44,5 | 3,50 | le **fourreau** |
+| 44,5 → 94 | 1,50 | le **coaxial**, puis le MMCX |
+
+La conversion garde donc tête et fourreau, coupe le coaxial — il descend dans
+le drone, pas dans l'alésage — et retourne le tout : fourreau à z = 0, tête
+vers l'extérieur.
 
 **L'air unit** va dans la baie **arrière**, centrée à z = +53,4. La plaque
 intermédiaire porte deux baies, chacune percée aux deux standards (20 × 20 et
@@ -763,6 +779,46 @@ le fichier — les joues sont posées avec un lacet de 2° qui ferme la cage à
 l'avant, et leur écartement vient d'un placement à la main. La caméra est donc
 posée à ses cotes exactes, sans mise à l'échelle : c'est la cage qui bougera si
 on décide de la corriger.
+
+### La protection d'antenne, en TPU
+
+Une **cage fendue** qui coiffe la tête de l'antenne, prolongée par un **fût
+conique creux** qui descend sur le fourreau. C'est elle qui encaisse le crash à
+la place de l'antenne : la tête d'une O4 Pro est ce qui touche le sol en premier
+quand le drone se retourne.
+
+Elle est dessinée **sur l'antenne**, pas à vue — les cotes intérieures viennent
+du maillage du STEP constructeur :
+
+| | mesuré sur l'antenne | retenu pour la pièce |
+|---|---|---|
+| fourreau | Ø 3,53 | alésage du fût **Ø 4,0** |
+| tête | Ø 14,53 × 20,75 | logement **Ø 15,0 × 23,0** |
+
+Hors tout : **Ø 18,0 × 49,3 mm**, paroi 1,5, fond de choc 2,6.
+
+Les **fentes** ne sont pas décoratives, et elles sont sur la pièce réelle : le
+TPU doit pouvoir s'ouvrir pour laisser passer la tête à l'enfilage, une cage
+pleine ferait cage de Faraday autour d'une antenne, et la matière économisée
+est de la masse en moins au bout d'un bras de levier. Leurs extrémités sont
+rondes — un angle vif serait l'amorce de déchirure.
+
+Le générateur est [`tools/protection-antenne.py`](tools/protection-antenne.py) :
+révolutions, congés et booléens sous OpenCASCADE, puis un maillage piloté par
+la courbure. Il **vérifie le solide fermé** avant d'écrire — chaque arête doit
+appartenir exactement à deux triangles — et sort en échec sinon.
+
+```
+  protection d'antenne : 18 354 triangles, 896 Kio
+     encombrement  Ø 18,03 × 49,25 mm
+     arêtes libres 0 / 27 531  → FERMÉE
+```
+
+Dans le visualisateur, elle est portée par l'antenne, qui est elle-même portée
+par son support : **trois maillons**. Les pièces portées se résolvent donc
+maintenant dans l'ordre de la chaîne — traitées dans l'ordre du registre, la
+protection était placée avant que son antenne n'ait quitté l'établi, et
+recopiait une position périmée à cinq cents millimètres du drone.
 
 ### La détection, par colonne
 
@@ -807,6 +863,33 @@ Quatre règles ont été nécessaires, toutes tirées de défauts constatés :
   deux trous de Ø3,99 — hors de toute plage de filetage. Le filetage se lit sur
   le perçage le plus étroit de la colonne, les autres ne font que laisser
   passer.
+
+### La sonde prend le pied, pas le premier rayon venu
+
+La sonde tire vingt-quatre rayons autour de chaque perçage — trois couronnes,
+huit directions — pour mesurer l'épaisseur que la vis doit traverser. Elle
+gardait le **premier** échantillon exploitable, et le résultat dépendait donc de
+l'angle tiré : sur une joue de support caméra, le rayon qui longe la joue
+DEBOUT traverse vingt millimètres de matière verticale quand son voisin, tombé
+sur le pied couché, en traverse quatre. Les deux sont vrais ; un seul intéresse
+la vis. Les deux joues, qui sont pourtant la même pièce en miroir, mesuraient
+**4,12 et 21,50 mm au même perçage**.
+
+La vis ne serre que ce qui touche la pièce d'en dessous. On garde donc les
+échantillons dont le dessous est le plus bas — ceux qui posent vraiment — et,
+parmi eux, **le plus mince** : c'est le pied. Un plancher de 1 mm écarte les
+éclats de chanfrein.
+
+Effet : les quatre pieds du support caméra mesurent maintenant la même chose
+des deux côtés, et **trois fixations qui manquaient sous le nez du drone**
+reviennent — leurs 14 à 21 mm dépassaient la traverse maximale et les faisaient
+écarter.
+
+> Un rayon qui frôle un triangle dégénéré fait tomber Three.js :
+> `Triangle.getInterpolation` y rend `null` et le raycaster lit aussitôt `.dot`
+> dessus. Avec un seul rayon le cas ne se présentait jamais ; avec vingt-quatre,
+> si. Un échantillon perdu n'est pas grave, il en reste vingt-trois — la sonde
+> passe outre plutôt que d'emporter le démarrage.
 
 ### Le sens de vissage : ce qui pose sur le plancher monte par le dessous
 
@@ -864,6 +947,40 @@ traverse le bras, puis se visse dans la semelle. D'où la longueur :
 C'est normal, et c'est dit dans la fiche : les vis moteur viennent avec les
 moteurs. Les laisser puiser dans le sachet vidait les vis longues au détriment
 des fixations qui en ont besoin, et laissait douze moteurs sur seize sans vis.
+
+### Les vis d'hélice
+
+Deux par hélice, dans les perçages latéraux du moyeu — le trou central, lui,
+n'est pas une fixation mais le passage de l'arbre, et rien n'a été ajouté pour
+l'exclure : le moteur n'a aucun perçage en face, et un perçage seul ne fait pas
+une colonne.
+
+| | |
+|---|---|
+| Nombre | 2 par hélice, **8** en tout |
+| Longueur | **M2×8** |
+| Ce qu'elle traverse | 6,2 de moyeu d'hélice + 1,8 de prise dans la cloche |
+| Provenance | livrées **avec les moteurs** |
+
+Deux choses ont dû être corrigées pour que ces vis existent.
+
+**Les deux motifs ne se faisaient pas face.** Les quatre taraudages du moyeu
+moteur étaient dessinés à 45°, l'hélice a ses deux perçages sur un diamètre
+franc : la vis n'avait rien à mordre. Rien ne fixait l'angle de ces quatre
+trous — il ne se lit sur aucune photo, alors que celui des perçages d'hélice,
+si. C'est donc le moteur qui s'aligne sur l'hélice.
+
+**Le taraudage part de la portée, pas du plateau.** L'hélice ne pose pas sur le
+plateau de la cloche mais sur le moyeu qui le surmonte de 0,6 mm. Le faire
+démarrer au plateau laissait 0,6 mm de vide entre les deux perçages — assez
+pour que la colonne se coupe en deux et que l'hélice perde ses vis.
+
+> Deux cotes sont **déclarées** ici plutôt que mesurées, et le code le dit :
+> l'épaisseur du moyeu d'hélice (6,2 mm — la sonde tombait sur une PALE, qui ne
+> fait que 2,3 mm au droit du perçage, et sortait une vis en M2×5 et l'autre en
+> M2×8), et la prise dans la cloche (0,6 de portée + 0,7 de plateau + 0,5 de
+> reprise de matière : un taraudage M2 dans 1,3 mm de tôle ne tiendrait pas une
+> hélice).
 
 **Un trou, une vis.** Là où une vis monte par le dessous, le détecteur
 classique voyait *aussi* un couple patin → bras et posait une seconde vis, tête
@@ -1060,6 +1177,7 @@ js/parts/09-side-guard.js  covers latéraux gauche/droit et leurs habillages
 js/parts/11-moteurs.js     1804 3450 KV, dessiné cote par cote d'après les photos
 js/parts/12-helices.js     3,5" tri-pales
 js/parts/13-dji.js         caméra, air unit et antennes O4 Pro (STEP constructeur)
+tools/protection-antenne.py  générateur du STL de protection d'antenne (TPU)
 js/liveries.js             les quinze jeux de couleurs
 assets/parts-3d/side-guard/  les sept habillages dérivés du side guard
 assets/parts-3d/oa35-cache-vis-camera.stl  cache de vis, encastré au dos de la joue
