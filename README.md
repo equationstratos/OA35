@@ -792,10 +792,23 @@ du maillage du STEP constructeur :
 
 | | mesuré sur l'antenne | retenu pour la pièce |
 |---|---|---|
-| fourreau | Ø 3,53 | alésage du fût **Ø 4,0** |
-| tête | Ø 14,53 × 20,75 | logement **Ø 15,0 × 23,0** |
+| fourreau | Ø 3,53 | alésage du fût **Ø 3,59** |
+| tête | Ø 14,53 × 20,75 | logement **Ø 14,59 × 23,0** |
 
-Hors tout : **Ø 18,0 × 49,3 mm**, paroi 1,5, fond de choc 2,6.
+Hors tout : **Ø 16,6 × 49,3 mm**, paroi **1,0**, fond de choc 1,8.
+
+**Le jeu est nul, et c'est voulu.** Sur une pièce rigide on laisserait deux ou
+trois dixièmes pour que ça entre ; en TPU, non — la matière s'ouvre à
+l'enfilage et se referme sur l'antenne, et c'est ce serrage qui retient la
+protection. Un demi-millimètre de jeu, comme au premier jet, la laisserait
+tourner sur elle-même et se déchausser au premier crash. Les six centièmes qui
+restent ne sont pas un jeu de montage : c'est ce qu'il faut pour que deux
+surfaces rigoureusement confondues ne scintillent pas dans la scène 3-D.
+
+**La paroi fait 1,0 mm**, soit deux passes et demie à la buse de 0,4 : le
+minimum qui reste imprimable, et le maximum qui reste souple — à 1,5 la pièce
+était raide, et une protection raide transmet le choc au lieu de l'absorber.
+Seul le fond, qui encaisse, reste à 1,8.
 
 Les **fentes** ne sont pas décoratives, et elles sont sur la pièce réelle : le
 TPU doit pouvoir s'ouvrir pour laisser passer la tête à l'enfilage, une cage
@@ -809,10 +822,15 @@ la courbure. Il **vérifie le solide fermé** avant d'écrire — chaque arête 
 appartenir exactement à deux triangles — et sort en échec sinon.
 
 ```
-  protection d'antenne : 18 354 triangles, 896 Kio
-     encombrement  Ø 18,03 × 49,25 mm
-     arêtes libres 0 / 27 531  → FERMÉE
+  protection d'antenne : 13 736 triangles, 671 Kio
+     encombrement  Ø 16,59 × 49,25 mm
+     arêtes libres 0 / 20 604  → FERMÉE
 ```
+
+Ce contrôle n'est pas décoratif : à 0,35 mm de congé, l'opération passe sans
+erreur mais rend un solide qui ne se maille plus fermé — 64 arêtes libres, et
+un maillage quatre fois plus lourd. À 0,5 mm, tout rentre dans l'ordre. C'est
+le contrôle qui l'a dit, pas l'œil.
 
 Dans le visualisateur, elle est portée par l'antenne, qui est elle-même portée
 par son support : **trois maillons**. Les pièces portées se résolvent donc

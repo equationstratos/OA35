@@ -36,7 +36,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-11j · vis d hélice, protections d antenne TPU';
+const BUILD = '2026-08-11k · protections d antenne affinees, sans jeu';
 $('build-stamp').textContent = BUILD;
 
 /* Les trois groupes de visserie — sachet du plan de travail, visserie posée,

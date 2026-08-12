@@ -160,11 +160,15 @@ export const ACCESSORIES = await Promise.all([
    * crash à la place de l'antenne : la tête d'une O4 Pro est ce qui touche le
    * sol en premier quand le drone se retourne.
    *
-   * Elle est dessinée SUR l'antenne, pas à vue : le logement fait Ø 15,0 pour
-   * une tête de Ø 14,53, l'alésage du fût Ø 4,0 pour un fourreau de Ø 3,53.
+   * Elle est dessinée SUR l'antenne, pas à vue, et SANS JEU : logement Ø 14,59
+   * pour une tête de Ø 14,53, alésage de fût Ø 3,59 pour un fourreau de
+   * Ø 3,53. En TPU on ne laisse pas de jeu — la matière s'ouvre à l'enfilage
+   * et se referme sur l'antenne, et c'est ce serrage qui retient la pièce.
+   * Paroi 1,0 mm, fond de choc 1,8.
+   *
    * Le générateur — révolutions, congés et booléens sous OpenCASCADE — est
    * dans `tools/protection-antenne.py`, et il vérifie le maillage fermé avant
-   * d'écrire (0 arête libre sur 27 531).
+   * d'écrire (0 arête libre sur 20 604).
    *
    * `rides` avec un décalage de 10 mm sur l'axe DE L'ANTENNE : c'est la
    * profondeur de l'alésage du support, donc la hauteur à laquelle le
