@@ -1174,6 +1174,88 @@ technique du châssis.
   secondes
 - pièce du dépôt : `git checkout js/parts/01-bottom-plate.js` la restaure
 
+## La boîte de rangement
+
+La coque est reprise de la boîte du dépôt [JETBOAT](https://github.com/equationstratos/JETBOAT)
+(`tools/rugged_box.py`, dérivée du STEP « Rugged Box Parametric V2 ») : mêmes
+parois, même charnière, mêmes loquets, mêmes patins de gerbage. **Une seule
+coque, deux boîtes** — et c'est ce qui les rend empilables.
+
+| | |
+|---|---|
+| Intérieur | **238 × 150 × 40** mm, plus 22 sous le couvercle |
+| Hors tout | 242,8 × 154,8 × 68 — 246,8 × 172 nervures et charnière comprises |
+| Paroi / fond | 2,4 / 3,0 mm |
+| Plan de joint | 43,0 mm, rainure de 4,45 et joint plat de 1,4 comprimé à 25 % |
+| Gerbage | 4 patins Ø 20 à (±90 ; ±55), et leurs empreintes en face sur le couvercle |
+
+### Pourquoi elle a été élargie
+
+La boîte du jet boat mesurait **134** mm à l'intérieur, ce qui suffit largement
+au bateau — 80,8 de large. Le drone, lui, demande **141,8**. Ce n'est pas une
+estimation : c'est l'enveloppe convexe du modèle assemblé vu de dessus, hélices
+et antennes ôtées, relevée sur ses deux millions de sommets — **163,1 × 141,8 mm**.
+
+> La boîte englobante annonçait 175,2 × 144,1, et elle a tort : Three.js la
+> calcule en transformant les huit coins de chaque boîte locale, ce qui
+> majore dès qu'une pièce est tournée — et sur ce châssis, bras et moteurs le
+> sont tous. L'enveloppe convexe, elle, se lit sur les sommets réels.
+
+**Et il ne rentre à aucun angle.** Sa silhouette est une croix, ce qui laissait
+espérer qu'en biais les moteurs se logeraient dans les coins ; le balayage sur
+360 quarts de degré dit le contraire — l'orientation la plus compacte est celle
+à 0°, et elle demande 141,8 pour 134 disponibles. Élargir la coque des **deux**
+boîtes était donc le seul moyen de tenir « même taille, donc gerbables ». Le
+bateau n'y perd rien : il y gagne seize millimètres.
+
+À 150, le drone se pose avec **74,9 mm de marge en long et 8,2 en large**, et
+40 + 22 = 62 mm de hauteur pour ses 48,5.
+
+### Ce qu'il y a dans le dossier
+
+```
+tools/boite-rangement.py     le générateur (trimesh + manifold3d)
+tools/apercu-boite.html      deux boîtes gerbées, et le drone au fond du bac
+assets/boite/boite-bac.STL
+assets/boite/boite-couvercle.STL
+assets/boite/boite-joint.STL          à découper dans une mousse de 1,4
+assets/boite/boite-loquet.STL         repris tel quel du STEP d'origine
+```
+
+```bash
+python3 tools/boite-rangement.py                      # la coque nue
+python3 tools/boite-rangement.py --amenagement drone  # quand il y en aura un
+```
+
+**Aucun cloisonnement pour l'instant, et c'est voulu** : un aménagement se
+dessine sur ce qu'on range vraiment, pas sur ce qu'on imagine ranger. Tant que
+les deux aménagements sont vides, les deux boîtes sont le même objet au bit
+près, et le dépôt n'a aucune raison de porter deux fois le même fichier — d'où
+un seul jeu, `boite-bac.STL`. Le jour où un cloisonnement est dessiné,
+`--amenagement drone` sort `boite-drone-bac.STL` et les deux jeux se séparent
+d'eux-mêmes. Pour la boîte du bateau, ce sont **les mêmes fichiers** : les
+déposer dans `JETBOAT/models/` sous les noms `case_base` / `case_lid` /
+`case_gasket` suffit à la remettre à la cote commune.
+
+### Le solide est vérifié fermé
+
+Le générateur sépare les composantes et ne garde que celles qui ont un volume.
+Les booléens laissent, au droit des nervures, des lambeaux de deux triangles
+dos à dos — quarante-huit sur le bac, pour un volume rigoureusement nul. Ils ne
+se voient pas et ne s'impriment pas, mais ils suffisent à ce que le fichier ne
+se relise plus comme un solide fermé, et un trancheur qui doute d'un solide
+fait n'importe quoi de ses parois. Le fichier d'origine du jet boat porte le
+même défaut, 88 arêtes libres et 45 composantes.
+
+```
+  bac          5780 faces  fermé=True  volume=  209.6 cm3
+  couvercle    5708 faces  fermé=True  volume=  157.0 cm3
+  joint         544 faces  fermé=True  volume=    1.5 cm3
+```
+
+Le repli est systématique : si le nettoyage ne rend pas le solide fermé, le
+générateur rend le maillage d'avant, jamais un solide amputé.
+
 ## Arborescence
 
 ```
@@ -1196,6 +1278,9 @@ js/parts/11-moteurs.js     1804 3450 KV, dessiné cote par cote d'après les pho
 js/parts/12-helices.js     3,5" tri-pales
 js/parts/13-dji.js         caméra, air unit et antennes O4 Pro (STEP constructeur)
 tools/protection-antenne.py  générateur du STL de protection d'antenne (TPU)
+tools/boite-rangement.py     générateur de la boîte, coque commune avec JETBOAT
+tools/apercu-boite.html      aperçu : deux boîtes gerbées + le drone au fond
+assets/boite/                bac, couvercle, joint, loquet
 js/liveries.js             les quinze jeux de couleurs
 assets/parts-3d/side-guard/  les sept habillages dérivés du side guard
 assets/parts-3d/oa35-cache-vis-camera.stl  cache de vis, encastré au dos de la joue

@@ -1,0 +1,71 @@
+<!--
+  APERÇU DE LA BOÎTE — deux boîtes gerbées, et le drone au fond du bac.
+
+  Sert à vérifier d'un coup d'œil ce qu'un tableau de cotes dit mal : que les
+  patins du bac tombent bien dans les empreintes du couvercle d'en dessous, et
+  que le drone entre dans le bac avec de la marge.
+
+      python3 -m http.server 8765     puis     /tools/apercu-boite.html
+
+  `SILHOUETTE_DRONE` est l'enveloppe convexe du drone vu de dessus, hélices et
+  antennes ôtées, relevée sur les deux millions de sommets du modèle assemblé
+  et recentrée. 163,1 x 141,8 mm.
+-->
+<style>html,body{margin:0;background:#0d1117;overflow:hidden}</style>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/"}}</script>
+<script type="module">
+const SILHOUETTE_DRONE = [[81.1,-45.4],[81.6,56.4],[81.5,57.2],[81.5,57.6],[81.5,57.9],[81.4,58.4],[81.3,58.7],[81.2,59.4],[81.1,59.8],[80.9,60.4],[80.7,60.8],[80.5,61.3],[80.4,61.5],[80.2,61.9],[80.0,62.2],[79.6,62.8],[79.5,63.0],[79.2,63.4],[79.0,63.7],[78.7,64.0],[78.1,64.6],[77.7,65.1],[77.5,65.2],[77.1,65.6],[76.7,65.9],[76.5,66.0],[75.8,66.4],[75.5,66.6],[75.2,66.8],[74.9,66.9],[74.5,67.1],[74.0,67.2],[73.4,67.4],[73.0,67.5],[72.3,67.7],[72.1,67.8],[71.6,67.8],[71.2,67.9],[71.1,67.9],[70.8,67.9],[11.4,70.9],[-11.6,70.9],[-70.8,67.9],[-71.1,67.9],[-71.2,67.9],[-71.6,67.8],[-72.1,67.8],[-72.3,67.7],[-73.0,67.5],[-73.4,67.4],[-74.0,67.2],[-74.5,67.1],[-74.9,66.9],[-75.2,66.8],[-75.5,66.6],[-75.8,66.4],[-76.5,66.0],[-76.7,65.9],[-77.1,65.6],[-77.5,65.2],[-77.7,65.1],[-78.1,64.6],[-78.7,64.0],[-79.0,63.7],[-79.2,63.4],[-79.5,63.0],[-79.6,62.8],[-80.0,62.2],[-80.2,61.9],[-80.4,61.5],[-80.5,61.3],[-80.7,60.8],[-80.9,60.4],[-81.1,59.8],[-81.2,59.4],[-81.3,58.7],[-81.4,58.4],[-81.5,57.9],[-81.5,57.6],[-81.5,57.2],[-81.6,56.4],[-81.1,-45.4],[-81.1,-45.7],[-81.1,-46.1],[-81.0,-46.4],[-80.9,-47.2],[-80.7,-49.0],[-80.5,-49.4],[-80.3,-49.8],[-79.3,-51.4],[-78.9,-52.0],[-78.6,-52.3],[-78.4,-52.6],[-78.2,-52.8],[-77.9,-53.1],[-77.5,-53.5],[-77.4,-53.6],[-77.1,-53.9],[-76.8,-54.1],[-76.2,-54.6],[-76.0,-54.7],[-75.5,-55.0],[-75.2,-55.2],[-74.9,-55.4],[-74.2,-55.7],[-73.5,-56.0],[-73.2,-56.1],[-72.8,-56.2],[-72.3,-56.3],[-15.3,-70.7],[-13.6,-70.8],[-11.5,-70.9],[11.5,-70.9],[13.6,-70.8],[15.3,-70.7],[72.3,-56.3],[72.8,-56.2],[73.2,-56.1],[73.5,-56.0],[74.2,-55.7],[74.9,-55.4],[75.2,-55.2],[75.5,-55.0],[76.0,-54.7],[76.2,-54.6],[76.8,-54.1],[77.1,-53.9],[77.4,-53.6],[77.5,-53.5],[77.9,-53.1],[78.2,-52.8],[78.4,-52.6],[78.6,-52.3],[78.9,-52.0],[79.3,-51.4],[80.3,-49.8],[80.5,-49.4],[80.7,-49.0],[80.9,-47.2],[81.0,-46.4],[81.1,-46.1],[81.1,-45.7]];
+
+import * as THREE from 'three';
+import { OrbitControls } from '../vendor/three/OrbitControls.js';
+const sc = new THREE.Scene(); sc.background = new THREE.Color(0x0d1117);
+const cam = new THREE.PerspectiveCamera(38, innerWidth/innerHeight, 1, 5000);
+const rd = new THREE.WebGLRenderer({antialias:true}); rd.setSize(innerWidth, innerHeight);
+document.body.appendChild(rd.domElement);
+sc.add(new THREE.HemisphereLight(0xbfd4ff, 0x202830, 1.5));
+const d1 = new THREE.DirectionalLight(0xffffff, 2.2); d1.position.set(300,500,400); sc.add(d1);
+const d2 = new THREE.DirectionalLight(0x88aaff, 0.8); d2.position.set(-400,200,-300); sc.add(d2);
+async function stl(url){
+  const buf = await (await fetch(url)).arrayBuffer();
+  const dv = new DataView(buf); const n = dv.getUint32(80, true);
+  const pos = new Float32Array(n*9); const nor = new Float32Array(n*9);
+  for (let i=0;i<n;i++){ const o = 84+i*50;
+    const nx=dv.getFloat32(o,true), ny=dv.getFloat32(o+4,true), nz=dv.getFloat32(o+8,true);
+    for (let j=0;j<3;j++){ const p=o+12+j*12; const k=(i*3+j)*3;
+      pos[k]=dv.getFloat32(p,true); pos[k+1]=dv.getFloat32(p+4,true); pos[k+2]=dv.getFloat32(p+8,true);
+      nor[k]=nx; nor[k+1]=ny; nor[k+2]=nz; } }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  g.setAttribute('normal', new THREE.BufferAttribute(nor,3));
+  return g;
+}
+const mat = (c) => new THREE.MeshPhysicalMaterial({color:c, roughness:0.55, metalness:0.05, clearcoat:0.2});
+const [bac, couv, joint] = await Promise.all(['bac','couvercle','joint'].map(n => stl('../assets/boite/boite-'+n+'.STL')));
+// repère fichier : Z haut -> scène Y haut
+const pose = (g, col, tr, rot) => { const m = new THREE.Mesh(g, mat(col));
+  m.rotation.x = -Math.PI/2; const grp = new THREE.Group(); grp.add(m);
+  if (rot) { grp.rotation.z = rot; } grp.position.set(...tr); sc.add(grp); return grp; };
+// BOÎTE DU BAS : bac + couvercle retourné dessus
+pose(bac, 0x2f353d, [0,0,0]);
+const c1 = new THREE.Mesh(couv, mat(0x3a4149)); c1.rotation.x = Math.PI/2; // retourné
+const g1 = new THREE.Group(); g1.add(c1); g1.position.set(0, 43+25, 0); sc.add(g1);
+pose(joint, 0x18b3a4, [0, 43-1.4, 0]);
+// BOÎTE DU DESSUS, gerbée
+const off = 43+25+2.4;
+const haut = [pose(bac, 0x2f353d, [0, off, 0])];
+const c2 = new THREE.Mesh(couv, mat(0x3a4149)); c2.rotation.x = Math.PI/2;
+const g2 = new THREE.Group(); g2.add(c2); g2.position.set(0, off+43+25, 0); sc.add(g2);
+haut.push(g2);
+// SILHOUETTE DU DRONE, posée au fond du bac
+const hull = SILHOUETTE_DRONE;
+const sh = new THREE.Shape(hull.map(([x,y]) => new THREE.Vector2(x,y)));
+const sil = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, {depth:2, bevelEnabled:false}),
+  new THREE.MeshPhysicalMaterial({color:0x6cc7ff, roughness:0.4}));
+sil.rotation.x = -Math.PI/2; sil.position.y = 5.0; sc.add(sil);
+window.__ouvert = () => { haut.forEach(o => o.visible = false); g1.visible = false; rd.render(sc, cam); };
+const ctl = new OrbitControls(cam, rd.domElement);
+cam.position.set(330, 260, 380); ctl.target.set(0, 60, 0); ctl.update();
+rd.render(sc, cam);
+window.__shot = (p, t) => { cam.position.set(...p); ctl.target.set(...t); ctl.update(); rd.render(sc, cam); };
+window.__pret = true;
+</script>
