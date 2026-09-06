@@ -1189,6 +1189,44 @@ coque, deux boîtes** — et c'est ce qui les rend empilables.
 | Plan de joint | 43,0 mm, rainure de 4,45 et joint plat de 1,4 comprimé à 25 % |
 | Gerbage | 4 patins Ø 20 à (±90 ; ±55), et leurs empreintes en face sur le couvercle |
 
+### La boîte dans le visualiseur
+
+Menu **Boîte**, quatre états :
+
+| | |
+|---|---|
+| **Masquée** | le drone seul, comme avant |
+| **Ouverte** | couvercle relevé sur sa vraie charnière, le drone posé au fond du bac |
+| **Fermée** | couvercle rabattu, joint comprimé |
+| **Gerbées** | deux boîtes empilées, les patins de l'une dans les empreintes de l'autre |
+
+Le choix est retenu d'une visite à l'autre (`tinyhoop-mk1:boite`). Le couvercle
+ne bascule pas d'un bloc : il pivote autour de la charnière réelle, à
+`-(154,8/2 + 5,5)` mm du centre, ce qui donne l'ouverture qu'aurait la vraie
+boîte et non une lévitation. Le gerbage se fait au pas mesuré de **68,15 mm** —
+43,0 de plan de joint plus 25,0 de couvercle, plus le dixième de jeu ; à 70,4,
+essayé d'abord, les patins se posaient SUR le couvercle au lieu de tomber dans
+ses empreintes.
+
+**Ce qui s'efface quand la boîte apparaît.** Le drone se range comme il voyage,
+donc **hélices, antennes et protections d'antenne** sont ôtées — c'est
+d'ailleurs cette silhouette-là, et pas l'autre, qui a décidé de la largeur de la
+boîte. Disparaissent avec elles les trois calques de lecture : **repères de
+montage**, **liseré d'arêtes**, **filet de chanfrein**, et le **sachet de
+visserie** étalé sur l'établi. Tout revient dès qu'on repasse à « Masquée ».
+
+> Ce n'est pas seulement une question de propreté. Sous le couvercle fermé, la
+> paroi est à 515 mm de l'œil et le chanfrein du support caméra à 584 —
+> soixante-neuf millimètres derrière, avec un tampon de profondeur de 24 bits,
+> mesuré au lancer de rayon. Il devrait donc être caché, et il l'est à
+> quatre-vingt-quinze pour cent : le reste passait au travers en semis de
+> points clairs sur le couvercle. C'est la rastérisation des **lignes** qui
+> lâche là où celle des triangles tient — le corps de la même pièce, lui, est
+> proprement masqué. Plutôt que de courir après un défaut de rendu, on retire
+> le filet quand il n'a plus rien à désigner. Et la règle vaut à tout angle :
+> en tournant autour de la boîte, une paroi de bac finit toujours par passer
+> entre l'œil et le drone.
+
 ### Pourquoi elle a été élargie
 
 La boîte du jet boat mesurait **134** mm à l'intérieur, ce qui suffit largement
@@ -1256,6 +1294,12 @@ même défaut, 88 arêtes libres et 45 composantes.
 Le repli est systématique : si le nettoyage ne rend pas le solide fermé, le
 générateur rend le maillage d'avant, jamais un solide amputé.
 
+Relu à part, hors du générateur, le bac garde **seize arêtes partagées par
+quatre faces** — là où une nervure vient toucher une paroi. Ce ne sont pas des
+trous : aucune arête n'est libre, la surface n'a pas de bord, et c'est ce qui
+compte pour trancher. Le couvercle, le joint et le loquet, eux, sont
+rigoureusement à deux faces par arête.
+
 ## Arborescence
 
 ```
@@ -1268,6 +1312,7 @@ js/assembly.js             contraintes de perçages, placement, sélection
 js/hardware.js             visserie déduite de l'assemblage, nomenclature
 js/standoffs.js            entretoises créées à la référence, posées au clic
 js/frame-spec.js           fiche technique du châssis : empattement, épaisseurs
+js/boite.js                la boîte de rangement dans la scène : ouverte, fermée, gerbées
 js/lib/trace.js            binarisation, suivi de contour, simplification
 js/lib/patterns.js         motifs de perçage normalisés, calage de l'échelle
 js/lib/geom.js             pixels -> mm, congés, symétrie, extrusion

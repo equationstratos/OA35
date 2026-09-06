@@ -17,6 +17,7 @@ import {
 import { FRAME, thicknessForRole } from './frame-spec.js';
 import { tintMaterial, DEFAULT_TINT, setAccentTint } from './lib/materials.js';
 import { LIVREES, swatchOf, colorFor } from './liveries.js';
+import { ETATS as BOITE_ETATS, poserBoite, groupeBoite } from './boite.js';
 import * as exporter from './lib/export.js';
 import * as hw from './hardware.js';
 import * as so from './standoffs.js';
@@ -36,7 +37,7 @@ const $ = (id) => document.getElementById(id);
  *
  * À incrémenter à chaque livraison.
  */
-const BUILD = '2026-08-11k · protections d antenne affinees, sans jeu';
+const BUILD = '2026-08-11l · boite de rangement dans le visualiseur';
 $('build-stamp').textContent = BUILD;
 
 /* Les trois groupes de visserie — sachet du plan de travail, visserie posée,
@@ -221,6 +222,16 @@ function resizeGrid(needed) {
 
 const buildRoot = new THREE.Group();
 scene.add(buildRoot);
+
+/*
+ * LA BOÎTE DE RANGEMENT, dans la scène et non dans le build.
+ *
+ * Elle n'est pas une pièce du drone : elle ne se monte pas, ne se visse pas,
+ * ne figure ni dans la liste des pièces ni dans la nomenclature. La mettre
+ * dans `buildRoot` l'aurait fait suivre les animations d'assemblage et compter
+ * dans les détections. Elle a donc son propre groupe, et son propre menu.
+ */
+scene.add(groupeBoite());
 
 let entries = [];
 
@@ -1088,6 +1099,22 @@ function saveHidden() {
  * compte sans dépendre de l'ordre des déclarations. */
 let isolatedId = null;
 
+/**
+ * CE QU'ON ÔTE POUR RANGER LE DRONE.
+ *
+ * Hélices, antennes et leurs protections ne rentrent pas dans la boîte — c'est
+ * même cette silhouette-là, hélices et antennes ôtées, qui a décidé de sa
+ * largeur. Les laisser affichées ferait traverser les parois par les pales, et
+ * donnerait à lire comme une erreur de modèle ce qui n'est qu'un drone qu'on
+ * n'a pas démonté.
+ *
+ * Comme le mode isolé, cette règle se SUPERPOSE à la liste des pièces
+ * masquées sans y toucher : refermer le menu Boîte sur « Masquée » rend au
+ * drone tout ce qu'il avait.
+ */
+const HORS_BOITE = ['prop-', 'antenne-', 'protection-antenne'];
+let droneRange = false;
+
 /** Applique l'état masqué/visible à toutes les pièces montées. */
 function applyHidden() {
   entries.forEach((e) => {
@@ -1095,7 +1122,8 @@ function applyHidden() {
     const id = e.mod.meta.id;
     // le mode isolé ne touche pas à la liste des pièces masquées : il se
     // superpose, et tout revient en le décochant
-    e.object.visible = !hiddenParts.has(id) && (!isolatedId || id === isolatedId);
+    e.object.visible = !hiddenParts.has(id) && (!isolatedId || id === isolatedId)
+      && !(droneRange && HORS_BOITE.some((prefixe) => id.startsWith(prefixe)));
   });
   invalidate();
 }
@@ -1254,6 +1282,60 @@ function renderLivrees() {
 }
 
 /* ------------------------------------------------------------------ *
+ * La boîte de rangement
+ *
+ * Quatre états, un menu, et rien d'autre : la boîte ne se manipule pas comme
+ * une pièce. L'état est conservé d'une visite à l'autre, comme la livrée.
+ * ------------------------------------------------------------------ */
+
+const BOITE_KEY = 'tinyhoop-mk1:boite';
+let boiteEtat = 'masquee';
+try { boiteEtat = localStorage.getItem(BOITE_KEY) || 'masquee'; } catch { /* ignore */ }
+if (!BOITE_ETATS.some((e) => e.id === boiteEtat)) boiteEtat = 'masquee';
+
+async function appliquerBoite(etat, annoncer = true) {
+  const e = BOITE_ETATS.find((x) => x.id === etat);
+  if (!e) return;
+  const ok = await poserBoite(etat);
+  if (!ok) {
+    updateAsmHint('Les maillages de la boîte sont introuvables dans assets/boite/.', 'warn');
+    return;
+  }
+  boiteEtat = etat;
+  droneRange = etat !== 'masquee';
+  applyHidden();
+  setMarkersVisible(!$('opt-layout').checked);
+  // les arêtes suivent le même sort que les repères : elles s'éteignent dès
+  // que le drone est rangé, et se rallument quand la boîte disparaît. Le
+  // sachet de visserie étalé sur l'établi s'en va avec eux.
+  applyDisplayOptions();
+  applyHardwareVisibility();
+  try { localStorage.setItem(BOITE_KEY, etat); } catch { /* pas conservé, tant pis */ }
+  renderBoite();
+  invalidate();
+  if (annoncer) {
+    updateAsmHint(
+      etat === 'masquee'
+        ? 'Boîte masquée — hélices, antennes et protections rendues au drone.'
+        : `Boîte « ${e.nom} » — ${e.note}. Hélices, antennes et protections `
+          + 'sont ôtées : c\'est ainsi que le drone voyage, et c\'est cette '
+          + 'silhouette qui a décidé de la largeur de la boîte.',
+      'ok',
+    );
+  }
+}
+
+function renderBoite() {
+  const box = $('boite-list');
+  if (!box) return;
+  box.innerHTML = BOITE_ETATS.map((e) => `<button type="button" data-boite="${e.id}"
+    class="${boiteEtat === e.id ? 'on' : ''}" title="${e.note}">${e.nom}</button>`).join('');
+  box.querySelectorAll('button').forEach((b) => {
+    b.addEventListener('click', () => appliquerBoite(b.dataset.boite));
+  });
+}
+
+/* ------------------------------------------------------------------ *
  * Historique (annuler / rétablir)
  * ------------------------------------------------------------------ */
 
@@ -1329,7 +1411,13 @@ function setMarkersVisible(visible) {
   // assemblé : on doit pouvoir les éteindre pour regarder le modèle. Éteints,
   // ils ne sont plus cliquables non plus — viser une cible invisible ne
   // donnerait que des assemblages faits au hasard.
-  const shown = visible && $('opt-markers').checked;
+  //
+  // BOÎTE AFFICHÉE : ils s'éteignent d'office. Ces anneaux sont dessinés SANS
+  // TEST DE PROFONDEUR — c'est ce qui les rend visibles à travers une pièce
+  // quand on assemble — et ils transperçaient donc les parois de la boîte,
+  // constellant le couvercle fermé de points bleus. Une cible d'assemblage n'a
+  // de toute façon aucun sens sur un drone rangé.
+  const shown = visible && $('opt-markers').checked && !droneRange;
   entries.forEach((e) => {
     const group = e.object && e.object.getObjectByName('hole-markers');
     if (group) group.visible = shown;
@@ -1631,7 +1719,11 @@ function applyHardwareVisibility() {
   const sachet = visserieGroupes.get('kit');
   if (pose) pose.visible = vis || entretoises;
   if (manuelles) manuelles.visible = entretoises;
-  if (sachet) sachet.visible = $('opt-kit').checked && (vis || entretoises);
+  // LE SACHET DISPARAÎT AVEC LE RANGEMENT. Étalé sur l'établi, il n'a de sens
+  // qu'en face d'un build qu'on monte ; à côté d'une boîte fermée, ces
+  // cinquante vis posées sur la grille ne sont plus qu'un décor qui contredit
+  // la scène — le drone est rangé, sa visserie est dedans, vissée.
+  if (sachet) sachet.visible = $('opt-kit').checked && (vis || entretoises) && !droneRange;
   invalidate();
 }
 
@@ -3468,6 +3560,8 @@ function renderPartList() {
 }
 renderPartList();
 renderLivrees();
+renderBoite();
+if (boiteEtat !== 'masquee') appliquerBoite(boiteEtat, false);
 
 /*
  * Les teintes de MATIÈRE se rejouent au démarrage.
@@ -3515,14 +3609,35 @@ function applyDisplayOptions() {
   const fil = $('opt-wire').checked;
   // en mode fil les arêtes restent allumées quoi qu'il arrive : sans elles on
   // ne voit plus que le maillage, et le contour de la pièce se perd dedans
-  const showEdges = $('opt-edges').checked || fil;
+  //
+  // SAUF QUAND LE DRONE EST DANS LA BOÎTE. Le liseré d'arêtes est un calque de
+  // LECTURE, tracé pour désigner les pièces pendant le montage ; il n'a rien à
+  // faire sur un drone rangé. Et comme tout calque de lecture il est dessiné
+  // sans profondeur franche : à travers une paroi de boîte, ses segments
+  // ressortaient en semis de points blancs sur le couvercle. Même raison, et
+  // même remède, que pour les repères de montage.
+  const showEdges = ($('opt-edges').checked || fil) && !droneRange;
   const ghost = $('opt-photo').checked && !!photoPlane;
   buildRoot.traverse((o) => {
     if (o.name === 'edges') o.visible = showEdges;
     // le chanfrein ne suit PAS la case : il appartient à la pièce, pas au
     // calque de lecture. Il ne s'efface qu'en mode fil, où la pièce n'est
-    // plus qu'un maillage et où un filet de contour n'a plus de sens.
-    if (o.name === 'chamfer') o.visible = !fil;
+    // plus qu'un maillage et où un filet de contour n'a plus de sens — et
+    // quand le drone est dans la boîte, pour une raison mesurée.
+    //
+    // POURQUOI IL S'ÉTEINT AUSSI DANS LA BOÎTE. Vérification faite au lancer
+    // de rayon : sous le couvercle fermé, la paroi est à 515 mm de l'œil et le
+    // chanfrein du support caméra à 584 — soixante-neuf millimètres derrière,
+    // avec un tampon de profondeur de 24 bits. Il devrait être caché, et il
+    // l'est à quatre-vingt-quinze pour cent : le reste passe au travers en
+    // semis de points clairs. C'est la rastérisation des LIGNES qui lâche là
+    // où celle des triangles tient — le corps de la même pièce, lui, est
+    // proprement masqué. Plutôt que de courir après un défaut de rendu, on
+    // retire le filet quand il n'a plus rien à désigner : un drone rangé ne se
+    // lit pas, il se transporte. Même règle que les repères et les arêtes, et
+    // elle vaut à tout angle — en tournant autour, une paroi de bac finit
+    // toujours par passer entre l'œil et le drone.
+    if (o.name === 'chamfer') o.visible = !fil && !droneRange;
     if (o.name === 'body' && o.material) {
       // une pièce peut porter PLUSIEURS matières : un moteur en a six, par
       // plages de faces. Le mode fil et le calque photo s'appliquent à toutes,
